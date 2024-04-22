@@ -1,8 +1,9 @@
 mod socket;
 mod tls;
 
-pub use socket::Socket;
-pub use tls::{CertificateInput, MaybeTlsStream};
+#[allow(unused_imports)] pub use socket::Socket;
+pub use tls::CertificateInput;
+#[allow(unused_imports)] pub use tls::MaybeTlsStream;
 
 #[cfg(feature = "_rt-async-std")]
 type PollReadBuf<'a> = [u8];

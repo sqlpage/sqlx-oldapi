@@ -37,7 +37,7 @@ where
     fn decode(value: SqliteValueRef<'r>) -> Result<Self, BoxDynError> {
         let string_value = <&str as Decode<Sqlite>>::decode(value)?;
 
-        serde_json::from_str(&string_value)
+        serde_json::from_str(string_value)
             .map(Json)
             .map_err(Into::into)
     }
