@@ -182,7 +182,7 @@ fn decode_time(scale: u8, data: &[u8]) -> error::Result<NaiveTime> {
 }
 
 fn decode_date(bytes: &[u8]) -> error::Result<NaiveDate> {
-    let days_from_ce = LittleEndian::read_i24(&bytes);
+    let days_from_ce = LittleEndian::read_i24(bytes);
     chrono::NaiveDate::from_num_days_from_ce_opt(days_from_ce + 1)
         .ok_or_else(|| err_protocol!("invalid days offset in date: {}", days_from_ce))
 }
