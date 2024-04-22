@@ -33,7 +33,7 @@ where
 {
     fn produces(&self) -> Option<MssqlTypeInfo> {
         let size = 0xFF_FF;
-        return Some(MssqlTypeInfo(TypeInfo::new(DataType::BigVarBinary, size)));
+        Some(MssqlTypeInfo(TypeInfo::new(DataType::BigVarBinary, size)))
     }
 
     fn encode_by_ref(&self, buf: &mut Vec<u8>) -> IsNull {
