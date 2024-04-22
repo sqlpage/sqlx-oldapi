@@ -24,7 +24,7 @@ pub async fn configure_tls_connector(
             .with_custom_certificate_verifier(Arc::new(DummyTlsVerifier))
             .with_no_client_auth()
     } else {
-        let mut cert_store = rustls::RootCertStore {
+        let mut cert_store = RootCertStore {
             roots: webpki_roots::TLS_SERVER_ROOTS.iter().cloned().collect(),
         };
 

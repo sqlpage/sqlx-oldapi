@@ -1,3 +1,4 @@
+#![allow(clippy::approx_constant)]
 extern crate time_ as time;
 
 use sqlx_core::row::Row;

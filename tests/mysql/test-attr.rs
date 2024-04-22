@@ -76,7 +76,7 @@ async fn it_gets_comments(pool: MySqlPool) -> sqlx_oldapi::Result<()> {
     let post_1_comments: Vec<String> = sqlx_oldapi::query_scalar(
         "SELECT content FROM comment WHERE post_id = ? ORDER BY created_at",
     )
-    .bind(&1)
+    .bind(1)
     .fetch_all(&pool)
     .await?;
 
@@ -88,7 +88,7 @@ async fn it_gets_comments(pool: MySqlPool) -> sqlx_oldapi::Result<()> {
     let post_2_comments: Vec<String> = sqlx_oldapi::query_scalar(
         "SELECT content FROM comment WHERE post_id = ? ORDER BY created_at",
     )
-    .bind(&2)
+    .bind(2)
     .fetch_all(&pool)
     .await?;
 

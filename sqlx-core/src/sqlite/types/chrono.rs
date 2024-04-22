@@ -156,7 +156,7 @@ fn decode_datetime_from_text(value: &str) -> Option<DateTime<FixedOffset>> {
 }
 
 fn decode_datetime_from_int(value: i64) -> Option<DateTime<FixedOffset>> {
-    NaiveDateTime::from_timestamp_opt(value, 0).map(|dt| Utc.fix().from_utc_datetime(&dt))
+    DateTime::from_timestamp(value, 0).map(|dt| dt.fixed_offset())
 }
 
 fn decode_datetime_from_float(value: f64) -> Option<DateTime<FixedOffset>> {
@@ -166,7 +166,7 @@ fn decode_datetime_from_float(value: f64) -> Option<DateTime<FixedOffset>> {
     let seconds = timestamp as i64;
     let nanos = (timestamp.fract() * 1E9) as u32;
 
-    NaiveDateTime::from_timestamp_opt(seconds, nanos).map(|dt| Utc.fix().from_utc_datetime(&dt))
+    DateTime::from_timestamp(seconds, nanos).map(|dt| dt.fixed_offset())
 }
 
 impl<'r> Decode<'r, Sqlite> for NaiveDateTime {
