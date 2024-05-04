@@ -87,7 +87,7 @@ jobs:
             --bin cargo-sqlx
             ${{ matrix.args }}
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           name: cargo-sqlx-${{ matrix.target }}
           path: ${{ matrix.bin }}
