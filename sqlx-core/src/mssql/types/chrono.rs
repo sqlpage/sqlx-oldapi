@@ -262,6 +262,7 @@ impl Decode<'_, Mssql> for DateTime<FixedOffset> {
             DataType::SmallDateTime | DataType::DateTimeN if size == 4 => {
                 decode_smalldatetime(bytes)
             }
+            DataType::DateTime | 
             DataType::DateTimeN if size == 8 => decode_datetime(bytes),
             DataType::DateTimeOffsetN => decode_datetimeoffset(scale, bytes),
             _ => Err("unsupported datetime+offset type".into()),
