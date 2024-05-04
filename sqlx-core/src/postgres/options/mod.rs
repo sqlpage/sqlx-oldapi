@@ -359,7 +359,7 @@ impl PgConnectOptions {
     /// This is for illustration purposes only.
     ///
     /// ```rust
-    /// # use sqlx_postgres::{PgSslMode, PgConnectOptions};
+    /// # use sqlx_core_oldapi::postgres::{PgSslMode, PgConnectOptions};
     ///
     /// const CERT: &[u8] = b"\
     /// -----BEGIN CERTIFICATE-----
@@ -381,7 +381,7 @@ impl PgConnectOptions {
     /// # Example
     ///
     /// ```rust
-    /// # use sqlx_postgres::{PgSslMode, PgConnectOptions};
+    /// # use sqlx_core_oldapi::postgres::{PgSslMode, PgConnectOptions};
     /// let options = PgConnectOptions::new()
     ///     // Providing a CA certificate with less than VerifyCa is pointless
     ///     .ssl_mode(PgSslMode::VerifyCa)
@@ -401,7 +401,7 @@ impl PgConnectOptions {
     /// This is for illustration purposes only.
     ///
     /// ```rust
-    /// # use sqlx_postgres::{PgSslMode, PgConnectOptions};
+    /// # use sqlx_core_oldapi::postgres::{PgSslMode, PgConnectOptions};
     ///
     /// const KEY: &[u8] = b"\
     /// -----BEGIN PRIVATE KEY-----
