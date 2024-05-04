@@ -11,7 +11,7 @@ jobs:
     name: Format
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - run: cargo fmt --all -- --check
 
   check:
@@ -22,7 +22,7 @@ jobs:
         runtime: [async-std, tokio, actix]
         tls: [native-tls, rustls]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@dd05243424bd5c0e585e4b55eb2d7615cdd32f1f
       - run:
           cargo check
@@ -51,7 +51,7 @@ jobs:
           rustls
         ]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
       - run:
           cargo test
@@ -79,7 +79,7 @@ jobs:
 #            bin: target/debug/cargo-sqlx
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
       - run:
           cargo build
@@ -101,7 +101,7 @@ jobs:
         tls: [native-tls, rustls]
     needs: check
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - run: mkdir /tmp/sqlite3-lib && wget -O /tmp/sqlite3-lib/ipaddr.so https://github.com/nalgeon/sqlean/releases/download/0.15.2/ipaddr.so
       - uses: Swatinem/rust-cache@v2
       - run:
@@ -125,7 +125,7 @@ jobs:
         tls: [native-tls, rustls]
     needs: check
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: actions-rs/toolchain@v1
         with:
@@ -180,7 +180,7 @@ jobs:
     runs-on: ubuntu-22.04
     needs: check
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
         with:
           key: linux-postgres-ssl-client-cert
@@ -200,7 +200,7 @@ jobs:
         tls: [native-tls, rustls]
     needs: check
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: actions-rs/toolchain@v1
         with:
@@ -251,7 +251,7 @@ jobs:
         tls: [native-tls, rustls]
     needs: check
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: actions-rs/toolchain@v1
         with:
@@ -291,7 +291,7 @@ jobs:
         tls: [native-tls, rustls]
     needs: check
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: actions-rs/toolchain@v1
         with:
