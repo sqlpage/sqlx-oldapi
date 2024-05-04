@@ -1,6 +1,7 @@
 use bytes::Bytes;
 
 use crate::error::Error;
+use crate::net::TlsConfig;
 use crate::postgres::connection::stream::PgStream;
 use crate::postgres::message::SslRequest;
 use crate::postgres::{PgConnectOptions, PgSslMode};
@@ -65,13 +66,16 @@ async fn upgrade(stream: &mut PgStream, options: &PgConnectOptions) -> Result<bo
     );
     let accept_invalid_hostnames = !matches!(options.ssl_mode, PgSslMode::VerifyFull);
 
+    let tls_config: TlsConfig<'_> = TlsConfig {
+        accept_invalid_certs,
+        accept_invalid_hostnames,
+        root_cert_path: options.ssl_root_cert.as_ref(),
+        hostname: &options.host,
+        client_cert_path: options.ssl_client_cert.as_ref(),
+        client_key_path: options.ssl_client_key.as_ref(),
+    };
     stream
-        .upgrade(
-            &options.host,
-            accept_invalid_certs,
-            accept_invalid_hostnames,
-            options.ssl_root_cert.as_ref(),
-        )
+        .upgrade(tls_config)
         .await?;
 
     Ok(true)

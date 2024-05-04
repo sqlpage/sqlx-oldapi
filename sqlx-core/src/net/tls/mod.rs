@@ -53,6 +53,15 @@ impl std::fmt::Display for CertificateInput {
     }
 }
 
+pub struct TlsConfig<'a> {
+    pub accept_invalid_certs: bool,
+    pub accept_invalid_hostnames: bool,
+    pub hostname: &'a str,
+    pub root_cert_path: Option<&'a CertificateInput>,
+    pub client_cert_path: Option<&'a CertificateInput>,
+    pub client_key_path: Option<&'a CertificateInput>,
+}
+
 #[cfg(feature = "_tls-rustls")]
 mod rustls;
 
@@ -74,19 +83,9 @@ where
         matches!(self, Self::Tls(_))
     }
 
-    pub async fn upgrade(
-        &mut self,
-        host: &str,
-        accept_invalid_certs: bool,
-        accept_invalid_hostnames: bool,
-        root_cert_path: Option<&CertificateInput>,
-    ) -> Result<(), Error> {
-        let connector = configure_tls_connector(
-            accept_invalid_certs,
-            accept_invalid_hostnames,
-            root_cert_path,
-        )
-        .await?;
+    pub async fn upgrade(&mut self, config: TlsConfig<'_>) -> Result<(), Error> {
+        let host = config.hostname;
+        let connector = configure_tls_connector(config).await?;
 
         let stream = match replace(self, MaybeTlsStream::Upgrading) {
             MaybeTlsStream::Raw(stream) => stream,
@@ -115,25 +114,29 @@ where
 }
 
 #[cfg(feature = "_tls-native-tls")]
-async fn configure_tls_connector(
-    accept_invalid_certs: bool,
-    accept_invalid_hostnames: bool,
-    root_cert_path: Option<&CertificateInput>,
-) -> Result<sqlx_rt::TlsConnector, Error> {
-    use sqlx_rt::native_tls::{Certificate, TlsConnector};
+async fn configure_tls_connector(config: TlsConfig<'_>) -> Result<sqlx_rt::TlsConnector, Error> {
+    use sqlx_rt::native_tls::{Certificate, Identity, TlsConnector};
 
     let mut builder = TlsConnector::builder();
     builder
-        .danger_accept_invalid_certs(accept_invalid_certs)
-        .danger_accept_invalid_hostnames(accept_invalid_hostnames);
+        .danger_accept_invalid_certs(config.accept_invalid_certs)
+        .danger_accept_invalid_hostnames(config.accept_invalid_hostnames);
 
-    if !accept_invalid_certs {
-        if let Some(ca) = root_cert_path {
+    if !config.accept_invalid_certs {
+        if let Some(ca) = config.root_cert_path {
             let data = ca.data().await?;
             let cert = Certificate::from_pem(&data)?;
 
             builder.add_root_certificate(cert);
         }
+    }
+
+    // authentication using user's key-file and its associated certificate
+    if let (Some(cert_path), Some(key_path)) = (config.client_cert_path, config.client_key_path) {
+        let cert_path = cert_path.data().await?;
+        let key_path = key_path.data().await?;
+        let identity = Identity::from_pkcs8(&cert_path, &key_path).map_err(Error::tls)?;
+        builder.identity(identity);
     }
 
     #[cfg(not(feature = "_rt-async-std"))]
