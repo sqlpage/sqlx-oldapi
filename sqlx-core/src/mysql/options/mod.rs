@@ -24,6 +24,8 @@ pub use ssl_mode::MySqlSslMode;
 /// |---------|-------|-----------|
 /// | `ssl-mode` | `PREFERRED` | Determines whether or with what priority a secure SSL TCP/IP connection will be negotiated. See [`MySqlSslMode`]. |
 /// | `ssl-ca` | `None` | Sets the name of a file containing a list of trusted SSL Certificate Authorities. |
+/// | `ssl-cert` | `None` | Sets the name of a file containing a client SSL certificate to authenticate the connection to the server |
+/// | `ssl-key` | `None` | Sets the name of a file containing a secret SSL key for the client certificate. |
 /// | `statement-cache-capacity` | `100` | The maximum number of prepared statements stored in the cache. Set to `0` to disable. |
 /// | `socket` | `None` | Path to the unix domain socket, which will be used instead of TCP if set. |
 ///
