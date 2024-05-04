@@ -334,7 +334,6 @@ impl PgConnectOptions {
         self
     }
 
-
     /// Sets the name of a file containing SSL client certificate.
     ///
     /// # Example

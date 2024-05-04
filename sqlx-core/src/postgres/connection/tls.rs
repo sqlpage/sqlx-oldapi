@@ -74,9 +74,7 @@ async fn upgrade(stream: &mut PgStream, options: &PgConnectOptions) -> Result<bo
         client_cert_path: options.ssl_client_cert.as_ref(),
         client_key_path: options.ssl_client_key.as_ref(),
     };
-    stream
-        .upgrade(tls_config)
-        .await?;
+    stream.upgrade(tls_config).await?;
 
     Ok(true)
 }
