@@ -23,7 +23,7 @@ jobs:
         tls: [native-tls, rustls]
     steps:
       - uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@dd05243424bd5c0e585e4b55eb2d7615cdd32f1f
+      - uses: Swatinem/rust-cache@v2
       - run:
           cargo check
             --manifest-path sqlx-core/Cargo.toml
