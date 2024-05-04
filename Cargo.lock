@@ -3310,7 +3310,7 @@ dependencies = [
 
 [[package]]
 name = "sqlx-cli"
-version = "0.6.20"
+version = "0.6.21"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3335,7 +3335,7 @@ dependencies = [
 
 [[package]]
 name = "sqlx-core-oldapi"
-version = "0.6.20"
+version = "0.6.21"
 dependencies = [
  "ahash 0.8.11",
  "atoi",
@@ -3496,7 +3496,7 @@ dependencies = [
 
 [[package]]
 name = "sqlx-macros-oldapi"
-version = "0.6.20"
+version = "0.6.21"
 dependencies = [
  "dotenvy",
  "either",
@@ -3516,7 +3516,7 @@ dependencies = [
 
 [[package]]
 name = "sqlx-oldapi"
-version = "0.6.20"
+version = "0.6.21"
 dependencies = [
  "anyhow",
  "async-std",
@@ -3543,7 +3543,7 @@ dependencies = [
 
 [[package]]
 name = "sqlx-rt-oldapi"
-version = "0.6.20"
+version = "0.6.21"
 dependencies = [
  "async-native-tls",
  "async-std",
@@ -3994,12 +3994,11 @@ checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
 name = "trybuild"
-version = "1.0.92"
+version = "1.0.93"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "35b69ff3ed900f74eb1e0d9bdd3df38da829dc4a26531674f6f019ca7c093c8d"
+checksum = "2a0e5d82932dfbf36df38de5df0cfe846d13430b3ae3fdc48b2e91ed692c8df7"
 dependencies = [
  "glob",
- "once_cell",
  "serde",
  "serde_derive",
  "serde_json",
