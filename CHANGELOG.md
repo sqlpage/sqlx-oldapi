@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## 0.6.22
 
- -  Add support for decodeing Microsoft SQL Server `DATETIME` type as `DateTime<FixedOffset>`. Thanks to @ saltymango2619 for the contribution.
+ -  Add support for decodeing Microsoft SQL Server `DATETIME` type as `DateTime<FixedOffset>`. Thanks to @saltymango2619 for the contribution.
 
 ## 0.6.21
 
