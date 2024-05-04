@@ -43,11 +43,11 @@ impl FromStr for MySqlConnectOptions {
 
         for (key, value) in url.query_pairs().into_iter() {
             match &*key {
-                "ssl-mode" => {
+                "sslmode" | "ssl-mode" => {
                     options = options.ssl_mode(value.parse().map_err(Error::config)?);
                 }
 
-                "ssl-ca" => {
+                "sslca" | "ssl-ca" => {
                     options = options.ssl_ca(&*value);
                 }
 
@@ -67,6 +67,10 @@ impl FromStr for MySqlConnectOptions {
                 "socket" => {
                     options = options.socket(&*value);
                 }
+
+                "sslcert" | "ssl-cert" => options = options.ssl_client_cert(&*value),
+
+                "sslkey" | "ssl-key" => options = options.ssl_client_key(&*value),
 
                 _ => {}
             }
