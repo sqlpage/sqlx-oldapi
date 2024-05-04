@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## 0.6.21
 
  - Updated dependencies
+ - Added support for SSL client certificates in MySQL and Postgres
+    - SSL client certificates are commonly used to secure connections to databases in cloud environments. To connect to a database that requires a client certificate, you can now use the `ssl_cert` and `ssl_key` connection options in the connection string. For example: `postgres://user@host/db?ssl_cert=/path/to/client-cert.pem&ssl_key=/path/to/client-key.pem`
 
 ## 0.6.20
 
