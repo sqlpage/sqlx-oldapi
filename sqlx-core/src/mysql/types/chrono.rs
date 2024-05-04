@@ -189,7 +189,7 @@ impl Encode<'_, MySql> for NaiveDateTime {
             self.hour(),
             self.minute(),
             self.second(),
-            self.timestamp_subsec_nanos(),
+            self.and_utc().timestamp_subsec_nanos(),
         ) {
             // if hour, minutes, seconds and micro_seconds are all 0,
             // length is 4 and no other field is sent

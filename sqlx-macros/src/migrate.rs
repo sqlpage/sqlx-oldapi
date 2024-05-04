@@ -54,7 +54,7 @@ impl ToTokens for QuotedMigration {
             }
         };
 
-        tokens.append_all(ts.into_iter());
+        tokens.append_all(ts);
     }
 }
 

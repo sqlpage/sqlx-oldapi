@@ -1,4 +1,5 @@
 pub trait Encode<'en, Context = ()> {
+    #[allow(dead_code)]
     fn encode(&self, buf: &mut Vec<u8>)
     where
         Self: Encode<'en, ()>,
