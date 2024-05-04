@@ -133,6 +133,12 @@ impl Error {
     pub(crate) fn config(err: impl StdError + Send + Sync + 'static) -> Self {
         Error::Configuration(err.into())
     }
+
+    #[allow(dead_code)]
+    #[inline]
+    pub(crate) fn tls<T: Into<BoxDynError>>(err: T) -> Self {
+        Error::Tls(err.into())
+    }
 }
 
 pub(crate) fn mismatched_types<DB: Database, T: Type<DB>>(ty: &DB::TypeInfo) -> BoxDynError {

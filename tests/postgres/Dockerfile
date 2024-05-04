@@ -3,7 +3,10 @@ FROM postgres:${VERSION}-alpine
 
 # Copy SSL certificate (and key)
 COPY certs/server.crt /var/lib/postgresql/server.crt
+COPY certs/ca.crt /var/lib/postgresql/ca.crt
 COPY keys/server.key /var/lib/postgresql/server.key
+COPY postgres/pg_hba.conf /var/lib/postgresql/pg_hba.conf
+COPY postgres/postgresql.conf /etc/postgresql/postgresql.conf
 
 # Fix permissions
 RUN chown 70:70 /var/lib/postgresql/server.crt /var/lib/postgresql/server.key

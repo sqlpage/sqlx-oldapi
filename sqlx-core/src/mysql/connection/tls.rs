@@ -3,6 +3,7 @@ use crate::mysql::connection::MySqlStream;
 use crate::mysql::protocol::connect::SslRequest;
 use crate::mysql::protocol::Capabilities;
 use crate::mysql::{MySqlConnectOptions, MySqlSslMode};
+use crate::net::TlsConfig;
 
 pub(super) async fn maybe_upgrade(
     stream: &mut MySqlStream,
@@ -45,16 +46,17 @@ async fn upgrade(stream: &mut MySqlStream, options: &MySqlConnectOptions) -> Res
         options.ssl_mode,
         MySqlSslMode::VerifyCa | MySqlSslMode::VerifyIdentity
     );
-    let accept_invalid_host_names = !matches!(options.ssl_mode, MySqlSslMode::VerifyIdentity);
+    let accept_invalid_hostnames = !matches!(options.ssl_mode, MySqlSslMode::VerifyIdentity);
 
-    stream
-        .upgrade(
-            &options.host,
-            accept_invalid_certs,
-            accept_invalid_host_names,
-            options.ssl_ca.as_ref(),
-        )
-        .await?;
+    let tls_config = TlsConfig {
+        accept_invalid_certs,
+        hostname: &options.host,
+        accept_invalid_hostnames,
+        root_cert_path: options.ssl_ca.as_ref(),
+        client_cert_path: options.ssl_client_cert.as_ref(),
+        client_key_path: options.ssl_client_key.as_ref(),
+    };
+    stream.upgrade(tls_config).await?;
 
     Ok(true)
 }

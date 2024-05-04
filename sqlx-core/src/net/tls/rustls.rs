@@ -1,34 +1,31 @@
-use crate::net::CertificateInput;
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
 use rustls::client::WebPkiServerVerifier;
-use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
+use rustls::pki_types::{CertificateDer, PrivateKeyDer, ServerName, UnixTime};
 use rustls::{
     CertificateError, ClientConfig, DigitallySignedStruct, Error as TlsError, RootCertStore,
     SignatureScheme,
 };
-use std::io::Cursor;
+use std::io::{BufReader, Cursor};
 use std::sync::Arc;
 
 use crate::error::Error;
 
+use super::TlsConfig;
+
 pub async fn configure_tls_connector(
-    accept_invalid_certs: bool,
-    accept_invalid_hostnames: bool,
-    root_cert_path: Option<&CertificateInput>,
+    tls_config: TlsConfig<'_>,
 ) -> Result<sqlx_rt::TlsConnector, Error> {
     let config = ClientConfig::builder();
-
-    let config = if accept_invalid_certs {
+    let config = if tls_config.accept_invalid_certs {
         config
             .dangerous()
             .with_custom_certificate_verifier(Arc::new(DummyTlsVerifier))
-            .with_no_client_auth()
     } else {
         let mut cert_store = RootCertStore {
             roots: webpki_roots::TLS_SERVER_ROOTS.iter().cloned().collect(),
         };
 
-        if let Some(ca) = root_cert_path {
+        if let Some(ca) = tls_config.root_cert_path {
             let data = ca.data().await?;
             let mut cursor = Cursor::new(data);
 
@@ -39,7 +36,7 @@ pub async fn configure_tls_connector(
             }
         }
 
-        if accept_invalid_hostnames {
+        if tls_config.accept_invalid_hostnames {
             let verifier = WebPkiServerVerifier::builder(Arc::new(cert_store))
                 .build()
                 .map_err(|err| Error::Tls(err.into()))?;
@@ -47,15 +44,52 @@ pub async fn configure_tls_connector(
             config
                 .dangerous()
                 .with_custom_certificate_verifier(Arc::new(NoHostnameTlsVerifier { verifier }))
-                .with_no_client_auth()
         } else {
+            config.with_root_certificates(cert_store)
+        }
+    };
+
+    // authentication using user's key and its associated certificate
+    let config = match (tls_config.client_cert_path, tls_config.client_key_path) {
+        (Some(cert_path), Some(key_path)) => {
+            let cert_chain = certs_from_pem(cert_path.data().await?)?;
+            let key_der = private_key_from_pem(key_path.data().await?)?;
             config
-                .with_root_certificates(cert_store)
-                .with_no_client_auth()
+                .with_client_auth_cert(cert_chain, key_der)
+                .map_err(Error::tls)?
+        }
+        (None, None) => config.with_no_client_auth(),
+        (_, _) => {
+            return Err(Error::Configuration(
+                "user auth key and certs must be given together".into(),
+            ))
         }
     };
 
     Ok(Arc::new(config).into())
+}
+
+fn certs_from_pem(pem: Vec<u8>) -> std::io::Result<Vec<CertificateDer<'static>>> {
+    let cur = Cursor::new(pem);
+    let mut reader = BufReader::new(cur);
+    rustls_pemfile::certs(&mut reader).collect()
+}
+
+fn private_key_from_pem(pem: Vec<u8>) -> Result<PrivateKeyDer<'static>, Error> {
+    let cur = Cursor::new(pem);
+    let mut reader = BufReader::new(cur);
+
+    loop {
+        match rustls_pemfile::read_one(&mut reader)? {
+            Some(rustls_pemfile::Item::Sec1Key(key)) => return Ok(PrivateKeyDer::Sec1(key)),
+            Some(rustls_pemfile::Item::Pkcs8Key(key)) => return Ok(PrivateKeyDer::Pkcs8(key)),
+            Some(rustls_pemfile::Item::Pkcs1Key(key)) => return Ok(PrivateKeyDer::Pkcs1(key)),
+            None => break,
+            _ => {}
+        }
+    }
+
+    Err(Error::Configuration("no keys found pem file".into()))
 }
 
 #[derive(Debug)]

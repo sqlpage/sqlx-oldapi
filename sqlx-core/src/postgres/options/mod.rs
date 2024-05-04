@@ -27,6 +27,8 @@ pub use ssl_mode::PgSslMode;
 /// |---------|-------|-----------|
 /// | `sslmode` | `prefer` | Determines whether or with what priority a secure SSL TCP/IP connection will be negotiated. See [`PgSslMode`]. |
 /// | `sslrootcert` | `None` | Sets the name of a file containing a list of trusted SSL Certificate Authorities. |
+/// | `sslcert` | `None` | Sets the name of a file containing a client SSL certificate to authenticate the connection to the server. |
+/// | `sslkey` | `None` | Sets the name of a file containing a secret SSL key for the client certificate. |
 /// | `statement-cache-capacity` | `100` | The maximum number of prepared statements stored in the cache. Set to `0` to disable. |
 /// | `host` | `None` | Path to the directory containing a PostgreSQL unix domain socket, which will be used instead of TCP if set. |
 /// | `hostaddr` | `None` | Same as `host`, but only accepts IP addresses. |
@@ -85,6 +87,8 @@ pub struct PgConnectOptions {
     pub(crate) database: Option<String>,
     pub(crate) ssl_mode: PgSslMode,
     pub(crate) ssl_root_cert: Option<CertificateInput>,
+    pub(crate) ssl_client_cert: Option<CertificateInput>,
+    pub(crate) ssl_client_key: Option<CertificateInput>,
     pub(crate) statement_cache_capacity: usize,
     pub(crate) application_name: Option<String>,
     pub(crate) log_settings: LogSettings,
@@ -110,6 +114,8 @@ impl PgConnectOptions {
     ///  * `PGPASSWORD`
     ///  * `PGDATABASE`
     ///  * `PGSSLROOTCERT`
+    ///  * `PGSSLCERT`
+    ///  * `PGSSLKEY`
     ///  * `PGSSLMODE`
     ///  * `PGAPPNAME`
     ///
@@ -143,6 +149,8 @@ impl PgConnectOptions {
             password: var("PGPASSWORD").ok(),
             database,
             ssl_root_cert: var("PGSSLROOTCERT").ok().map(CertificateInput::from),
+            ssl_client_cert: var("PGSSLCERT").ok().map(CertificateInput::from),
+            ssl_client_key: var("PGSSLKEY").ok().map(CertificateInput::from),
             ssl_mode: var("PGSSLMODE")
                 .ok()
                 .and_then(|v| v.parse().ok())
@@ -325,6 +333,90 @@ impl PgConnectOptions {
     /// ```
     pub fn ssl_root_cert_from_pem(mut self, pem_certificate: Vec<u8>) -> Self {
         self.ssl_root_cert = Some(CertificateInput::Inline(pem_certificate));
+        self
+    }
+
+    /// Sets the name of a file containing SSL client certificate.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use sqlx_core_oldapi::postgres::{PgSslMode, PgConnectOptions};
+    /// let options = PgConnectOptions::new()
+    ///     // Providing a CA certificate with less than VerifyCa is pointless
+    ///     .ssl_mode(PgSslMode::VerifyCa)
+    ///     .ssl_client_cert("./client.crt");
+    /// ```
+    pub fn ssl_client_cert(mut self, cert: impl AsRef<Path>) -> Self {
+        self.ssl_client_cert = Some(CertificateInput::File(cert.as_ref().to_path_buf()));
+        self
+    }
+
+    /// Sets the SSL client certificate as a PEM-encoded byte slice.
+    ///
+    /// This should be an ASCII-encoded blob that starts with `-----BEGIN CERTIFICATE-----`.
+    ///
+    /// # Example
+    /// Note: embedding SSL certificates and keys in the binary is not advised.
+    /// This is for illustration purposes only.
+    ///
+    /// ```rust
+    /// # use sqlx_core_oldapi::postgres::{PgSslMode, PgConnectOptions};
+    ///
+    /// const CERT: &[u8] = b"\
+    /// -----BEGIN CERTIFICATE-----
+    /// <Certificate data here.>
+    /// -----END CERTIFICATE-----";
+    ///    
+    /// let options = PgConnectOptions::new()
+    ///     // Providing a CA certificate with less than VerifyCa is pointless
+    ///     .ssl_mode(PgSslMode::VerifyCa)
+    ///     .ssl_client_cert_from_pem(CERT);
+    /// ```
+    pub fn ssl_client_cert_from_pem(mut self, cert: impl AsRef<[u8]>) -> Self {
+        self.ssl_client_cert = Some(CertificateInput::Inline(cert.as_ref().to_vec()));
+        self
+    }
+
+    /// Sets the name of a file containing SSL client key.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use sqlx_core_oldapi::postgres::{PgSslMode, PgConnectOptions};
+    /// let options = PgConnectOptions::new()
+    ///     // Providing a CA certificate with less than VerifyCa is pointless
+    ///     .ssl_mode(PgSslMode::VerifyCa)
+    ///     .ssl_client_key("./client.key");
+    /// ```
+    pub fn ssl_client_key(mut self, key: impl AsRef<Path>) -> Self {
+        self.ssl_client_key = Some(CertificateInput::File(key.as_ref().to_path_buf()));
+        self
+    }
+
+    /// Sets the SSL client key as a PEM-encoded byte slice.
+    ///
+    /// This should be an ASCII-encoded blob that starts with `-----BEGIN PRIVATE KEY-----`.
+    ///
+    /// # Example
+    /// Note: embedding SSL certificates and keys in the binary is not advised.
+    /// This is for illustration purposes only.
+    ///
+    /// ```rust
+    /// # use sqlx_core_oldapi::postgres::{PgSslMode, PgConnectOptions};
+    ///
+    /// const KEY: &[u8] = b"\
+    /// -----BEGIN PRIVATE KEY-----
+    /// <Private key data here.>
+    /// -----END PRIVATE KEY-----";
+    ///
+    /// let options = PgConnectOptions::new()
+    ///     // Providing a CA certificate with less than VerifyCa is pointless
+    ///     .ssl_mode(PgSslMode::VerifyCa)
+    ///     .ssl_client_key_from_pem(KEY);
+    /// ```
+    pub fn ssl_client_key_from_pem(mut self, key: impl AsRef<[u8]>) -> Self {
+        self.ssl_client_key = Some(CertificateInput::Inline(key.as_ref().to_vec()));
         self
     }
 

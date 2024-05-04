@@ -3,3 +3,5 @@
 !keys/*
 !mssql/*.sh
 !*/*.sql
+!postgres/pg_hba.conf
+!postgres/postgresql.conf

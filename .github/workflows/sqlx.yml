@@ -11,7 +11,7 @@ jobs:
     name: Format
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - run: cargo fmt --all -- --check
 
   check:
@@ -22,8 +22,8 @@ jobs:
         runtime: [async-std, tokio, actix]
         tls: [native-tls, rustls]
     steps:
-      - uses: actions/checkout@v3
-      - uses: Swatinem/rust-cache@dd05243424bd5c0e585e4b55eb2d7615cdd32f1f
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
       - run:
           cargo check
             --manifest-path sqlx-core/Cargo.toml
@@ -51,7 +51,7 @@ jobs:
           rustls
         ]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
       - run:
           cargo test
@@ -79,7 +79,7 @@ jobs:
 #            bin: target/debug/cargo-sqlx
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
       - run:
           cargo build
@@ -101,7 +101,7 @@ jobs:
         tls: [native-tls, rustls]
     needs: check
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - run: mkdir /tmp/sqlite3-lib && wget -O /tmp/sqlite3-lib/ipaddr.so https://github.com/nalgeon/sqlean/releases/download/0.15.2/ipaddr.so
       - uses: Swatinem/rust-cache@v2
       - run:
@@ -125,7 +125,7 @@ jobs:
         tls: [native-tls, rustls]
     needs: check
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: actions-rs/toolchain@v1
         with:
@@ -170,10 +170,25 @@ jobs:
             --no-default-features
             --features any,postgres,macros,migrate,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
         env:
-          DATABASE_URL: postgres://postgres:password@localhost:5432/sqlx?sslmode=verify-ca&sslrootcert=.%2Ftests%2Fcerts%2Fca.crt
+          DATABASE_URL: postgres://postgres:password@localhost:5432/sqlx?sslmode=verify-ca&sslrootcert=./tests/certs/ca.crt
           # FIXME: needed to disable `ltree` tests in Postgres 9.6
           # but `PgLTree` should just fall back to text format
           RUSTFLAGS: --cfg postgres_${{ matrix.postgres }}
+
+  postgres_ssl_client_cert:
+    name: Postgres with SSL client cert
+    runs-on: ubuntu-22.04
+    needs: check
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: linux-postgres-ssl-client-cert
+      - run: docker compose up --wait postgres_16
+        working-directory: tests
+      - run: cargo test --no-default-features --features any,postgres,macros,all-types,runtime-actix-rustls
+        env:
+          DATABASE_URL: postgres://postgres@localhost:5432/sqlx?sslmode=verify-ca&sslrootcert=./tests/certs/ca.crt&sslcert=./tests/certs/client.crt&sslkey=./tests/keys/client.key
 
   mysql:
     name: MySQL
@@ -185,7 +200,7 @@ jobs:
         tls: [native-tls, rustls]
     needs: check
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: actions-rs/toolchain@v1
         with:
@@ -236,7 +251,7 @@ jobs:
         tls: [native-tls, rustls]
     needs: check
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: actions-rs/toolchain@v1
         with:
@@ -276,7 +291,7 @@ jobs:
         tls: [native-tls, rustls]
     needs: check
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: actions-rs/toolchain@v1
         with:

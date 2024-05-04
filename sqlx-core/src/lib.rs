@@ -2,7 +2,7 @@
 //! Not intended to be used directly.
 #![recursion_limit = "512"]
 #![warn(future_incompatible, rust_2018_idioms)]
-#![allow(clippy::needless_doctest_main, clippy::type_complexity)]
+#![allow(clippy::needless_doctest_main, clippy::type_complexity, dead_code)]
 // See `clippy.toml` at the workspace root
 #![deny(clippy::disallowed_methods)]
 //

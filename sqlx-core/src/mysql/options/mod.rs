@@ -24,6 +24,8 @@ pub use ssl_mode::MySqlSslMode;
 /// |---------|-------|-----------|
 /// | `ssl-mode` | `PREFERRED` | Determines whether or with what priority a secure SSL TCP/IP connection will be negotiated. See [`MySqlSslMode`]. |
 /// | `ssl-ca` | `None` | Sets the name of a file containing a list of trusted SSL Certificate Authorities. |
+/// | `ssl-cert` | `None` | Sets the name of a file containing a client SSL certificate to authenticate the connection to the server |
+/// | `ssl-key` | `None` | Sets the name of a file containing a secret SSL key for the client certificate. |
 /// | `statement-cache-capacity` | `100` | The maximum number of prepared statements stored in the cache. Set to `0` to disable. |
 /// | `socket` | `None` | Path to the unix domain socket, which will be used instead of TCP if set. |
 ///
@@ -61,6 +63,8 @@ pub struct MySqlConnectOptions {
     pub(crate) database: Option<String>,
     pub(crate) ssl_mode: MySqlSslMode,
     pub(crate) ssl_ca: Option<CertificateInput>,
+    pub(crate) ssl_client_cert: Option<CertificateInput>,
+    pub(crate) ssl_client_key: Option<CertificateInput>,
     pub(crate) statement_cache_capacity: usize,
     pub(crate) charset: String,
     pub(crate) collation: Option<String>,
@@ -88,6 +92,8 @@ impl MySqlConnectOptions {
             collation: None,
             ssl_mode: MySqlSslMode::Preferred,
             ssl_ca: None,
+            ssl_client_cert: None,
+            ssl_client_key: None,
             statement_cache_capacity: 100,
             log_settings: Default::default(),
             pipes_as_concat: true,
@@ -183,6 +189,36 @@ impl MySqlConnectOptions {
     /// ```
     pub fn ssl_ca_from_pem(mut self, pem_certificate: Vec<u8>) -> Self {
         self.ssl_ca = Some(CertificateInput::Inline(pem_certificate));
+        self
+    }
+
+    /// Sets the name of a file containing SSL client certificate.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use sqlx_core_oldapi::mysql::{MySqlSslMode, MySqlConnectOptions};
+    /// let options = MySqlConnectOptions::new()
+    ///     .ssl_mode(MySqlSslMode::VerifyCa)
+    ///     .ssl_client_cert("path/to/client.crt");
+    /// ```
+    pub fn ssl_client_cert(mut self, cert: impl AsRef<Path>) -> Self {
+        self.ssl_client_cert = Some(CertificateInput::File(cert.as_ref().to_path_buf()));
+        self
+    }
+
+    /// Sets the name of a file containing SSL client key.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use sqlx_core_oldapi::mysql::{MySqlSslMode, MySqlConnectOptions};
+    /// let options = MySqlConnectOptions::new()
+    ///     .ssl_mode(MySqlSslMode::VerifyCa)
+    ///     .ssl_client_key("path/to/client.key");
+    /// ```
+    pub fn ssl_client_key(mut self, key: impl AsRef<Path>) -> Self {
+        self.ssl_client_key = Some(CertificateInput::File(key.as_ref().to_path_buf()));
         self
     }
 

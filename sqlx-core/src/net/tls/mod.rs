@@ -35,11 +35,16 @@ impl From<String> for CertificateInput {
 }
 
 impl CertificateInput {
-    async fn data(&self) -> Result<Vec<u8>, std::io::Error> {
+    async fn data(&self) -> Result<Vec<u8>, Error> {
         use sqlx_rt::fs;
         match self {
             CertificateInput::Inline(v) => Ok(v.clone()),
-            CertificateInput::File(path) => fs::read(path).await,
+            CertificateInput::File(path) => fs::read(path).await.map_err(|e| {
+                Error::tls(CertificateReadError {
+                    path: path.clone(),
+                    source: e,
+                })
+            }),
         }
     }
 }
@@ -51,6 +56,38 @@ impl std::fmt::Display for CertificateInput {
             CertificateInput::File(path) => write!(f, "file: {}", path.display()),
         }
     }
+}
+
+#[derive(Debug)]
+struct CertificateReadError {
+    path: PathBuf,
+    source: io::Error,
+}
+
+impl std::fmt::Display for CertificateReadError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "failed to read certificate file '{}': {}",
+            self.path.display(),
+            self.source
+        )
+    }
+}
+
+impl std::error::Error for CertificateReadError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(&self.source)
+    }
+}
+
+pub struct TlsConfig<'a> {
+    pub accept_invalid_certs: bool,
+    pub accept_invalid_hostnames: bool,
+    pub hostname: &'a str,
+    pub root_cert_path: Option<&'a CertificateInput>,
+    pub client_cert_path: Option<&'a CertificateInput>,
+    pub client_key_path: Option<&'a CertificateInput>,
 }
 
 #[cfg(feature = "_tls-rustls")]
@@ -74,19 +111,9 @@ where
         matches!(self, Self::Tls(_))
     }
 
-    pub async fn upgrade(
-        &mut self,
-        host: &str,
-        accept_invalid_certs: bool,
-        accept_invalid_hostnames: bool,
-        root_cert_path: Option<&CertificateInput>,
-    ) -> Result<(), Error> {
-        let connector = configure_tls_connector(
-            accept_invalid_certs,
-            accept_invalid_hostnames,
-            root_cert_path,
-        )
-        .await?;
+    pub async fn upgrade(&mut self, config: TlsConfig<'_>) -> Result<(), Error> {
+        let host = config.hostname;
+        let connector = configure_tls_connector(config).await?;
 
         let stream = match replace(self, MaybeTlsStream::Upgrading) {
             MaybeTlsStream::Raw(stream) => stream,
@@ -115,25 +142,29 @@ where
 }
 
 #[cfg(feature = "_tls-native-tls")]
-async fn configure_tls_connector(
-    accept_invalid_certs: bool,
-    accept_invalid_hostnames: bool,
-    root_cert_path: Option<&CertificateInput>,
-) -> Result<sqlx_rt::TlsConnector, Error> {
-    use sqlx_rt::native_tls::{Certificate, TlsConnector};
+async fn configure_tls_connector(config: TlsConfig<'_>) -> Result<sqlx_rt::TlsConnector, Error> {
+    use sqlx_rt::native_tls::{Certificate, Identity, TlsConnector};
 
     let mut builder = TlsConnector::builder();
     builder
-        .danger_accept_invalid_certs(accept_invalid_certs)
-        .danger_accept_invalid_hostnames(accept_invalid_hostnames);
+        .danger_accept_invalid_certs(config.accept_invalid_certs)
+        .danger_accept_invalid_hostnames(config.accept_invalid_hostnames);
 
-    if !accept_invalid_certs {
-        if let Some(ca) = root_cert_path {
+    if !config.accept_invalid_certs {
+        if let Some(ca) = config.root_cert_path {
             let data = ca.data().await?;
             let cert = Certificate::from_pem(&data)?;
 
             builder.add_root_certificate(cert);
         }
+    }
+
+    // authentication using user's key-file and its associated certificate
+    if let (Some(cert_path), Some(key_path)) = (config.client_cert_path, config.client_key_path) {
+        let cert_path = cert_path.data().await?;
+        let key_path = key_path.data().await?;
+        let identity = Identity::from_pkcs8(&cert_path, &key_path).map_err(Error::tls)?;
+        builder.identity(identity);
     }
 
     #[cfg(not(feature = "_rt-async-std"))]
