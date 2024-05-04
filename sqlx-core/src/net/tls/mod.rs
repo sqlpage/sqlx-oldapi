@@ -35,11 +35,16 @@ impl From<String> for CertificateInput {
 }
 
 impl CertificateInput {
-    async fn data(&self) -> Result<Vec<u8>, std::io::Error> {
+    async fn data(&self) -> Result<Vec<u8>, Error> {
         use sqlx_rt::fs;
         match self {
             CertificateInput::Inline(v) => Ok(v.clone()),
-            CertificateInput::File(path) => fs::read(path).await,
+            CertificateInput::File(path) => fs::read(path).await.map_err(|e| {
+                Error::tls(CertificateReadError {
+                    path: path.clone(),
+                    source: e,
+                })
+            }),
         }
     }
 }
@@ -50,6 +55,29 @@ impl std::fmt::Display for CertificateInput {
             CertificateInput::Inline(v) => write!(f, "{}", String::from_utf8_lossy(v.as_slice())),
             CertificateInput::File(path) => write!(f, "file: {}", path.display()),
         }
+    }
+}
+
+#[derive(Debug)]
+struct CertificateReadError {
+    path: PathBuf,
+    source: io::Error,
+}
+
+impl std::fmt::Display for CertificateReadError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "failed to read certificate file '{}': {}",
+            self.path.display(),
+            self.source
+        )
+    }
+}
+
+impl std::error::Error for CertificateReadError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(&self.source)
     }
 }
 

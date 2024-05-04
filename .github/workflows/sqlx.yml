@@ -170,10 +170,25 @@ jobs:
             --no-default-features
             --features any,postgres,macros,migrate,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
         env:
-          DATABASE_URL: postgres://postgres:password@localhost:5432/sqlx?sslmode=verify-ca&sslrootcert=.%2Ftests%2Fcerts%2Fca.crt
+          DATABASE_URL: postgres://postgres:password@localhost:5432/sqlx?sslmode=verify-ca&sslrootcert=./tests/certs/ca.crt
           # FIXME: needed to disable `ltree` tests in Postgres 9.6
           # but `PgLTree` should just fall back to text format
           RUSTFLAGS: --cfg postgres_${{ matrix.postgres }}
+
+  postgres_ssl_client_cert:
+    name: Postgres with SSL client cert
+    runs-on: ubuntu-22.04
+    needs: check
+    steps:
+      - uses: actions/checkout@v3
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: linux-postgres-ssl-client-cert
+      - run: docker compose up --wait postgres_16
+        working-directory: tests
+      - run: cargo test --no-default-features --features any,postgres,macros,all-types,runtime-actix-rustls
+        env:
+          DATABASE_URL: postgres://postgres@localhost:5432/sqlx?sslmode=verify-ca&sslrootcert=./tests/certs/ca.crt&sslcert=./tests/certs/client.crt&sslkey=./tests/keys/client.key
 
   mysql:
     name: MySQL
