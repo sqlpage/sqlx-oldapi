@@ -209,12 +209,12 @@ services:
             ACCEPT_EULA: "Y"
             SA_PASSWORD: Password123!
 
-    mssql_2017:
+    mssql_2022:
         build:
             context: .
-            dockerfile: mssql/mssql-2017.dockerfile
+            dockerfile: mssql/Dockerfile
             args:
-                VERSION: 2017-latest
+                VERSION: 2022-latest
         ports:
           - 1433
         environment:

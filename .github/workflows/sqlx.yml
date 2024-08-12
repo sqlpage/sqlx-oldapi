@@ -286,7 +286,7 @@ jobs:
     runs-on: ubuntu-22.04
     strategy:
       matrix:
-        mssql: [2019, 2017]
+        mssql: [2019, 2022]
         runtime: [async-std, tokio, actix]
         tls: [native-tls, rustls]
     needs: check
