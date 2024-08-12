@@ -5,7 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-# 0.6.23
+## 0.6.24
+
+- Improved decimal to floating point conversion in Postgres and Microsoft SQL Server
+
+## 0.6.23
 
  - Update bundled sqlite to 3.46.0. See https://www.sqlite.org/releaselog/3_46_0.html
 

@@ -512,9 +512,9 @@ dependencies = [
 
 [[package]]
 name = "bit-vec"
-version = "0.6.3"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "349f9b6a179ed607305526ca489b34ad0a41aed5f7980fa90eb03160b69598fb"
+checksum = "5e764a1d40d510daf35e07be9eb06e75770908c27d411ee6c92109c9840eaaf7"
 
 [[package]]
 name = "bitflags"
@@ -3273,7 +3273,7 @@ dependencies = [
 
 [[package]]
 name = "sqlx-cli"
-version = "0.6.23"
+version = "0.6.24"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3298,7 +3298,7 @@ dependencies = [
 
 [[package]]
 name = "sqlx-core-oldapi"
-version = "0.6.23"
+version = "0.6.24"
 dependencies = [
  "ahash 0.8.11",
  "atoi",
@@ -3459,7 +3459,7 @@ dependencies = [
 
 [[package]]
 name = "sqlx-macros-oldapi"
-version = "0.6.23"
+version = "0.6.24"
 dependencies = [
  "dotenvy",
  "either",
@@ -3479,7 +3479,7 @@ dependencies = [
 
 [[package]]
 name = "sqlx-oldapi"
-version = "0.6.23"
+version = "0.6.24"
 dependencies = [
  "anyhow",
  "async-std",
@@ -3506,7 +3506,7 @@ dependencies = [
 
 [[package]]
 name = "sqlx-rt-oldapi"
-version = "0.6.23"
+version = "0.6.24"
 dependencies = [
  "async-native-tls",
  "async-std",

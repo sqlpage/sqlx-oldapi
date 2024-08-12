@@ -85,12 +85,11 @@ fn decode_numeric(bytes: &[u8], _precision: u8, mut scale: u8) -> Result<f64, Bo
     let mut fixed_bytes = [0u8; 16];
     fixed_bytes[0..rest.len()].copy_from_slice(rest);
     let mut numerator = u128::from_le_bytes(fixed_bytes);
-    let mut decimal_part = 0f64;
+    let mut decimal_part = 0.;
     while scale > 0 {
-        scale -= 1;
-        decimal_part += (numerator % 10) as f64;
-        decimal_part /= 10.;
+        decimal_part += (numerator % 10) as f64 / 10_f64.powf(scale as f64);
         numerator /= 10;
+        scale -= 1;
     }
     Ok(sign * ((numerator as f64) + decimal_part))
 }

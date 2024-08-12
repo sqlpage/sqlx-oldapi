@@ -158,10 +158,20 @@ impl TryFrom<PgNumeric> for f64 {
         };
 
         let mut res = 0.0;
-        let mut weight = 10_000f64.powi(i32::try_from(weight)?);
+        let mut remaining_weight = weight;
         for &digit in digits.iter() {
-            res += f64::from(digit) * weight;
-            weight /= 10_000.;
+            if res != 0. {
+                remaining_weight -= 1;
+            }
+            res = res * 10_000. + f64::from(digit);
+        }
+        while remaining_weight > 0 {
+            res *= 10_000.;
+            remaining_weight -= 1;
+        }
+        while remaining_weight < 0 {
+            res /= 10_000.;
+            remaining_weight += 1;
         }
         Ok(sign * res)
     }
