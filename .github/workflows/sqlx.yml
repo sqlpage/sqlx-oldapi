@@ -148,7 +148,7 @@ jobs:
             --features postgres,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
 
       - run: |
-          docker-compose -f tests/docker-compose.yml run -d -p 5432:5432 --name postgres_${{ matrix.postgres }} postgres_${{ matrix.postgres }}
+          docker compose -f tests/docker-compose.yml run -d -p 5432:5432 --name postgres_${{ matrix.postgres }} postgres_${{ matrix.postgres }}
           docker exec postgres_${{ matrix.postgres }} bash -c "until pg_isready; do sleep 1; done"
 
       - uses: actions-rs/cargo@v1
@@ -218,7 +218,7 @@ jobs:
           args: >
             --features mysql,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
 
-      - run: docker-compose -f tests/docker-compose.yml run -d -p 3306:3306 mysql_${{ matrix.mysql }}
+      - run: docker compose -f tests/docker-compose.yml run -d -p 3306:3306 mysql_${{ matrix.mysql }}
       - run: sleep 60
 
       - uses: actions-rs/cargo@v1
@@ -269,7 +269,7 @@ jobs:
           args: >
             --features mysql,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
 
-      - run: docker-compose -f tests/docker-compose.yml run -d -p 3306:3306 mariadb_${{ matrix.mariadb }}
+      - run: docker compose -f tests/docker-compose.yml run -d -p 3306:3306 mariadb_${{ matrix.mariadb }}
       - run: sleep 30
 
       - uses: actions-rs/cargo@v1
@@ -309,7 +309,7 @@ jobs:
           args: >
             --features mssql,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
 
-      - run: docker-compose -f tests/docker-compose.yml run -d -p 1433:1433 mssql_${{ matrix.mssql }}
+      - run: docker compose -f tests/docker-compose.yml run -d -p 1433:1433 mssql_${{ matrix.mssql }}
       - run: sleep 80 # MSSQL takes a "bit" to startup
 
       - uses: actions-rs/cargo@v1
