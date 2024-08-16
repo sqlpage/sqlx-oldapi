@@ -1,3 +1,5 @@
+use core::f32;
+
 use sqlx_oldapi::mssql::Mssql;
 use sqlx_test::test_type;
 
@@ -43,7 +45,7 @@ test_type!(i64(Mssql, "CAST(32324324432 AS BIGINT)" == 32324324432_i64));
 
 test_type!(f32(
     Mssql,
-    "CAST(3.1410000324249268 AS REAL)" == 3.141f32 as f64 as f32
+    "CAST(3.14159265358979323846264338327950288 AS REAL)" == f32::consts::PI
 ));
 
 test_type!(f64(
@@ -70,7 +72,7 @@ test_type!(numeric<f64>(Mssql,
     "CAST(1.0000000000000001 AS NUMERIC(18,16))" == 1.0000000000000001_f64,
     "CAST(0.99999999999999 AS NUMERIC(18,14))" == 0.99999999999999_f64,
     "CAST(2.00000000000001 AS NUMERIC(18,14))" == 2.00000000000001_f64,
-    "CAST(333.33333333333333 AS NUMERIC(18,14))" == 333.33333333333333_f64,
+    "CAST(333.33333333333333 AS NUMERIC(18,14))" == 333.333_333_333_333_3_f64,
     "CAST(0.14285714285714 AS NUMERIC(18,14))" == 0.14285714285714_f64,
     "CAST(9999999.99999999 AS NUMERIC(16,8))" == 9999999.99999999_f64, // Close to the precision limit
     "CAST(9007199254740992 AS NUMERIC(16,0))" == 9007199254740992_f64,    // 2^53, largest integer that can be exactly represented as a f64

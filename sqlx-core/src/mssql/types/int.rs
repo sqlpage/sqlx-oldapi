@@ -27,7 +27,7 @@ impl Encode<'_, Mssql> for i8 {
 
 impl Decode<'_, Mssql> for i8 {
     fn decode(value: MssqlValueRef<'_>) -> Result<Self, BoxDynError> {
-        Ok(value.as_bytes()?[0] as i8)
+        Ok(i8::from_le_bytes(value.as_bytes()?[0..1].try_into()?))
     }
 }
 

@@ -3,6 +3,7 @@
 #![recursion_limit = "512"]
 #![warn(future_incompatible, rust_2018_idioms)]
 #![allow(clippy::needless_doctest_main, clippy::type_complexity, dead_code)]
+#![deny(cast_possible_truncation, cast_possible_wrap, cast_precision_loss, cast_sign_loss)]
 // See `clippy.toml` at the workspace root
 #![deny(clippy::disallowed_methods)]
 //

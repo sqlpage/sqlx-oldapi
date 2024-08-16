@@ -38,9 +38,11 @@ impl Type<Mssql> for String {
 impl Encode<'_, Mssql> for &'_ str {
     fn produces(&self) -> Option<MssqlTypeInfo> {
         let len = self.len().checked_mul(2)?;
-        let size = if len <= 4000 {
+        let size = if len <= 2 {
+            2
+        } else if len <= 4000 {
             // an empty string needs to be encoded as `nvarchar(2)`
-            (len as u32).max(2)
+            u32::try_from(len).unwrap()
         } else {
             0xFF_FF
         };

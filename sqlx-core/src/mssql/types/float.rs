@@ -79,6 +79,8 @@ impl Decode<'_, Mssql> for f64 {
         }
     }
 }
+
+#[allow(clippy::cast_precision_loss)]
 fn decode_numeric(bytes: &[u8], _precision: u8, mut scale: u8) -> Result<f64, BoxDynError> {
     let sign = if bytes[0] == 0 { -1. } else { 1. };
     let rest = &bytes[1..];
