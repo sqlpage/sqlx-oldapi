@@ -95,7 +95,7 @@ impl PgArguments {
         }
 
         for (offset, name) in type_holes {
-            let oid = conn.fetch_type_id_by_name(&*name).await?;
+            let oid = conn.fetch_type_id_by_name(name).await?;
             buffer[*offset..(*offset + 4)].copy_from_slice(&oid.0.to_be_bytes());
         }
 
@@ -134,7 +134,7 @@ impl PgArgumentBuffer {
 
         // encode the value into our buffer
         let len = if let IsNull::No = value.encode(self) {
-            (self.len() - offset - 4) as i32
+            i32::try_from(self.len() - offset - 4).expect("bind parameter too large")
         } else {
             // Write a -1 to indicate NULL
             // NOTE: It is illegal for [encode] to write any data

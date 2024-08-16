@@ -26,7 +26,7 @@ impl Encode<'_, Postgres> for NaiveTime {
         // NOTE: panic! is on overflow and 1 day does not have enough micros to overflow
         let us = (*self - NaiveTime::default()).num_microseconds().unwrap();
 
-        Encode::<Postgres>::encode(&us, buf)
+        Encode::<Postgres>::encode(us, buf)
     }
 
     fn size_hint(&self) -> usize {

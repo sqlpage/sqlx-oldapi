@@ -25,8 +25,8 @@ impl PgHasArrayType for Date {
 impl Encode<'_, Postgres> for Date {
     fn encode_by_ref(&self, buf: &mut PgArgumentBuffer) -> IsNull {
         // DATE is encoded as the days since epoch
-        let days = (*self - PG_EPOCH).whole_days() as i32;
-        Encode::<Postgres>::encode(&days, buf)
+        let days = i32::try_from((*self - PG_EPOCH).whole_days()).unwrap_or(i32::MAX);
+        Encode::<Postgres>::encode(days, buf)
     }
 
     fn size_hint(&self) -> usize {

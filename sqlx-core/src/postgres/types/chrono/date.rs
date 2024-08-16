@@ -23,8 +23,9 @@ impl PgHasArrayType for NaiveDate {
 impl Encode<'_, Postgres> for NaiveDate {
     fn encode_by_ref(&self, buf: &mut PgArgumentBuffer) -> IsNull {
         // DATE is encoded as the days since epoch
-        let days = (*self - NaiveDate::from_ymd_opt(2000, 1, 1).unwrap()).num_days() as i32;
-        Encode::<Postgres>::encode(&days, buf)
+        let days = i32::try_from((*self - NaiveDate::from_ymd_opt(2000, 1, 1).unwrap()).num_days())
+            .unwrap_or(i32::MAX);
+        Encode::<Postgres>::encode(days, buf)
     }
 
     fn size_hint(&self) -> usize {

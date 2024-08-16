@@ -112,10 +112,12 @@ where
             }
         }
 
-        buf.extend(&(self.len() as i32).to_be_bytes()); // len
+        let len = i32::try_from(self.len()).unwrap_or(i32::MAX);
+
+        buf.extend(len.to_be_bytes()); // len
         buf.extend(&1_i32.to_be_bytes()); // lower bound
 
-        for element in self.iter() {
+        for element in self.iter().take(usize::try_from(len).unwrap()) {
             buf.encode(element);
         }
 

@@ -93,7 +93,7 @@ impl TryFrom<&'_ Decimal> for PgNumeric {
             });
         }
 
-        let scale = decimal.scale() as u16;
+        let scale = decimal.scale();
 
         // A serialized version of the decimal number. The resulting byte array
         // will have the following representation:
@@ -114,7 +114,7 @@ impl TryFrom<&'_ Decimal> for PgNumeric {
             let remainder = 4 - groups_diff as u32;
             let power = 10u32.pow(remainder as u32) as u128;
 
-            mantissa = mantissa * power;
+            mantissa *= power;
         }
 
         // Array to store max mantissa of Decimal in Postgres decimal format.
@@ -130,8 +130,8 @@ impl TryFrom<&'_ Decimal> for PgNumeric {
         digits.reverse();
 
         // Weight is number of digits on the left side of the decimal.
-        let digits_after_decimal = (scale + 3) as u16 / 4;
-        let weight = digits.len() as i16 - digits_after_decimal as i16 - 1;
+        let digits_after_decimal = u16::try_from(scale + 3)? / 4;
+        let weight = i16::try_from(digits.len())? - i16::try_from(digits_after_decimal)? - 1;
 
         // Remove non-significant zeroes.
         while let Some(&0) = digits.last() {
@@ -143,7 +143,7 @@ impl TryFrom<&'_ Decimal> for PgNumeric {
                 false => PgNumericSign::Positive,
                 true => PgNumericSign::Negative,
             },
-            scale: scale as i16,
+            scale: i16::try_from(scale)?,
             weight,
             digits,
         })

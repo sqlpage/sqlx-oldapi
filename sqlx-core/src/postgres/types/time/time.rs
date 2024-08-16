@@ -24,8 +24,9 @@ impl PgHasArrayType for Time {
 impl Encode<'_, Postgres> for Time {
     fn encode_by_ref(&self, buf: &mut PgArgumentBuffer) -> IsNull {
         // TIME is encoded as the microseconds since midnight
-        let us = (*self - Time::MIDNIGHT).whole_microseconds() as i64;
-        Encode::<Postgres>::encode(&us, buf)
+        let us = i64::try_from((*self - Time::MIDNIGHT).whole_microseconds())
+            .expect("number of microseconds since midnight should fit in an i64");
+        Encode::<Postgres>::encode(us, buf)
     }
 
     fn size_hint(&self) -> usize {

@@ -31,9 +31,16 @@ impl PgHasArrayType for BitVec {
 
 impl Encode<'_, Postgres> for BitVec {
     fn encode_by_ref(&self, buf: &mut PgArgumentBuffer) -> IsNull {
-        buf.extend(&(self.len() as i32).to_be_bytes());
-        buf.extend(self.to_bytes());
-
+        if let Ok(len) = i32::try_from(self.len()) {
+            buf.extend(&len.to_be_bytes());
+            buf.extend_from_slice(&self.to_bytes());
+        } else {
+            debug_assert!(false, "BitVec length is too large to be encoded as i32.");
+            let len = i32::MAX;
+            buf.extend(&len.to_be_bytes());
+            let truncated = &self.to_bytes()[0..usize::try_from(i32::MAX).unwrap()];
+            buf.extend_from_slice(truncated);
+        };
         IsNull::No
     }
 
@@ -47,17 +54,18 @@ impl Decode<'_, Postgres> for BitVec {
         match value.format() {
             PgValueFormat::Binary => {
                 let mut bytes = value.as_bytes()?;
-                let len = bytes.get_i32();
-
-                if len < 0 {
-                    Err(io::Error::new(
+                let len = if let Ok(len) = usize::try_from(bytes.get_i32()) {
+                    len
+                } else {
+                    return Err(io::Error::new(
                         io::ErrorKind::InvalidData,
                         "Negative VARBIT length.",
-                    ))?
-                }
+                    )
+                    .into());
+                };
 
                 // The smallest amount of data we can read is one byte
-                let bytes_len = (len as usize + 7) / 8;
+                let bytes_len = (len + 7) / 8;
 
                 if bytes.remaining() != bytes_len {
                     Err(io::Error::new(
@@ -66,12 +74,12 @@ impl Decode<'_, Postgres> for BitVec {
                     ))?;
                 }
 
-                let mut bitvec = BitVec::from_bytes(&bytes);
+                let mut bitvec = BitVec::from_bytes(bytes);
 
                 // Chop off zeroes from the back. We get bits in bytes, so if
                 // our bitvec is not in full bytes, extra zeroes are added to
                 // the end.
-                while bitvec.len() > len as usize {
+                while bitvec.len() > len {
                     bitvec.pop();
                 }
 

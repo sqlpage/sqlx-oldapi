@@ -103,6 +103,9 @@ pub enum Error {
     #[cfg(feature = "migrate")]
     #[error("{0}")]
     Migrate(#[source] Box<crate::migrate::MigrateError>),
+
+    #[error("integer overflow while converting to target type")]
+    IntegerOverflow(#[source] std::num::TryFromIntError),
 }
 
 impl StdError for Box<dyn DatabaseError> {}

@@ -30,23 +30,23 @@ pub struct PgValue {
 }
 
 impl<'r> PgValueRef<'r> {
-    pub(crate) fn get(buf: &mut &'r [u8], format: PgValueFormat, ty: PgTypeInfo) -> Self {
-        let mut element_len = buf.get_i32();
-
-        let element_val = if element_len == -1 {
-            element_len = 0;
-            None
+    pub(crate) fn get(buf: &mut &'r [u8], format: PgValueFormat, type_info: PgTypeInfo) -> Self {
+        if let Ok(element_len) = usize::try_from(buf.get_i32()) {
+            let value = Some(&buf[..(element_len)]);
+            buf.advance(element_len);
+            PgValueRef {
+                value,
+                row: None,
+                type_info,
+                format,
+            }
         } else {
-            Some(&buf[..(element_len as usize)])
-        };
-
-        buf.advance(element_len as usize);
-
-        PgValueRef {
-            value: element_val,
-            row: None,
-            type_info: ty,
-            format,
+            PgValueRef {
+                value: None,
+                row: None,
+                type_info,
+                format,
+            }
         }
     }
 

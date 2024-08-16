@@ -202,11 +202,11 @@ CREATE TABLE IF NOT EXISTS _sqlx_migrations (
                     .map_err(MigrateError::AccessMigrationMetadata)?;
 
             if let Some(checksum) = checksum {
-                return if checksum == &*migration.checksum {
+                if checksum == *migration.checksum {
                     Ok(())
                 } else {
                     Err(MigrateError::VersionMismatch(migration.version))
-                };
+                }
             } else {
                 Err(MigrateError::VersionMissing(migration.version))
             }
@@ -257,7 +257,7 @@ CREATE TABLE IF NOT EXISTS _sqlx_migrations (
     WHERE version = $2
                 "#,
             )
-            .bind(elapsed.as_nanos() as i64)
+            .bind(i64::try_from(elapsed.as_nanos()).map_err(crate::error::Error::IntegerOverflow)?)
             .bind(migration.version)
             .execute(self)
             .await?;
@@ -295,9 +295,9 @@ CREATE TABLE IF NOT EXISTS _sqlx_migrations (
 
 async fn current_database(conn: &mut PgConnection) -> Result<String> {
     // language=SQL
-    Ok(query_scalar("SELECT current_database()")
+    query_scalar("SELECT current_database()")
         .fetch_one(conn)
-        .await?)
+        .await
 }
 
 // inspired from rails: https://github.com/rails/rails/blob/6e49cc77ab3d16c06e12f93158eaf3e507d4120e/activerecord/lib/active_record/migration.rb#L1308

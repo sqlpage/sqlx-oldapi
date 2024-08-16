@@ -46,7 +46,7 @@ impl Encode<'_, Postgres> for NaiveDateTime {
             .num_microseconds()
             .unwrap_or_else(|| panic!("NaiveDateTime out of range for Postgres: {:?}", self));
 
-        Encode::<Postgres>::encode(&us, buf)
+        Encode::<Postgres>::encode(us, buf)
     }
 
     fn size_hint(&self) -> usize {

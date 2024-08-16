@@ -19,6 +19,7 @@ const AF_INET: u8 = 2;
 const AF_INET: u8 = 0;
 
 #[cfg(unix)]
+#[allow(clippy::cast_possible_truncation)]
 const AF_INET: u8 = libc::AF_INET as u8;
 
 // https://github.com/postgres/postgres/blob/574925bfd0a8175f6e161936ea11d9695677ba09/src/include/utils/inet.h#L39
