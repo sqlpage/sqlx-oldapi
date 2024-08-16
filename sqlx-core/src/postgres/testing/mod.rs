@@ -24,10 +24,7 @@ static DO_CLEANUP: AtomicBool = AtomicBool::new(true);
 
 impl TestSupport for Postgres {
     fn test_context(args: &TestArgs) -> BoxFuture<'_, Result<TestContext<Self>, Error>> {
-        Box::pin(async move {
-            let res = test_context(args).await;
-            res
-        })
+        Box::pin(test_context(args))
     }
 
     fn cleanup_test(db_name: &str) -> BoxFuture<'_, Result<(), Error>> {
@@ -42,7 +39,7 @@ impl TestSupport for Postgres {
                 .await?;
 
             query("delete from _sqlx_test.databases where db_name = $1")
-                .bind(&db_name)
+                .bind(db_name)
                 .execute(&mut conn)
                 .await?;
 
@@ -143,7 +140,7 @@ async fn test_context(args: &TestArgs) -> Result<TestContext<Postgres>, Error> {
             returning db_name
         "#,
     )
-    .bind(&args.test_path)
+    .bind(args.test_path)
     .fetch_one(&mut conn)
     .await?;
 
