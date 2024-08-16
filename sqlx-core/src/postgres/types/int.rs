@@ -31,7 +31,12 @@ impl Encode<'_, Postgres> for i8 {
 impl Decode<'_, Postgres> for i8 {
     fn decode(value: PgValueRef<'_>) -> Result<Self, BoxDynError> {
         // note: in the TEXT encoding, a value of "0" here is encoded as an empty string
-        let bytes: [u8; 1] = value.as_bytes()?[..1].try_into().unwrap_or_default();
+        let bytes = value.as_bytes()?;
+        let bytes: [u8; 1] = bytes
+            .get(..1)
+            .unwrap_or(&[0])
+            .try_into()
+            .unwrap_or_default();
         Ok(i8::from_be_bytes(bytes))
     }
 }
