@@ -52,7 +52,7 @@ impl TryFrom<PgNumeric> for BigDecimal {
         };
 
         // weight is 0 if the decimal point falls after the first base-10000 digit
-        let scale = (digits.len() as i64 - weight as i64 - 1) * 4;
+        let scale = (i64::try_from(digits.len())? - i64::from(weight) - 1) * 4;
 
         // no optimized algorithm for base-10 so use base-100 for faster processing
         let mut cents = Vec::with_capacity(digits.len() * 2);

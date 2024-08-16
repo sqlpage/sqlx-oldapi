@@ -16,9 +16,10 @@ impl Encode<'_> for SaslInitialResponse<'_> {
             } else {
                 "SCRAM-SHA-256"
             });
-
-            buf.extend(&(self.response.as_bytes().len() as i32).to_be_bytes());
-            buf.extend(self.response.as_bytes());
+            let bytes = self.response.as_bytes();
+            let len_i32 = i32::try_from(bytes.len()).expect("buffer too large");
+            buf.extend_from_slice(&len_i32.to_be_bytes());
+            buf.extend_from_slice(bytes);
         });
     }
 }

@@ -189,7 +189,7 @@ where
                     return Err(format!("encountered an array with a lower bound of {} in the first dimension; only arrays starting at one are supported", lower).into());
                 }
 
-                let mut elements = Vec::with_capacity(len as usize);
+                let mut elements = Vec::with_capacity(usize::try_from(len).unwrap_or_default());
 
                 for _ in 0..len {
                     elements.push(T::decode(PgValueRef::get(

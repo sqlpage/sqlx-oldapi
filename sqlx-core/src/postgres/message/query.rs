@@ -6,10 +6,10 @@ pub struct Query<'a>(pub &'a str);
 impl Encode<'_> for Query<'_> {
     fn encode_with(&self, buf: &mut Vec<u8>, _: ()) {
         let len = 4 + self.0.len() + 1;
-
+        let len_i32 = i32::try_from(len).expect("buffer too large");
         buf.reserve(len + 1);
         buf.push(b'Q');
-        buf.extend(&(len as i32).to_be_bytes());
+        buf.extend_from_slice(&len_i32.to_be_bytes());
         buf.put_str_nul(self.0);
     }
 }

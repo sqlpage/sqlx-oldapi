@@ -43,7 +43,7 @@ impl Decode<'_> for CopyData<Bytes> {
 impl<B: Deref<Target = [u8]>> Encode<'_> for CopyData<B> {
     fn encode_with(&self, buf: &mut Vec<u8>, _context: ()) {
         buf.push(b'd');
-        buf.put_u32(self.0.len() as u32 + 4);
+        buf.put_u32(u32::try_from(self.0.len() + 4).expect("copydata too large"));
         buf.extend_from_slice(&self.0);
     }
 }
@@ -61,7 +61,7 @@ impl Encode<'_> for CopyFail {
         let len = 4 + self.message.len() + 1;
 
         buf.push(b'f'); // to pay respects
-        buf.put_u32(len as u32);
+        buf.put_u32(u32::try_from(len).expect("copyfail too large"));
         buf.put_str_nul(&self.message);
     }
 }

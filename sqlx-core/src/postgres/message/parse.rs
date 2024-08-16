@@ -28,12 +28,12 @@ impl Encode<'_> for Parse<'_> {
             buf.put_str_nul(self.query);
 
             // TODO: Return an error here instead
-            assert!(self.param_types.len() <= (u16::MAX as usize));
+            let param_len = i16::try_from(self.param_types.len()).expect("too many params");
 
-            buf.extend(&(self.param_types.len() as i16).to_be_bytes());
+            buf.extend_from_slice(&param_len.to_be_bytes());
 
             for &oid in self.param_types {
-                buf.extend(&oid.0.to_be_bytes());
+                buf.extend_from_slice(&oid.0.to_be_bytes());
             }
         })
     }

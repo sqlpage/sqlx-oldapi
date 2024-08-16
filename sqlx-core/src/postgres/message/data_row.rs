@@ -40,11 +40,11 @@ impl Decode<'_> for DataRow {
             let length = BigEndian::read_i32(&buf[(offset as usize)..]);
             offset += 4;
 
-            if length < 0 {
-                values.push(None);
-            } else {
-                values.push(Some(offset..(offset + length as u32)));
+            if let Ok(length) = u32::try_from(length) {
+                values.push(Some(offset..(offset + length)));
                 offset += length as u32;
+            } else {
+                values.push(None);
             }
         }
 

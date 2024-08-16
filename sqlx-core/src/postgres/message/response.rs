@@ -192,7 +192,8 @@ impl<'a> Iterator for Fields<'a> {
             return None;
         }
 
-        let nul = memchr(b'\0', &self.storage[(self.offset + 1) as usize..])? as u16;
+        let nul =
+            u16::try_from(memchr(b'\0', &self.storage[(self.offset + 1) as usize..])?).ok()?;
         let offset = self.offset;
 
         self.offset += nul + 2;

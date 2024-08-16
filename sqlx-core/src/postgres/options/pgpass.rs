@@ -178,7 +178,7 @@ fn find_next_field<'a>(line: &mut &'a str) -> Option<Cow<'a, str>> {
         }
     }
 
-    return None;
+    None
 }
 
 #[cfg(test)]

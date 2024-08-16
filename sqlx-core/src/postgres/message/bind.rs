@@ -52,10 +52,11 @@ impl Encode<'_> for Bind<'_> {
 
             buf.extend(self.params);
 
-            buf.extend(&(self.result_formats.len() as i16).to_be_bytes());
-
-            for &format in self.result_formats {
-                buf.extend(&(format as i16).to_be_bytes());
+            if let Ok(len) = i16::try_from(self.result_formats.len()) {
+                buf.extend(&len.to_be_bytes());
+                for &format in self.result_formats {
+                    buf.extend(&(format as i16).to_be_bytes());
+                }
             }
         });
     }
