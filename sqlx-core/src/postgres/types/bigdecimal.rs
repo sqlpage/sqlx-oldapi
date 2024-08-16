@@ -57,8 +57,8 @@ impl TryFrom<PgNumeric> for BigDecimal {
         // no optimized algorithm for base-10 so use base-100 for faster processing
         let mut cents = Vec::with_capacity(digits.len() * 2);
         for digit in &digits {
-            cents.push((digit / 100) as u8);
-            cents.push((digit % 100) as u8);
+            cents.push(u8::try_from(digit / 100).unwrap());
+            cents.push(u8::try_from(digit % 100).unwrap());
         }
 
         let bigint = BigInt::from_radix_be(sign, &cents, 100)
@@ -83,7 +83,7 @@ impl TryFrom<&'_ BigDecimal> for PgNumeric {
 
         // weight is positive power of 10000
         // exp is the negative power of 10
-        let weight_10 = base_10.len() as i64 - exp;
+        let weight_10 = i64::try_from(base_10.len())? - exp;
 
         // scale is only nonzero when we have fractional digits
         // since `exp` is the _negative_ decimal exponent, it tells us
@@ -105,7 +105,7 @@ impl TryFrom<&'_ BigDecimal> for PgNumeric {
             base_10.len() / 4
         };
 
-        let offset = weight_10.rem_euclid(4) as usize;
+        let offset = usize::try_from(weight_10.rem_euclid(4))?;
 
         let mut digits = Vec::with_capacity(digits_len);
 
@@ -114,14 +114,16 @@ impl TryFrom<&'_ BigDecimal> for PgNumeric {
                 digits.push(base_10_to_10000(first));
             }
         } else if offset != 0 {
-            digits.push(base_10_to_10000(&base_10) * 10i16.pow((offset - base_10.len()) as u32));
+            digits.push(
+                base_10_to_10000(&base_10) * 10i16.pow(u32::try_from(offset - base_10.len())?),
+            );
         }
 
         if let Some(rest) = base_10.get(offset..) {
-            digits.extend(
-                rest.chunks(4)
-                    .map(|chunk| base_10_to_10000(chunk) * 10i16.pow(4 - chunk.len() as u32)),
-            );
+            digits.extend(rest.chunks(4).map(|chunk| {
+                base_10_to_10000(chunk)
+                    * 10i16.pow(4 - u32::try_from(chunk.len()).unwrap_or(u32::MAX))
+            }));
         }
 
         while let Some(&0) = digits.last() {
@@ -154,7 +156,7 @@ impl Encode<'_, Postgres> for BigDecimal {
     fn size_hint(&self) -> usize {
         // BigDecimal::digits() gives us base-10 digits, so we divide by 4 to get base-10000 digits
         // and since this is just a hint we just always round up
-        8 + (self.digits() / 4 + 1) as usize * 2
+        8 + usize::try_from(self.digits() / 4 + 1).unwrap() * 2
     }
 }
 

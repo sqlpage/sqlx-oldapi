@@ -53,13 +53,13 @@ impl TryFrom<PgNumeric> for Decimal {
         };
 
         // weight is 0 if the decimal point falls after the first base-10000 digit
-        let scale = (digits.len() as i64 - weight as i64 - 1) * 4;
+        let scale = (i64::try_from(digits.len())? - i64::from(weight) - 1) * 4;
 
         // no optimized algorithm for base-10 so use base-100 for faster processing
         let mut cents = Vec::with_capacity(digits.len() * 2);
         for digit in &digits {
-            cents.push((digit / 100) as u8);
-            cents.push((digit % 100) as u8);
+            cents.push(u8::try_from(digit / 100)?);
+            cents.push(u8::try_from(digit % 100)?);
         }
 
         let bigint = BigInt::from_radix_be(sign, &cents, 100)
@@ -69,11 +69,11 @@ impl TryFrom<PgNumeric> for Decimal {
             // A negative scale, meaning we have nothing on the right and must
             // add zeroes to the left.
             (Some(num), scale) if scale < 0 => Ok(Decimal::from_i128_with_scale(
-                num * 10i128.pow(scale.abs() as u32),
+                num * 10i128.pow(u32::try_from(scale.abs())?),
                 0,
             )),
             // A positive scale, so we have decimals on the right.
-            (Some(num), _) => Ok(Decimal::from_i128_with_scale(num, scale as u32)),
+            (Some(num), _) => Ok(Decimal::from_i128_with_scale(num, u32::try_from(scale)?)),
             (None, _) => Err("Decimal's integer part out of range.".into()),
         }
     }
@@ -111,8 +111,8 @@ impl TryFrom<&'_ Decimal> for PgNumeric {
         // multiple.
         let groups_diff = scale % 4;
         if groups_diff > 0 {
-            let remainder = 4 - groups_diff as u32;
-            let power = 10u32.pow(remainder as u32) as u128;
+            let remainder = 4 - groups_diff;
+            let power = 10u32.pow(remainder) as u128;
 
             mantissa *= power;
         }
