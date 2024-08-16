@@ -254,7 +254,7 @@ async fn query_by_string() -> anyhow::Result<()> {
     let mut conn = new::<Postgres>().await?;
 
     let string = "Hello, world!".to_string();
-    let ref tuple = ("Hello, world!".to_string(),);
+    let tuple = &("Hello, world!".to_string(),);
 
     let result = sqlx_oldapi::query!(
         "SELECT * from (VALUES('Hello, world!')) strings(string)\
@@ -284,7 +284,7 @@ async fn query_by_bigdecimal() -> anyhow::Result<()> {
     // this tests querying by a non-`Copy` type that doesn't have special reborrow semantics
 
     let decimal = "1234".parse::<BigDecimal>()?;
-    let ref tuple = ("51245.121232".parse::<BigDecimal>()?,);
+    let tuple = &("51245.121232".parse::<BigDecimal>()?,);
 
     let result = sqlx_oldapi::query!(
         "SELECT * from (VALUES(1234.0)) decimals(decimal)\

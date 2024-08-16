@@ -1,5 +1,4 @@
 use futures::{StreamExt, TryStreamExt};
-use sqlx_core::postgres::PgArguments;
 use sqlx_oldapi::postgres::types::Oid;
 use sqlx_oldapi::postgres::{
     PgAdvisoryLock, PgConnectOptions, PgConnection, PgDatabaseError, PgErrorPosition, PgListener,
@@ -10,7 +9,6 @@ use sqlx_test::{new, pool, setup_if_needed};
 use std::env;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::time::error::Elapsed;
 
 #[sqlx_macros::test]
 async fn it_connects() -> anyhow::Result<()> {
@@ -1540,12 +1538,12 @@ async fn it_encodes_custom_array_issue_1504() -> anyhow::Result<()> {
                 Ok(Self::Number(n))
             } else if typ == PgTypeInfo::with_name("_text") {
                 let arr = Vec::<String>::decode(value)?;
-                let v = arr.into_iter().map(|s| Value::String(s)).collect();
+                let v = arr.into_iter().map(Value::String).collect();
 
                 Ok(Self::Array(v))
             } else if typ == PgTypeInfo::with_name("_int4") {
                 let arr = Vec::<i32>::decode(value)?;
-                let v = arr.into_iter().map(|n| Value::Number(n)).collect();
+                let v = arr.into_iter().map(Value::Number).collect();
 
                 Ok(Self::Array(v))
             } else {
@@ -1558,7 +1556,7 @@ async fn it_encodes_custom_array_issue_1504() -> anyhow::Result<()> {
         fn produces(&self) -> Option<PgTypeInfo> {
             match self {
                 Self::Array(a) => {
-                    if a.len() < 1 {
+                    if a.is_empty() {
                         return Some(PgTypeInfo::with_name("_text"));
                     }
 
