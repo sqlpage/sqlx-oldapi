@@ -18,11 +18,19 @@ impl MssqlConnection {
         // TODO: Encryption
         // TODO: Send the version of SQLx over
 
+        let encryption = match options.encrypt {
+            Some(true) => Encrypt::Required,
+            Some(false) => Encrypt::NotSupported,
+            None => Encrypt::On,
+        };
+
+        log::debug!("Sending T-SQL PRELOGIN with encryption: {:?}", encryption);
+
         stream.write_packet(
             PacketType::PreLogin,
             PreLogin {
                 version: Version::default(),
-                encryption: Encrypt::NOT_SUPPORTED,
+                encryption,
                 instance: options.instance.clone(),
 
                 ..Default::default()
@@ -32,7 +40,14 @@ impl MssqlConnection {
         stream.flush().await?;
 
         let (_, packet) = stream.recv_packet().await?;
-        let _ = PreLogin::decode(packet)?;
+        let prelogin_response = PreLogin::decode(packet)?;
+
+        if matches!(
+            prelogin_response.encryption,
+            Encrypt::Required | Encrypt::On
+        ) {
+            stream.setup_encryption().await?;
+        }
 
         // LOGIN7 defines the authentication rules for use between client and server
 

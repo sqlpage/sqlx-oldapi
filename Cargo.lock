@@ -3368,6 +3368,7 @@ dependencies = [
  "time",
  "tokio",
  "tokio-stream",
+ "tokio-util",
  "url",
  "uuid",
  "webpki-roots",
@@ -3834,6 +3835,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "267ac89e0bec6e691e5813911606935d77c476ff49024f98abcea3e7b15e37af"
 dependencies = [
  "futures-core",
+ "pin-project-lite",
+ "tokio",
+]
+
+[[package]]
+name = "tokio-util"
+version = "0.7.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "61e7c3654c13bcd040d4a03abee2c75b1d14a37b423cf5a813ceae1cc903ec6a"
+dependencies = [
+ "bytes",
+ "futures-core",
+ "futures-io",
+ "futures-sink",
  "pin-project-lite",
  "tokio",
 ]

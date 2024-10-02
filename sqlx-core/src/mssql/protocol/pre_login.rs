@@ -1,6 +1,6 @@
+use std::default;
 use std::fmt::{self, Display, Formatter};
 
-use bitflags::bitflags;
 use bytes::{Buf, Bytes};
 use uuid::Uuid;
 
@@ -56,7 +56,7 @@ impl<'de> Decode<'de> for PreLogin {
                         }
 
                         PreLoginOptionToken::Encryption => {
-                            encryption = Some(Encrypt::from_bits_truncate(data.get_u8()));
+                            encryption = Some(Encrypt::from(data.get_u8()));
                         }
 
                         PreLoginOptionToken::Instance => {
@@ -148,7 +148,7 @@ impl Encode<'_> for PreLogin {
         self.version.encode(buf);
 
         Encryption.put(buf, &mut offsets, &mut offset, 1);
-        buf.push(self.encryption.bits());
+        buf.push(u8::from(self.encryption));
 
         if let Some(name) = &self.instance {
             Instance.put(buf, &mut offsets, &mut offset, name.len() as u16 + 1);
@@ -233,7 +233,7 @@ pub(crate) struct TraceId {
 }
 
 // Version of the sender (UL_VERSION)
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub(crate) struct Version {
     pub(crate) major: u8,
     pub(crate) minor: u8,
@@ -241,6 +241,17 @@ pub(crate) struct Version {
 
     // Sub-build number of the sender (US_SUBBUILD)
     pub(crate) sub_build: u16,
+}
+
+impl Default for Version {
+    fn default() -> Self {
+        Self {
+            major: env!("CARGO_PKG_VERSION_MAJOR").parse().unwrap(),
+            minor: env!("CARGO_PKG_VERSION_MINOR").parse().unwrap(),
+            build: env!("CARGO_PKG_VERSION_PATCH").parse().unwrap(),
+            sub_build: 0,
+        }
+    }
 }
 
 impl Version {
@@ -258,23 +269,39 @@ impl Display for Version {
     }
 }
 
-bitflags! {
-    /// During the Pre-Login handshake, the client and the server negotiate the
-    /// wire encryption to be used.
-    #[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash)]
-    pub(crate) struct Encrypt: u8 {
-        /// Encryption is available but on.
-        const ON = 0x01;
+/// During the Pre-Login handshake, the client and the server negotiate the
+/// wire encryption to be used.
+#[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub(crate) enum Encrypt {
+    /// Encryption is available but off.
+    Off = 0x00,
 
-        /// Encryption is not available.
-        const NOT_SUPPORTED = 0x02;
+    /// Encryption is available and on.
+    #[default]
+    On = 0x01,
 
-        /// Encryption is required.
-        const REQUIRED = 0x03;
+    /// Encryption is not available.
+    NotSupported = 0x02,
 
-        /// The client certificate should be used to authenticate
-        /// the user in place of a user/password.
-        const CLIENT_CERT = 0x80;
+    /// Encryption is required.
+    Required = 0x03,
+}
+
+impl From<u8> for Encrypt {
+    fn from(value: u8) -> Self {
+        match value {
+            0x00 => Encrypt::Off,
+            0x01 => Encrypt::On,
+            0x02 => Encrypt::NotSupported,
+            0x03 => Encrypt::Required,
+            _ => Encrypt::Off,
+        }
+    }
+}
+
+impl From<Encrypt> for u8 {
+    fn from(value: Encrypt) -> Self {
+        value as u8
     }
 }
 

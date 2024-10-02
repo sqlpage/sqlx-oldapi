@@ -15,6 +15,7 @@ mod establish;
 mod executor;
 mod prepare;
 mod stream;
+mod tls_prelogin_stream_wrapper;
 
 pub struct MssqlConnection {
     pub(crate) stream: MssqlStream,

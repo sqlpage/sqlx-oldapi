@@ -27,6 +27,7 @@ pub struct MssqlConnectOptions {
     pub(crate) language: String,
     /// Size in bytes of TDS packets to exchange with the server
     pub(crate) requested_packet_size: u32,
+    pub(crate) encrypt: Option<bool>, // Added field
 }
 
 impl Default for MssqlConnectOptions {
@@ -53,6 +54,7 @@ impl MssqlConnectOptions {
             server_name: "".to_string(),
             client_interface_name: "".to_string(),
             language: "".to_string(),
+            encrypt: None,
         }
     }
 
@@ -130,5 +132,10 @@ impl MssqlConnectOptions {
             self.requested_packet_size = size;
             Ok(self)
         }
+    }
+
+    pub fn encrypt(mut self, encrypt: bool) -> Self {
+        self.encrypt = Some(encrypt);
+        self
     }
 }
