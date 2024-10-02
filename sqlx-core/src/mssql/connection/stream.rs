@@ -6,6 +6,7 @@ use sqlx_rt::TcpStream;
 use crate::error::Error;
 use crate::ext::ustr::UStr;
 use crate::io::{BufStream, Encode};
+use crate::mssql::connection::tls_prelogin_stream_wrapper::TlsPreloginWrapper;
 use crate::mssql::protocol::col_meta_data::ColMetaData;
 use crate::mssql::protocol::done::{Done, Status as DoneStatus};
 use crate::mssql::protocol::env_change::EnvChange;
@@ -19,12 +20,12 @@ use crate::mssql::protocol::return_status::ReturnStatus;
 use crate::mssql::protocol::return_value::ReturnValue;
 use crate::mssql::protocol::row::Row;
 use crate::mssql::{MssqlColumn, MssqlConnectOptions, MssqlDatabaseError};
-use crate::net::MaybeTlsStream;
+use crate::net::{MaybeTlsStream, TlsConfig};
 use crate::HashMap;
 use std::sync::Arc;
 
 pub(crate) struct MssqlStream {
-    inner: BufStream<MaybeTlsStream<TcpStream>>,
+    inner: BufStream<MaybeTlsStream<TlsPreloginWrapper<TcpStream>>>,
 
     // how many Done (or Error) we are currently waiting for
     pub(crate) pending_done_count: usize,
@@ -44,13 +45,15 @@ pub(crate) struct MssqlStream {
 
     // Maximum size of packets to send to the server
     pub(crate) max_packet_size: usize,
+
+    options: MssqlConnectOptions,
 }
 
 impl MssqlStream {
     pub(super) async fn connect(options: &MssqlConnectOptions) -> Result<Self, Error> {
-        let inner = BufStream::new(MaybeTlsStream::Raw(
-            TcpStream::connect((&*options.host, options.port)).await?,
-        ));
+        let tcp_stream = TcpStream::connect((&*options.host, options.port)).await?;
+        let wrapped_stream = TlsPreloginWrapper::new(tcp_stream);
+        let inner = BufStream::new(MaybeTlsStream::Raw(wrapped_stream));
 
         Ok(Self {
             inner,
@@ -64,6 +67,7 @@ impl MssqlStream {
                 .requested_packet_size
                 .try_into()
                 .unwrap_or(usize::MAX),
+            options: options.clone(),
         })
     }
 
@@ -206,10 +210,25 @@ impl MssqlStream {
 
         Ok(())
     }
+
+    pub(crate) async fn setup_encryption(&mut self) -> Result<(), Error> {
+        let tls_config = TlsConfig {
+            accept_invalid_certs: true,
+            hostname: &self.options.host,
+            accept_invalid_hostnames: true,
+            root_cert_path: None,
+            client_cert_path: None,
+            client_key_path: None,
+        };
+        self.inner.deref_mut().start_handshake();
+        self.inner.upgrade(tls_config).await?;
+        self.inner.deref_mut().handshake_complete();
+        Ok(())
+    }
 }
 
 // writes the packet out to the write buffer
-fn write_packets<'en, T: Encode<'en>>(
+pub(crate) fn write_packets<'en, T: Encode<'en>>(
     buffer: &mut Vec<u8>,
     max_packet_size: usize,
     ty: PacketType,
@@ -313,7 +332,7 @@ fn test_write_packets() {
 }
 
 impl Deref for MssqlStream {
-    type Target = BufStream<MaybeTlsStream<TcpStream>>;
+    type Target = BufStream<MaybeTlsStream<TlsPreloginWrapper<TcpStream>>>;
 
     fn deref(&self) -> &Self::Target {
         &self.inner

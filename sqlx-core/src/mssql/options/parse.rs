@@ -11,7 +11,7 @@ impl FromStr for MssqlConnectOptions {
     ///
     /// The connection string is expected to be a valid URL with the following format:
     /// ```text
-    /// mssql://[username[:password]@]host/database[?instance=instance_name&packet_size=packet_size&client_program_version=client_program_version&client_pid=client_pid&hostname=hostname&app_name=app_name&server_name=server_name&client_interface_name=client_interface_name&language=language]
+    /// mssql://[username[:password]@]host/database[?instance=instance_name&packet_size=packet_size&client_program_version=client_program_version&client_pid=client_pid&hostname=hostname&app_name=app_name&server_name=server_name&client_interface_name=client_interface_name&language=language&encrypt=true|false]
     /// ```
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let url: Url = s.parse().map_err(Error::config)?;
@@ -67,6 +67,10 @@ impl FromStr for MssqlConnectOptions {
                 "server_name" => options = options.server_name(&*value),
                 "client_interface_name" => options = options.client_interface_name(&*value),
                 "language" => options = options.language(&*value),
+                "encrypt" => {
+                    let encrypt = value.parse::<bool>().map_err(Error::config)?;
+                    options = options.encrypt(encrypt);
+                }
                 _ => {
                     return Err(Error::config(MssqlInvalidOption(key.into())));
                 }
