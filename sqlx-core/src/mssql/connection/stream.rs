@@ -1,7 +1,7 @@
 use std::ops::{Deref, DerefMut};
 
 use bytes::{Bytes, BytesMut};
-use sqlx_rt::TcpStream;
+use sqlx_rt::{AsyncWriteExt, TcpStream};
 
 use crate::error::Error;
 use crate::ext::ustr::UStr;
@@ -96,12 +96,11 @@ impl MssqlStream {
     pub(crate) async fn flush(&mut self) -> Result<(), Error> {
         // flush self.max_packet_size bytes at a time
         if self.inner.wbuf.len() > self.max_packet_size {
-            let rest = self.inner.wbuf.split_off(self.max_packet_size);
-            self.inner.flush().await?;
-            for chunk in rest.chunks(self.max_packet_size) {
-                self.inner.wbuf.extend_from_slice(chunk);
-                self.inner.flush().await?;
+            for chunk in self.inner.wbuf.chunks(self.max_packet_size) {
+                self.inner.stream.write_all(chunk).await?;
+                self.inner.stream.flush().await?;
             }
+            self.inner.wbuf.clear();
         } else {
             self.inner.flush().await?;
         }
