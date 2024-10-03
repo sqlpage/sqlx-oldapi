@@ -1,4 +1,7 @@
-use crate::connection::LogSettings;
+use std::path::Path;
+
+use crate::{connection::LogSettings, net::CertificateInput};
+use super::protocol::pre_login::Encrypt;
 
 mod connect;
 mod parse;
@@ -27,7 +30,10 @@ pub struct MssqlConnectOptions {
     pub(crate) language: String,
     /// Size in bytes of TDS packets to exchange with the server
     pub(crate) requested_packet_size: u32,
-    pub(crate) encrypt: Option<bool>, // Added field
+    pub(crate) encrypt: Encrypt,
+    pub(crate) trust_server_certificate: bool,
+    pub(crate) hostname_in_certificate: Option<String>,
+    pub(crate) ssl_root_cert: Option<CertificateInput>,
 }
 
 impl Default for MssqlConnectOptions {
@@ -49,12 +55,15 @@ impl MssqlConnectOptions {
             requested_packet_size: 4096,
             client_program_version: 0,
             client_pid: 0,
-            hostname: "".to_string(),
-            app_name: "".to_string(),
-            server_name: "".to_string(),
-            client_interface_name: "".to_string(),
-            language: "".to_string(),
-            encrypt: None,
+            hostname: String::new(),
+            app_name: String::new(),
+            server_name: String::new(),
+            client_interface_name: String::new(),
+            language: String::new(),
+            encrypt: Encrypt::On,
+            trust_server_certificate: true,
+            hostname_in_certificate: None,
+            ssl_root_cert: None,
         }
     }
 
@@ -89,12 +98,12 @@ impl MssqlConnectOptions {
     }
 
     pub fn client_program_version(mut self, client_program_version: u32) -> Self {
-        self.client_program_version = client_program_version.to_owned();
+        self.client_program_version = client_program_version;
         self
     }
 
     pub fn client_pid(mut self, client_pid: u32) -> Self {
-        self.client_pid = client_pid.to_owned();
+        self.client_pid = client_pid;
         self
     }
 
@@ -134,8 +143,26 @@ impl MssqlConnectOptions {
         }
     }
 
-    pub fn encrypt(mut self, encrypt: bool) -> Self {
-        self.encrypt = Some(encrypt);
+    pub fn encrypt(mut self, encrypt: Encrypt) -> Self {
+        self.encrypt = encrypt;
+        self
+    }
+
+    pub fn trust_server_certificate(mut self, trust: bool) -> Self {
+        self.trust_server_certificate = trust;
+        self
+    }
+
+    pub fn hostname_in_certificate(mut self, hostname: &str) -> Self {
+        self.hostname_in_certificate = Some(hostname.to_owned());
+        self
+    }
+
+    /// Sets the name of a file containing SSL certificate authority (CA) certificate(s).
+    /// If the file exists, the server's certificate will be verified to be signed by
+    /// one of these authorities.
+    pub fn ssl_root_cert(mut self, cert: impl AsRef<Path>) -> Self {
+        self.ssl_root_cert = Some(CertificateInput::File(cert.as_ref().to_path_buf()));
         self
     }
 }

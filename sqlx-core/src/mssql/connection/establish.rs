@@ -18,20 +18,14 @@ impl MssqlConnection {
         // TODO: Encryption
         // TODO: Send the version of SQLx over
 
-        let encryption = match options.encrypt {
-            Some(true) => Encrypt::Required,
-            Some(false) => Encrypt::NotSupported,
-            None => Encrypt::On,
-        };
-
-        log::debug!("Sending T-SQL PRELOGIN with encryption: {:?}", encryption);
+        log::debug!("Sending T-SQL PRELOGIN with encryption: {:?}", options.encrypt);
 
         stream
             .write_packet_and_flush(
                 PacketType::PreLogin,
                 PreLogin {
                     version: Version::default(),
-                    encryption,
+                    encryption: options.encrypt,
                     instance: options.instance.clone(),
 
                     ..Default::default()
@@ -47,7 +41,7 @@ impl MssqlConnection {
             Encrypt::Required | Encrypt::On
         ) {
             stream.setup_encryption().await?;
-        } else if encryption == Encrypt::Required {
+        } else if options.encrypt == Encrypt::Required {
             return Err(Error::Tls(Box::new(std::io::Error::new(
                 std::io::ErrorKind::Other,
                 "TLS encryption required but not supported by server",

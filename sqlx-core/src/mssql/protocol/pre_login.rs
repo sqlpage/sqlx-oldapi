@@ -277,7 +277,7 @@ impl Display for Version {
 /// During the Pre-Login handshake, the client and the server negotiate the
 /// wire encryption to be used.
 #[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub(crate) enum Encrypt {
+pub enum Encrypt {
     /// Encryption is available but off.
     Off = 0x00,
 
