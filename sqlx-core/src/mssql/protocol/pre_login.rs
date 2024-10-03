@@ -135,8 +135,8 @@ impl Encode<'_> for PreLogin {
         // Calculate the length of the option offset block. Each block is 5 bytes and it ends in
         // a 1 byte terminator.
         let len_offsets = (num_options * 5) + 1;
-        let mut offsets = buf.len() as usize;
-        let mut offset = len_offsets as u16;
+        let mut offsets = buf.len();
+        let mut offset = u16::try_from(len_offsets).unwrap();
 
         // Reserve a chunk for the offset block and set the final terminator
         buf.resize(buf.len() + len_offsets, 0);
@@ -151,7 +151,12 @@ impl Encode<'_> for PreLogin {
         buf.push(u8::from(self.encryption));
 
         if let Some(name) = &self.instance {
-            Instance.put(buf, &mut offsets, &mut offset, name.len() as u16 + 1);
+            Instance.put(
+                buf,
+                &mut offsets,
+                &mut offset,
+                u16::try_from(name.len() + 1).unwrap(),
+            );
             buf.extend_from_slice(name.as_bytes());
             buf.push(b'\0');
         }

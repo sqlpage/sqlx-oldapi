@@ -42,7 +42,9 @@ impl Encode<'_, Mssql> for BigDecimal {
         buf.push(sign);
         let mantissa = if exponent <= i64::from(u8::MAX) {
             if exponent < 0 {
-                bigint *= BigInt::from(10).pow((-exponent) as u32);
+                if let Ok(abs_exponent) = u32::try_from(-exponent) {
+                    bigint *= BigInt::from(10).pow(abs_exponent);
+                }
             }
             bigint.abs().to_u128().unwrap_or(0)
         } else {

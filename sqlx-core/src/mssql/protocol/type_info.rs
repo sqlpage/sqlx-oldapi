@@ -269,11 +269,11 @@ impl TypeInfo {
             | DataType::VarChar
             | DataType::Binary
             | DataType::VarBinary => {
-                buf.push(self.size as u8);
+                buf.push(u8::try_from(self.size).unwrap());
             }
 
             DataType::Decimal | DataType::Numeric | DataType::DecimalN | DataType::NumericN => {
-                buf.push(self.size as u8);
+                buf.push(u8::try_from(self.size).unwrap());
                 buf.push(self.precision);
                 buf.push(self.scale);
             }
@@ -397,7 +397,7 @@ impl TypeInfo {
             // Unknown size
             0xfffffffffffffffe => Vec::new(),
             // Known size
-            _ => Vec::with_capacity(len as usize),
+            _ => Vec::with_capacity(usize::try_from(len).unwrap()),
         };
 
         loop {
@@ -483,7 +483,7 @@ impl TypeInfo {
         let size = if let IsNull::Yes = value.encode(buf) {
             0xFF
         } else {
-            (buf.len() - offset - 1) as u8
+            u8::try_from(buf.len() - offset - 1).unwrap()
         };
 
         buf[offset] = size;
@@ -500,7 +500,7 @@ impl TypeInfo {
         let size = if let IsNull::Yes = value.encode(buf) {
             0xFFFF
         } else {
-            (buf.len() - offset - 2) as u16
+            u16::try_from(buf.len() - offset - 2).unwrap()
         };
 
         buf[offset..(offset + 2)].copy_from_slice(&size.to_le_bytes());
@@ -532,7 +532,7 @@ impl TypeInfo {
         let size = if let IsNull::Yes = value.encode(buf) {
             0xFFFF_FFFF
         } else {
-            (buf.len() - offset - 4) as u32
+            u32::try_from(buf.len() - offset - 4).unwrap()
         };
 
         buf[offset..(offset + 4)].copy_from_slice(&size.to_le_bytes());
@@ -691,19 +691,19 @@ impl TypeInfo {
             DataType::DateTime2N => {
                 s.push_str("datetime2(");
                 s.push_str(itoa::Buffer::new().format(self.scale));
-                s.push_str(")");
+                s.push(')');
             }
 
             DataType::DateTimeOffsetN => {
                 s.push_str("datetimeoffset(");
                 s.push_str(itoa::Buffer::new().format(self.scale));
-                s.push_str(")");
+                s.push(')');
             }
 
             DataType::TimeN => {
                 s.push_str("time(");
                 s.push_str(itoa::Buffer::new().format(self.scale));
-                s.push_str(")");
+                s.push(')');
             }
             DataType::SmallDateTime => s.push_str("smalldatetime"),
             DataType::Money => s.push_str("money"),
@@ -714,21 +714,21 @@ impl TypeInfo {
             DataType::DecimalN => {
                 s.push_str("decimal(");
                 s.push_str(itoa::Buffer::new().format(self.precision));
-                s.push_str(", ");
+                s.push(',');
                 s.push_str(itoa::Buffer::new().format(self.scale));
-                s.push_str(")");
+                s.push(')');
             }
             DataType::NumericN => {
                 s.push_str("numeric(");
                 s.push_str(itoa::Buffer::new().format(self.precision));
-                s.push_str(", ");
+                s.push(',');
                 s.push_str(itoa::Buffer::new().format(self.scale));
-                s.push_str(")");
+                s.push(')');
             }
             DataType::MoneyN => {
                 s.push_str("money(");
                 s.push_str(itoa::Buffer::new().format(self.scale));
-                s.push_str(")");
+                s.push(')');
             }
             DataType::Xml => s.push_str("xml"),
             DataType::UserDefined => s.push_str("user_defined_type"),
