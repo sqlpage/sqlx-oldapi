@@ -143,7 +143,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin + Send> AsyncRead for TlsPreloginWrapper<
         buf: &mut [u8],
     ) -> Poll<io::Result<usize>> {
         if self.pending_handshake {
-            panic!("TLS not supported on async-std for mssql");
+            unimplemented!("TLS not supported on async-std for mssql");
         }
 
         Pin::new(&mut self.stream).poll_read(cx, buf)
