@@ -18,7 +18,10 @@ impl MssqlConnection {
         // TODO: Encryption
         // TODO: Send the version of SQLx over
 
-        log::debug!("Sending T-SQL PRELOGIN with encryption: {:?}", options.encrypt);
+        log::debug!(
+            "Sending T-SQL PRELOGIN with encryption: {:?}",
+            options.encrypt
+        );
 
         stream
             .write_packet_and_flush(

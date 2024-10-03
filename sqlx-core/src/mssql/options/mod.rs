@@ -1,7 +1,7 @@
 use std::path::Path;
 
-use crate::{connection::LogSettings, net::CertificateInput};
 use super::protocol::pre_login::Encrypt;
+use crate::{connection::LogSettings, net::CertificateInput};
 
 mod connect;
 mod parse;
