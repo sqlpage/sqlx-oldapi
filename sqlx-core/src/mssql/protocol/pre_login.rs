@@ -321,7 +321,7 @@ fn test_encode_pre_login() {
             build: 0,
             sub_build: 0,
         },
-        encryption: Encrypt::ON,
+        encryption: Encrypt::On,
         instance: Some("".to_string()),
         thread_id: Some(0x00000DB8),
         multiple_active_result_sets: Some(true),
@@ -359,5 +359,5 @@ fn test_decode_pre_login() {
     assert_eq!(pre_login.version.sub_build, 0);
 
     // ENCRYPT_OFF
-    assert_eq!(pre_login.encryption.bits(), 0);
+    assert_eq!(u8::from(pre_login.encryption), 0);
 }
