@@ -245,7 +245,11 @@ impl MssqlStream {
     pub(crate) async fn setup_encryption(&mut self) -> Result<(), Error> {
         let tls_config = TlsConfig {
             accept_invalid_certs: self.options.trust_server_certificate,
-            hostname: self.options.hostname_in_certificate.as_deref().unwrap_or(&self.options.host),
+            hostname: self
+                .options
+                .hostname_in_certificate
+                .as_deref()
+                .unwrap_or(&self.options.host),
             accept_invalid_hostnames: self.options.hostname_in_certificate.is_none(),
             root_cert_path: self.options.ssl_root_cert.as_ref(),
             client_cert_path: None,
