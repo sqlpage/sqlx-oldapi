@@ -19,7 +19,7 @@ impl Row for MssqlRow {
     type Database = Mssql;
 
     fn columns(&self) -> &[MssqlColumn] {
-        &*self.columns
+        &self.columns
     }
 
     fn try_get_raw<I>(&self, index: I) -> Result<MssqlValueRef<'_>, Error>
@@ -41,7 +41,7 @@ impl ColumnIndex<MssqlRow> for &'_ str {
         row.column_names
             .get(*self)
             .ok_or_else(|| Error::ColumnNotFound((*self).into()))
-            .map(|v| *v)
+            .copied()
     }
 }
 

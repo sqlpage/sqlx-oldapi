@@ -85,7 +85,7 @@ impl TransactionManager for MssqlTransactionManager {
                 PacketType::SqlBatch,
                 SqlBatch {
                     transaction_descriptor: conn.stream.transaction_descriptor,
-                    sql: &*query,
+                    sql: &query,
                 },
             );
 

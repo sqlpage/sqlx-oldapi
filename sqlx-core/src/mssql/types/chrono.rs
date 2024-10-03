@@ -160,7 +160,10 @@ where
         buf.extend_from_slice(&encode_date_time2(&self.naive_utc()));
         let seconds_from_utc = self.offset().fix().local_minus_utc();
         let mut encoded_offset: [u8; 2] = [0, 0];
-        LittleEndian::write_i16(&mut encoded_offset, (seconds_from_utc / 60) as i16);
+        LittleEndian::write_i16(
+            &mut encoded_offset,
+            i16::try_from(seconds_from_utc / 60).unwrap_or(i16::MAX),
+        );
         buf.extend_from_slice(&encoded_offset);
         IsNull::No
     }

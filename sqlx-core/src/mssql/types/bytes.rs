@@ -22,11 +22,12 @@ impl Type<Mssql> for [u8] {
 impl Encode<'_, Mssql> for &'_ [u8] {
     fn produces(&self) -> Option<MssqlTypeInfo> {
         let size = if self.len() <= 8000 {
-            u32::try_from(self.len()).unwrap().max(1)
+            let u_len = u32::try_from(self.len()).unwrap();
+            std::cmp::max(u_len, 1)
         } else {
             0xFF_FF
         };
-        return Some(MssqlTypeInfo(TypeInfo::new(DataType::BigVarBinary, size)));
+        Some(MssqlTypeInfo(TypeInfo::new(DataType::BigVarBinary, size)))
     }
 
     fn encode_by_ref(&self, buf: &mut Vec<u8>) -> IsNull {
