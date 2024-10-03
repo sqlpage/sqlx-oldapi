@@ -95,12 +95,16 @@ impl MssqlStream {
     // writes the packet out to the write buffer, splitting it if neccessary, and flushing TDS packets one at a time
     pub(crate) async fn flush(&mut self) -> Result<(), Error> {
         // flush self.max_packet_size bytes at a time
-        while self.inner.wbuf.len() > self.max_packet_size {
+        if self.inner.wbuf.len() > self.max_packet_size {
             let rest = self.inner.wbuf.split_off(self.max_packet_size);
             self.inner.flush().await?;
-            self.inner.wbuf = rest;
+            for chunk in rest.chunks(self.max_packet_size) {
+                self.inner.wbuf.extend_from_slice(chunk);
+                self.inner.flush().await?;
+            }
+        } else {
+            self.inner.flush().await?;
         }
-        self.inner.flush().await?;
         Ok(())
     }
 
