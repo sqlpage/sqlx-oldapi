@@ -71,9 +71,37 @@ impl MssqlStream {
         })
     }
 
-    // writes the packet out to the write buffer
+    // writes the packet out to the write buffer, but does not flush
+    // WARNING: if the packet is large, and we are over an encrypted connection, this will fail, since we would
+    // need to flush each packet individually to the encryption layer
     pub(crate) fn write_packet<'en, T: Encode<'en>>(&mut self, ty: PacketType, payload: T) {
         write_packets(&mut self.inner.wbuf, self.max_packet_size, ty, payload)
+    }
+
+    // writes the packet out to the write buffer, splitting it if neccessary, and flushing TDS packets one at a time
+    pub(crate) async fn write_packet_and_flush<'en, T: Encode<'en>>(
+        &mut self,
+        ty: PacketType,
+        payload: T,
+    ) -> Result<(), Error> {
+        if !self.inner.wbuf.is_empty() {
+            self.flush().await?;
+        }
+        self.write_packet(ty, payload);
+        self.flush().await?;
+        Ok(())
+    }
+
+    // writes the packet out to the write buffer, splitting it if neccessary, and flushing TDS packets one at a time
+    pub(crate) async fn flush(&mut self) -> Result<(), Error> {
+        // flush self.max_packet_size bytes at a time
+        while self.inner.wbuf.len() > self.max_packet_size {
+            let rest = self.inner.wbuf.split_off(self.max_packet_size);
+            self.inner.flush().await?;
+            self.inner.wbuf = rest;
+        }
+        self.inner.flush().await?;
+        Ok(())
     }
 
     // receive the next packet from the database

@@ -80,6 +80,7 @@ impl TransactionManager for MssqlTransactionManager {
 
             conn.stream.pending_done_count += 1;
 
+            // We cannot flush since we are in a synchronous context, but the packet will always be small here
             conn.stream.write_packet(
                 PacketType::SqlBatch,
                 SqlBatch {

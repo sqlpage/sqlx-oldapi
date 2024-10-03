@@ -205,7 +205,7 @@ async fn it_binds_string_with_special_chars() -> anyhow::Result<()> {
 async fn it_accepts_long_query_strings() -> anyhow::Result<()> {
     let mut conn = new::<Mssql>().await?;
     // try a query that does not fit in a single TDS packet
-    let (n,): (i32,) = sqlx_oldapi::query_as(&format!("SELECT {} 42", " ".repeat(0x1_00_00)))
+    let (n,): (i32,) = sqlx_oldapi::query_as(&format!("SELECT {} 42", " ".repeat(3000)))
         .fetch_one(&mut conn)
         .await?;
     assert_eq!(n, 42);

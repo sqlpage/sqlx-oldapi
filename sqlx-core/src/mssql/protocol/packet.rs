@@ -27,18 +27,21 @@ pub(crate) struct PacketHeader {
     pub(crate) packet_id: u8,
 }
 
+impl PacketHeader {
+    fn to_array(&self) -> [u8; PACKET_HEADER_SIZE] {
+        let mut arr = [0u8; PACKET_HEADER_SIZE];
+        arr[0] = self.r#type as u8;
+        arr[1] = self.status.bits();
+        arr[2..4].copy_from_slice(&self.length.to_be_bytes());
+        arr[4..6].copy_from_slice(&self.server_process_id.to_be_bytes());
+        arr[6] = self.packet_id;
+        arr
+    }
+}
+
 impl<'s> Encode<'s, ()> for PacketHeader {
     fn encode_with(&self, buf: &mut Vec<u8>, _: ()) {
-        buf.push(self.r#type as u8);
-        buf.push(self.status.bits());
-
-        buf.extend(&self.length.to_be_bytes());
-
-        buf.extend(&self.server_process_id.to_be_bytes());
-        buf.push(self.packet_id);
-
-        // window, unused
-        buf.push(0);
+        buf.extend_from_slice(&self.to_array());
     }
 }
 
