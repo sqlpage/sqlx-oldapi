@@ -6,7 +6,11 @@ use super::stream::write_packets;
 
 use crate::io::Decode;
 use bytes::Bytes;
-use sqlx_rt::{AsyncRead, AsyncWrite, ReadBuf};
+use sqlx_rt::{AsyncRead, AsyncWrite};
+
+#[cfg(feature = "_rt-tokio")]
+use sqlx_rt::ReadBuf;
+
 use std::cmp;
 use std::io;
 use std::pin::Pin;
@@ -72,12 +76,19 @@ impl<S> TlsPreloginWrapper<S> {
     }
 }
 
+#[cfg(feature = "_rt-async-std")]
+type PollReadOut = usize;
+
+#[cfg(feature = "_rt-tokio")]
+type PollReadOut = ();
+
 impl<S: AsyncRead + AsyncWrite + Unpin + Send> AsyncRead for TlsPreloginWrapper<S> {
+    #[cfg(feature = "_rt-tokio")]
     fn poll_read(
         mut self: Pin<&mut Self>,
         cx: &mut task::Context<'_>,
         buf: &mut ReadBuf<'_>,
-    ) -> Poll<io::Result<()>> {
+    ) -> Poll<io::Result<PollReadOut>> {
         if !self.pending_handshake {
             return Pin::new(&mut self.stream).poll_read(cx, buf);
         }
@@ -91,7 +102,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin + Send> AsyncRead for TlsPreloginWrapper<
 
                 let read = header_buf.filled().len();
                 if read == 0 {
-                    return Poll::Ready(Ok(()));
+                    return Poll::Ready(Ok(PollReadOut::default()));
                 }
 
                 inner.header_pos += read;
@@ -112,7 +123,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin + Send> AsyncRead for TlsPreloginWrapper<
         let max_read = std::cmp::min(inner.read_remaining, buf.remaining());
         let mut limited_buf = buf.take(max_read);
 
-        ready!(Pin::new(&mut inner.stream).poll_read(cx, &mut limited_buf))?;
+        let res = ready!(Pin::new(&mut inner.stream).poll_read(cx, &mut limited_buf))?;
 
         let read = limited_buf.filled().len();
         buf.advance(read);
@@ -122,7 +133,20 @@ impl<S: AsyncRead + AsyncWrite + Unpin + Send> AsyncRead for TlsPreloginWrapper<
             inner.header_pos = 0;
         }
 
-        Poll::Ready(Ok(()))
+        Poll::Ready(Ok(res))
+    }
+
+    #[cfg(feature = "_rt-async-std")]
+    fn poll_read(
+        mut self: Pin<&mut Self>,
+        cx: &mut task::Context<'_>,
+        buf: &mut [u8],
+    ) -> Poll<io::Result<usize>> {
+        if self.pending_handshake {
+            panic!("TLS not supported on async-std for mssql");
+        }
+
+        Pin::new(&mut self.stream).poll_read(cx, buf)
     }
 }
 
@@ -174,7 +198,29 @@ impl<S: AsyncRead + AsyncWrite + Unpin + Send> AsyncWrite for TlsPreloginWrapper
         Pin::new(&mut inner.stream).poll_flush(cx)
     }
 
+    #[cfg(feature = "_rt-tokio")]
     fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut task::Context<'_>) -> Poll<io::Result<()>> {
         Pin::new(&mut self.stream).poll_shutdown(cx)
+    }
+
+    #[cfg(feature = "_rt-async-std")]
+    fn poll_close(mut self: Pin<&mut Self>, cx: &mut task::Context<'_>) -> Poll<io::Result<()>> {
+        Pin::new(&mut self.stream).poll_close(cx)
+    }
+}
+
+use std::ops::{Deref, DerefMut};
+
+impl<S> Deref for TlsPreloginWrapper<S> {
+    type Target = S;
+
+    fn deref(&self) -> &Self::Target {
+        &self.stream
+    }
+}
+
+impl<S> DerefMut for TlsPreloginWrapper<S> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.stream
     }
 }
