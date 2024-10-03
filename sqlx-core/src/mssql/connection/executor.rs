@@ -41,26 +41,28 @@ impl MssqlConnection {
                 proc_args.append(&mut arguments);
             }
 
-            self.stream.write_packet(
-                PacketType::Rpc,
-                RpcRequest {
-                    transaction_descriptor: self.stream.transaction_descriptor,
-                    arguments: &proc_args,
-                    procedure: proc,
-                    options: OptionFlags::empty(),
-                },
-            );
+            self.stream
+                .write_packet_and_flush(
+                    PacketType::Rpc,
+                    RpcRequest {
+                        transaction_descriptor: self.stream.transaction_descriptor,
+                        arguments: &proc_args,
+                        procedure: proc,
+                        options: OptionFlags::empty(),
+                    },
+                )
+                .await?;
         } else {
-            self.stream.write_packet(
-                PacketType::SqlBatch,
-                SqlBatch {
-                    transaction_descriptor: self.stream.transaction_descriptor,
-                    sql: query,
-                },
-            );
+            self.stream
+                .write_packet_and_flush(
+                    PacketType::SqlBatch,
+                    SqlBatch {
+                        transaction_descriptor: self.stream.transaction_descriptor,
+                        sql: query,
+                    },
+                )
+                .await?;
         }
-
-        self.stream.flush().await?;
 
         Ok(())
     }

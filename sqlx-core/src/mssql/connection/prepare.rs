@@ -52,21 +52,22 @@ pub(crate) async fn prepare(
     args.add_unnamed(sql);
     args.add_unnamed(0x0001_i32); // 1 = SEND_METADATA
 
-    conn.stream.write_packet(
-        PacketType::Rpc,
-        RpcRequest {
-            transaction_descriptor: conn.stream.transaction_descriptor,
-            arguments: &args,
-            // [sp_prepare] will emit the column meta data
-            // small issue is that we need to declare all the used placeholders with a "fallback" type
-            // we currently use regex to collect them; false positives are *okay* but false
-            // negatives would break the query
-            procedure: Either::Right(Procedure::Prepare),
-            options: OptionFlags::empty(),
-        },
-    );
+    conn.stream
+        .write_packet_and_flush(
+            PacketType::Rpc,
+            RpcRequest {
+                transaction_descriptor: conn.stream.transaction_descriptor,
+                arguments: &args,
+                // [sp_prepare] will emit the column meta data
+                // small issue is that we need to declare all the used placeholders with a "fallback" type
+                // we currently use regex to collect them; false positives are *okay* but false
+                // negatives would break the query
+                procedure: Either::Right(Procedure::Prepare),
+                options: OptionFlags::empty(),
+            },
+        )
+        .await?;
 
-    conn.stream.flush().await?;
     conn.stream.wait_until_ready().await?;
     conn.stream.pending_done_count += 1;
 
@@ -100,17 +101,18 @@ pub(crate) async fn prepare(
         let mut args = MssqlArguments::default();
         args.add_unnamed(id);
 
-        conn.stream.write_packet(
-            PacketType::Rpc,
-            RpcRequest {
-                transaction_descriptor: conn.stream.transaction_descriptor,
-                arguments: &args,
-                procedure: Either::Right(Procedure::Unprepare),
-                options: OptionFlags::empty(),
-            },
-        );
+        conn.stream
+            .write_packet_and_flush(
+                PacketType::Rpc,
+                RpcRequest {
+                    transaction_descriptor: conn.stream.transaction_descriptor,
+                    arguments: &args,
+                    procedure: Either::Right(Procedure::Unprepare),
+                    options: OptionFlags::empty(),
+                },
+            )
+            .await?;
 
-        conn.stream.flush().await?;
         conn.stream.wait_until_ready().await?;
         conn.stream.pending_done_count += 1;
 

@@ -2,8 +2,8 @@ use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, Server
 use rustls::client::WebPkiServerVerifier;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, ServerName, UnixTime};
 use rustls::{
-    CertificateError, ClientConfig, DigitallySignedStruct, Error as TlsError, RootCertStore,
-    SignatureScheme,
+    CertificateError, ClientConfig, DigitallySignedStruct, Error as TlsError, KeyLogFile,
+    RootCertStore, SignatureScheme,
 };
 use std::io::{BufReader, Cursor};
 use std::sync::Arc;
@@ -50,7 +50,7 @@ pub async fn configure_tls_connector(
     };
 
     // authentication using user's key and its associated certificate
-    let config = match (tls_config.client_cert_path, tls_config.client_key_path) {
+    let mut config = match (tls_config.client_cert_path, tls_config.client_key_path) {
         (Some(cert_path), Some(key_path)) => {
             let cert_chain = certs_from_pem(cert_path.data().await?)?;
             let key_der = private_key_from_pem(key_path.data().await?)?;
@@ -65,6 +65,9 @@ pub async fn configure_tls_connector(
             ))
         }
     };
+
+    // When SSLKEYLOGFILE is set, write the TLS keys to a file for use with Wireshark
+    config.key_log = Arc::new(KeyLogFile::new());
 
     Ok(Arc::new(config).into())
 }

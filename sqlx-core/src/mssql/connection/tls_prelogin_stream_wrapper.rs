@@ -62,10 +62,12 @@ impl<S> TlsPreloginWrapper<S> {
     }
 
     pub fn start_handshake(&mut self) {
+        log::trace!("Handshake starting");
         self.pending_handshake = true;
     }
 
     pub fn handshake_complete(&mut self) {
+        log::trace!("Handshake complete");
         self.pending_handshake = false;
     }
 }
@@ -159,6 +161,8 @@ impl<S: AsyncRead + AsyncWrite + Unpin + Send> AsyncWrite for TlsPreloginWrapper
             }
 
             while !inner.wr_buf.is_empty() {
+                log::trace!("Writing {} bytes of TLS handshake", inner.wr_buf.len());
+
                 let written = ready!(Pin::new(&mut inner.stream).poll_write(cx, &inner.wr_buf))?;
 
                 inner.wr_buf.drain(..written);

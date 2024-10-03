@@ -26,18 +26,18 @@ impl MssqlConnection {
 
         log::debug!("Sending T-SQL PRELOGIN with encryption: {:?}", encryption);
 
-        stream.write_packet(
-            PacketType::PreLogin,
-            PreLogin {
-                version: Version::default(),
-                encryption,
-                instance: options.instance.clone(),
+        stream
+            .write_packet_and_flush(
+                PacketType::PreLogin,
+                PreLogin {
+                    version: Version::default(),
+                    encryption,
+                    instance: options.instance.clone(),
 
-                ..Default::default()
-            },
-        );
-
-        stream.flush().await?;
+                    ..Default::default()
+                },
+            )
+            .await?;
 
         let (_, packet) = stream.recv_packet().await?;
         let prelogin_response = PreLogin::decode(packet)?;
@@ -47,31 +47,36 @@ impl MssqlConnection {
             Encrypt::Required | Encrypt::On
         ) {
             stream.setup_encryption().await?;
+        } else if encryption == Encrypt::Required {
+            return Err(Error::Tls(Box::new(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "TLS encryption required but not supported by server",
+            ))));
         }
 
         // LOGIN7 defines the authentication rules for use between client and server
 
-        stream.write_packet(
-            PacketType::Tds7Login,
-            Login7 {
-                // FIXME: use a version constant
-                version: 0x74000004, // SQL Server 2012 - SQL Server 2019
-                client_program_version: options.client_program_version,
-                client_pid: options.client_pid,
-                packet_size: options.requested_packet_size, // max allowed size of TDS packet
-                hostname: &options.hostname,
-                username: &options.username,
-                password: options.password.as_deref().unwrap_or_default(),
-                app_name: &options.app_name,
-                server_name: &options.server_name,
-                client_interface_name: &options.client_interface_name,
-                language: &options.language,
-                database: &*options.database,
-                client_id: [0; 6],
-            },
-        );
-
-        stream.flush().await?;
+        stream
+            .write_packet_and_flush(
+                PacketType::Tds7Login,
+                Login7 {
+                    // FIXME: use a version constant
+                    version: 0x74000004, // SQL Server 2012 - SQL Server 2019
+                    client_program_version: options.client_program_version,
+                    client_pid: options.client_pid,
+                    packet_size: options.requested_packet_size, // max allowed size of TDS packet
+                    hostname: &options.hostname,
+                    username: &options.username,
+                    password: options.password.as_deref().unwrap_or_default(),
+                    app_name: &options.app_name,
+                    server_name: &options.server_name,
+                    client_interface_name: &options.client_interface_name,
+                    language: &options.language,
+                    database: &*options.database,
+                    client_id: [0; 6],
+                },
+            )
+            .await?;
 
         loop {
             // NOTE: we should receive an [Error] message if something goes wrong, otherwise,

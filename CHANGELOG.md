@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add sqlx version information to pre-login message in mssql
 - Add support for encrypted Microsoft SQL server connections (using TLS)
+- Add support for the `SSLKEYLOGFILE` environment variable for TLS decryption in Wireshark
 
 ## 0.6.27
 
