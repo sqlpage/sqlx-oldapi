@@ -142,11 +142,48 @@ impl<S: AsyncRead + AsyncWrite + Unpin + Send> AsyncRead for TlsPreloginWrapper<
         cx: &mut task::Context<'_>,
         buf: &mut [u8],
     ) -> Poll<io::Result<usize>> {
-        if self.pending_handshake {
-            unimplemented!("TLS not supported on async-std for mssql");
+        if !self.pending_handshake {
+            return Pin::new(&mut self.stream).poll_read(cx, buf);
         }
 
-        Pin::new(&mut self.stream).poll_read(cx, buf)
+        let inner = self.get_mut();
+
+        if !inner.header_buf[inner.header_pos..].is_empty() {
+            while !inner.header_buf[inner.header_pos..].is_empty() {
+                let header_buf = &mut inner.header_buf[inner.header_pos..];
+                let read = ready!(Pin::new(&mut inner.stream).poll_read(cx, header_buf))?;
+
+                if read == 0 {
+                    return Poll::Ready(Ok(PollReadOut::default()));
+                }
+
+                inner.header_pos += read;
+            }
+
+            let header: PacketHeader = Decode::decode(Bytes::copy_from_slice(&inner.header_buf))
+                .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
+
+            inner.read_remaining = usize::from(header.length) - HEADER_BYTES;
+
+            log::trace!(
+                "Discarding header ({:?}), reading packet of {} bytes",
+                header,
+                inner.read_remaining,
+            );
+        }
+
+        let max_read = std::cmp::min(inner.read_remaining, buf.len());
+        let limited_buf = &mut buf[..max_read];
+
+        let read = ready!(Pin::new(&mut inner.stream).poll_read(cx, limited_buf))?;
+
+        inner.read_remaining -= read;
+
+        if inner.read_remaining == 0 {
+            inner.header_pos = 0;
+        }
+
+        Poll::Ready(Ok(read))
     }
 }
 

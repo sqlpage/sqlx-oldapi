@@ -60,10 +60,7 @@ impl MssqlConnectOptions {
             server_name: String::new(),
             client_interface_name: String::new(),
             language: String::new(),
-            #[cfg(feature = "_rt-tokio")]
             encrypt: Encrypt::On,
-            #[cfg(not(feature = "_rt-tokio"))]
-            encrypt: Encrypt::NotSupported,
             trust_server_certificate: true,
             hostname_in_certificate: None,
             ssl_root_cert: None,
