@@ -11,6 +11,7 @@
 >     -   Support for reading and writing `numeric` and `decimal`.
 >     -   Multiple bug fixes around string handling, including better support for long strings
 >     -   Support for packet chunking, which fixes a bug where large bound parameters or large queries would fail
+>     -   Support for TLS encrypted connections
 
 <h1 align="center">SQLx</h1>
 <div align="center">
