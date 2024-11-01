@@ -115,14 +115,51 @@ impl TypeInfo {
 
             DataType::VarChar | DataType::Char | DataType::BigChar | DataType::BigVarChar => {
                 // unwrap: impossible to unwrap here, collation will be set
-                Ok(match self.collation.unwrap().locale {
-                    // This is the Western encoding for Windows. It is an extension of ISO-8859-1,
-                    // which is known as Latin 1.
-                    0x0409 => encoding_rs::WINDOWS_1252,
-
-                    locale => {
-                        return Err(err_protocol!("unsupported locale 0x{:04x}", locale));
+                // The locale is a windows LCID (locale identifier), which maps to an encoding
+                let lcid = self.collation.unwrap().locale;
+                Ok(match lcid {
+                    // Arabic locales
+                    0x0401 | 0x0801 | 0x0c01 | 0x1001 | 0x1401 | 0x1801 | 0x1c01 | 0x2001
+                    | 0x2401 | 0x2801 | 0x2c01 | 0x3001 | 0x3401 | 0x3801 | 0x3c01 | 0x4001 => {
+                        encoding_rs::WINDOWS_1256
                     }
+
+                    // Chinese locales
+                    0x0404 | 0x0c04 | 0x1404 | 0x30404 => encoding_rs::BIG5,
+                    0x0804 | 0x1004 | 0x20804 | 0x21004 => encoding_rs::GBK,
+
+                    // Cyrillic locales
+                    0x0402 | 0x0419 | 0x0422 | 0x0423 | 0x0843 => encoding_rs::WINDOWS_1251,
+
+                    // Central European locales
+                    0x0405 | 0x041a | 0x041b | 0x0424 | 0x0415 => encoding_rs::WINDOWS_1250,
+
+                    // Baltic locales
+                    0x0425 | 0x0426 | 0x0427 => encoding_rs::WINDOWS_1257,
+
+                    // Greek
+                    0x0408 => encoding_rs::WINDOWS_1253,
+
+                    // Hebrew
+                    0x040d => encoding_rs::WINDOWS_1255,
+
+                    // Japanese
+                    0x0411 => encoding_rs::SHIFT_JIS,
+
+                    // Korean
+                    0x0412 => encoding_rs::EUC_KR,
+
+                    // Thai
+                    0x041e => encoding_rs::WINDOWS_874,
+
+                    // Turkish
+                    0x041f => encoding_rs::WINDOWS_1254,
+
+                    // Vietnamese
+                    0x042a => encoding_rs::WINDOWS_1258,
+
+                    // Western European/US locales - default for unhandled LCIDs
+                    _ => encoding_rs::WINDOWS_1252,
                 })
             }
 
