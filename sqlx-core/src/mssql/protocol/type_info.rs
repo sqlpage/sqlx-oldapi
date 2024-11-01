@@ -121,7 +121,7 @@ impl TypeInfo {
                     0x0409 => encoding_rs::WINDOWS_1252,
 
                     locale => {
-                        return Err(err_protocol!("unsupported locale 0x{:?}", locale));
+                        return Err(err_protocol!("unsupported locale 0x{:04x}", locale));
                     }
                 })
             }
