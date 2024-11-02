@@ -24,6 +24,7 @@ pub use connection::MssqlConnection;
 pub use database::Mssql;
 pub use error::MssqlDatabaseError;
 pub use options::MssqlConnectOptions;
+pub use protocol::pre_login::Encrypt;
 pub use query_result::MssqlQueryResult;
 pub use row::MssqlRow;
 pub use statement::MssqlStatement;
