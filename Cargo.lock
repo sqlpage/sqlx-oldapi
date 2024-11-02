@@ -660,9 +660,9 @@ checksum = "37b2a672a2cb129a2e41c10b1224bb368f9f37a2b16b612598138befd7b37eb5"
 
 [[package]]
 name = "cc"
-version = "1.1.31"
+version = "1.1.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c2e7962b54006dcfcc61cb72735f4d89bb97061dd6a7ed882ec6b8ee53714c6f"
+checksum = "67b9470d453346108f93a59222a9a1a5724db32d0a4727b7ab7ace4b4d822dc9"
 dependencies = [
  "jobserver",
  "libc",
@@ -3168,7 +3168,7 @@ dependencies = [
 
 [[package]]
 name = "sqlx-cli"
-version = "0.6.30"
+version = "0.6.31"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3193,7 +3193,7 @@ dependencies = [
 
 [[package]]
 name = "sqlx-core-oldapi"
-version = "0.6.30"
+version = "0.6.31"
 dependencies = [
  "ahash 0.8.11",
  "atoi",
@@ -3355,7 +3355,7 @@ dependencies = [
 
 [[package]]
 name = "sqlx-macros-oldapi"
-version = "0.6.30"
+version = "0.6.31"
 dependencies = [
  "dotenvy",
  "either",
@@ -3375,7 +3375,7 @@ dependencies = [
 
 [[package]]
 name = "sqlx-oldapi"
-version = "0.6.30"
+version = "0.6.31"
 dependencies = [
  "anyhow",
  "async-std",
@@ -3402,7 +3402,7 @@ dependencies = [
 
 [[package]]
 name = "sqlx-rt-oldapi"
-version = "0.6.30"
+version = "0.6.31"
 dependencies = [
  "async-native-tls",
  "async-std",

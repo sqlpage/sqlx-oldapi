@@ -44,7 +44,7 @@ pub use query_result::AnyQueryResult;
 pub use row::AnyRow;
 pub use statement::AnyStatement;
 pub use transaction::AnyTransactionManager;
-pub use type_info::AnyTypeInfo;
+pub use type_info::{AnyTypeInfo, AnyTypeInfoKind};
 pub use value::{AnyValue, AnyValueRef};
 
 pub type AnyPool = crate::pool::Pool<Any>;

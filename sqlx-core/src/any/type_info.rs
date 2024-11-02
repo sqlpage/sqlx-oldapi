@@ -15,10 +15,11 @@ use crate::sqlite::SqliteTypeInfo;
 use crate::mssql::MssqlTypeInfo;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct AnyTypeInfo(pub(crate) AnyTypeInfoKind);
+pub struct AnyTypeInfo(AnyTypeInfoKind);
 
 #[derive(Debug, Clone, PartialEq)]
-pub(crate) enum AnyTypeInfoKind {
+#[non_exhaustive]
+pub enum AnyTypeInfoKind {
     #[cfg(feature = "postgres")]
     Postgres(PgTypeInfo),
 
