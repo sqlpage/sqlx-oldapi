@@ -48,6 +48,29 @@ async fn it_has_chrono() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "chrono")]
+#[sqlx_macros::test]
+async fn it_has_chrono_fixed_offset() -> anyhow::Result<()> {
+    use sqlx_oldapi::types::chrono::{DateTime, FixedOffset};
+    assert_eq!(
+        DateTime::<FixedOffset>::parse_from_rfc3339("2020-01-02T12:00:00+02:00").unwrap(),
+        get_val::<DateTime<FixedOffset>>(
+            if cfg!(feature = "sqlite") {
+                "'2020-01-02 12:00:00+02:00'"
+            } else if cfg!(feature = "mssql") {
+                "CAST('2020-01-02 12:00:00+02:00' AS DATETIMEOFFSET)"
+            } else if cfg!(feature = "postgres") {
+                "'2020-01-02 12:00:00+02:00'::timestamptz"
+            } else {
+                eprintln!("DBMS not supported");
+                return Ok(())
+            }
+        )
+        .await?
+    );
+    Ok(())
+}
+
 #[cfg(feature = "bigdecimal")]
 #[sqlx_macros::test]
 async fn it_has_bigdecimal() -> anyhow::Result<()> {

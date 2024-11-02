@@ -84,6 +84,8 @@ impl_any_type!(chrono::NaiveDateTime);
 #[cfg(feature = "chrono")]
 impl_any_type!(chrono::DateTime<chrono::offset::Utc>);
 #[cfg(feature = "chrono")]
+impl_any_type!(chrono::DateTime<chrono::offset::FixedOffset>);
+#[cfg(feature = "chrono")]
 impl_any_type!(chrono::DateTime<chrono::offset::Local>);
 
 // Encode
@@ -96,6 +98,8 @@ impl_any_encode!(chrono::NaiveDateTime);
 #[cfg(feature = "chrono")]
 impl_any_encode!(chrono::DateTime<chrono::offset::Utc>);
 #[cfg(feature = "chrono")]
+impl_any_encode!(chrono::DateTime<chrono::offset::FixedOffset>);
+#[cfg(feature = "chrono")]
 impl_any_encode!(chrono::DateTime<chrono::offset::Local>);
 
 // Decode
@@ -107,6 +111,8 @@ impl_any_decode!(chrono::NaiveTime);
 impl_any_decode!(chrono::NaiveDateTime);
 #[cfg(feature = "chrono")]
 impl_any_decode!(chrono::DateTime<chrono::offset::Utc>);
+#[cfg(feature = "chrono")]
+impl_any_decode!(chrono::DateTime<chrono::offset::FixedOffset>);
 #[cfg(feature = "chrono")]
 impl_any_decode!(chrono::DateTime<chrono::offset::Local>);
 
