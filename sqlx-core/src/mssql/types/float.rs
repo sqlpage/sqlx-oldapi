@@ -27,7 +27,8 @@ impl Encode<'_, Mssql> for f32 {
 
 impl Decode<'_, Mssql> for f32 {
     fn decode(value: MssqlValueRef<'_>) -> Result<Self, BoxDynError> {
-        Ok(LittleEndian::read_f32(value.as_bytes()?))
+        let as_f64 = <f64 as Decode<'_, Mssql>>::decode(value)?;
+        Ok(as_f64 as f32)
     }
 }
 
@@ -66,6 +67,9 @@ impl Decode<'_, Mssql> for f64 {
         match ty {
             DataType::Float | DataType::FloatN if size == 8 => {
                 Ok(LittleEndian::read_f64(value.as_bytes()?))
+            }
+            DataType::Float | DataType::FloatN if size == 4 => {
+                Ok(f64::from(LittleEndian::read_f32(value.as_bytes()?)))
             }
             DataType::Numeric | DataType::NumericN | DataType::Decimal | DataType::DecimalN => {
                 decode_numeric(value.as_bytes()?, precision, scale)

@@ -45,12 +45,14 @@ test_type!(i64(Mssql, "CAST(32324324432 AS BIGINT)" == 32324324432_i64));
 
 test_type!(f32(
     Mssql,
-    "CAST(3.14159265358979323846264338327950288 AS REAL)" == f32::consts::PI
+    "CAST(3.14159265358979323846264338327950288 AS REAL)" == f32::consts::PI,
+    "CAST(0.5 AS DECIMAL(3,2))" == 0.5_f32,
 ));
 
 test_type!(f64(
     Mssql,
-    "CAST(939399419.1225182 AS FLOAT)" == 939399419.1225182_f64
+    "CAST(939399419.1225182 AS FLOAT)" == 939399419.1225182_f64,
+    "CAST(9.75 AS REAL)" == 9.75_f64,
 ));
 
 test_type!(numeric<f64>(Mssql,
