@@ -15,7 +15,7 @@ use crate::sqlite::SqliteTypeInfo;
 use crate::mssql::MssqlTypeInfo;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct AnyTypeInfo(AnyTypeInfoKind);
+pub struct AnyTypeInfo(pub AnyTypeInfoKind);
 
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
