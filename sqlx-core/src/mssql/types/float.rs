@@ -13,7 +13,7 @@ impl Type<Mssql> for f32 {
     }
 
     fn compatible(ty: &MssqlTypeInfo) -> bool {
-        matches!(ty.0.ty, DataType::Real | DataType::FloatN) && ty.0.size == 4
+        <f64 as Type<Mssql>>::compatible(ty)
     }
 }
 
