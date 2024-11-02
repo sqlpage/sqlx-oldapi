@@ -117,46 +117,52 @@ impl TypeInfo {
                 // unwrap: impossible to unwrap here, collation will be set
                 // The locale is a windows LCID (locale identifier), which maps to an encoding
                 let lcid = self.collation.unwrap().locale;
+                // see https://github.com/lovasoa/lcid-to-codepage
                 Ok(match lcid {
                     // Arabic locales
-                    0x0401 | 0x0801 | 0x0c01 | 0x1001 | 0x1401 | 0x1801 | 0x1c01 | 0x2001
-                    | 0x2401 | 0x2801 | 0x2c01 | 0x3001 | 0x3401 | 0x3801 | 0x3c01 | 0x4001 => {
-                        encoding_rs::WINDOWS_1256
-                    }
+                    0x0401 | 0x3801 | 0x3C01 | 0x1401 | 0x0C01 | 0x0801 | 0x2C01 | 0x3401 |
+                    0x3001 | 0x1001 | 0x1801 | 0x2001 | 0x4001 | 0x2801 | 0x1C01 | 0x2401 |
+                    0x0429 | 0x0492 | 0x0846 | 0x048C | 0x0859 | 0x0420 | 0x0820 | 0x045F |
+                    0x0480 => encoding_rs::WINDOWS_1256,
 
                     // Chinese locales
-                    0x0404 | 0x0c04 | 0x1404 | 0x30404 => encoding_rs::BIG5,
-                    0x0804 | 0x1004 | 0x20804 | 0x21004 => encoding_rs::GBK,
+                    0x0804 | 0x50804 | 0x20804 | 0x1004 | 0x51004 | 0x21004 => encoding_rs::GBK,
+                    0x0C04 | 0x40C04 | 0x1404 | 0x41404 | 0x21404 | 0x0404 | 0x30404 | 
+                    0x40404 => encoding_rs::BIG5,
 
                     // Cyrillic locales
-                    0x0402 | 0x0419 | 0x0422 | 0x0423 | 0x0843 => encoding_rs::WINDOWS_1251,
+                    0x082C | 0x046D | 0x0423 | 0x0402 | 0x201A | 0x0440 | 0x042F | 0x0450 |
+                    0x0419 | 0x0819 | 0x0485 | 0x0428 | 0x0444 | 0x0422 | 0x0843 | 0x281A |
+                    0x1C1A | 0x301A => encoding_rs::WINDOWS_1251,
 
                     // Central European locales
-                    0x0405 | 0x041a | 0x041b | 0x0424 | 0x0415 => encoding_rs::WINDOWS_1250,
+                    0x141A | 0x0405 | 0x041A | 0x101A | 0x040E | 0x1040E | 0x0415 | 0x0418 |
+                    0x0818 | 0x041B | 0x0424 | 0x041C | 0x241A | 0x181A | 0x2C1A | 
+                    0x0442 => encoding_rs::WINDOWS_1250,
 
                     // Baltic locales
-                    0x0425 | 0x0426 | 0x0427 => encoding_rs::WINDOWS_1257,
+                    0x0425 | 0x0427 | 0x0426 => encoding_rs::WINDOWS_1257,
 
                     // Greek
                     0x0408 => encoding_rs::WINDOWS_1253,
 
                     // Hebrew
-                    0x040d => encoding_rs::WINDOWS_1255,
+                    0x040D => encoding_rs::WINDOWS_1255,
 
                     // Japanese
-                    0x0411 => encoding_rs::SHIFT_JIS,
+                    0x0411 | 0x40411 => encoding_rs::SHIFT_JIS,
 
                     // Korean
                     0x0412 => encoding_rs::EUC_KR,
 
                     // Thai
-                    0x041e => encoding_rs::WINDOWS_874,
+                    0x041E => encoding_rs::WINDOWS_874,
 
                     // Turkish
-                    0x041f => encoding_rs::WINDOWS_1254,
+                    0x042C | 0x041F | 0x0443 => encoding_rs::WINDOWS_1254,
 
                     // Vietnamese
-                    0x042a => encoding_rs::WINDOWS_1258,
+                    0x042A => encoding_rs::WINDOWS_1258,
 
                     // Western European/US locales - default for unhandled LCIDs
                     _ => encoding_rs::WINDOWS_1252,
