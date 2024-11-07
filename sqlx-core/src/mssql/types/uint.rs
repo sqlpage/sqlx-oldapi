@@ -89,10 +89,7 @@ impl Type<Mssql> for u64 {
     fn compatible(ty: &MssqlTypeInfo) -> bool {
         matches!(
             ty.0.ty,
-            DataType::Numeric
-                | DataType::NumericN
-                | DataType::Decimal
-                | DataType::DecimalN
+            DataType::Numeric | DataType::NumericN | DataType::Decimal | DataType::DecimalN
         ) && (ty.0.size == 0 || ty.0.size == 17)
     }
 }
