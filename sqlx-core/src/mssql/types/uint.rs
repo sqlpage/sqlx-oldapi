@@ -7,116 +7,108 @@ use crate::types::Type;
 
 impl Type<Mssql> for u8 {
     fn type_info() -> MssqlTypeInfo {
-        MssqlTypeInfo(TypeInfo::new(DataType::IntN, 1))
+        <i8 as Type<Mssql>>::type_info()
     }
 
     fn compatible(ty: &MssqlTypeInfo) -> bool {
-        matches!(ty.0.ty, DataType::TinyInt | DataType::IntN) && ty.0.size == 1
+        <i8 as Type<Mssql>>::compatible(ty)
     }
 }
 
 impl Encode<'_, Mssql> for u8 {
     fn encode_by_ref(&self, buf: &mut Vec<u8>) -> IsNull {
-        buf.extend(&self.to_le_bytes());
-
-        IsNull::No
+        let v = i8::try_from(*self).unwrap_or_else(|_e| {
+            log::warn!("cannot encode {self} as a signed mssql tinyint");
+            i8::MAX
+        });
+        <i8 as Encode<'_, Mssql>>::encode_by_ref(&v, buf)
     }
 }
 
 impl Decode<'_, Mssql> for u8 {
     fn decode(value: MssqlValueRef<'_>) -> Result<Self, BoxDynError> {
-        Ok(value.as_bytes()?[0])
+        let v = <i8 as Decode<'_, Mssql>>::decode(value)?;
+        Ok(u8::try_from(v)?)
     }
 }
 
 impl Type<Mssql> for u16 {
     fn type_info() -> MssqlTypeInfo {
-        MssqlTypeInfo(TypeInfo::new(DataType::IntN, 4))
+        <i16 as Type<Mssql>>::type_info()
     }
 
     fn compatible(ty: &MssqlTypeInfo) -> bool {
-        matches!(ty.0.ty, DataType::Int | DataType::IntN) && ty.0.size == 4
+        <i16 as Type<Mssql>>::compatible(ty)
     }
 }
 
 impl Encode<'_, Mssql> for u16 {
     fn encode_by_ref(&self, buf: &mut Vec<u8>) -> IsNull {
-        let value = i32::from(*self);
-        buf.extend(&value.to_le_bytes());
-        IsNull::No
+        let v = i16::try_from(*self).unwrap_or_else(|_e| {
+            log::warn!("cannot encode {self} as a signed mssql smallint");
+            i16::MAX
+        });
+        <i16 as Encode<'_, Mssql>>::encode_by_ref(&v, buf)
     }
 }
 
 impl Decode<'_, Mssql> for u16 {
     fn decode(value: MssqlValueRef<'_>) -> Result<Self, BoxDynError> {
-        let bytes = value.as_bytes()?;
-        let val = i32::from_le_bytes(bytes.try_into()?);
-        u16::try_from(val).map_err(Into::into)
+        let v = <i16 as Decode<'_, Mssql>>::decode(value)?;
+        Ok(u16::try_from(v)?)
     }
 }
 
 impl Type<Mssql> for u32 {
     fn type_info() -> MssqlTypeInfo {
-        MssqlTypeInfo(TypeInfo::new(DataType::IntN, 8))
+        <i32 as Type<Mssql>>::type_info()
     }
 
     fn compatible(ty: &MssqlTypeInfo) -> bool {
-        matches!(ty.0.ty, DataType::BigInt | DataType::IntN) && ty.0.size == 8
+        <i32 as Type<Mssql>>::compatible(ty)
     }
 }
 
 impl Encode<'_, Mssql> for u32 {
     fn encode_by_ref(&self, buf: &mut Vec<u8>) -> IsNull {
-        let value = i64::from(*self);
-        buf.extend(&value.to_le_bytes());
-        IsNull::No
+        let v = i32::try_from(*self).unwrap_or_else(|_e| {
+            log::warn!("cannot encode {self} as a signed mssql int");
+            i32::MAX
+        });
+        <i32 as Encode<'_, Mssql>>::encode_by_ref(&v, buf)
     }
 }
 
 impl Decode<'_, Mssql> for u32 {
     fn decode(value: MssqlValueRef<'_>) -> Result<Self, BoxDynError> {
-        let bytes = value.as_bytes()?;
-        let val = i64::from_le_bytes(bytes.try_into()?);
-        u32::try_from(val).map_err(Into::into)
+        let v = <i32 as Decode<'_, Mssql>>::decode(value)?;
+        Ok(u32::try_from(v)?)
     }
 }
 
 impl Type<Mssql> for u64 {
     fn type_info() -> MssqlTypeInfo {
-        MssqlTypeInfo(TypeInfo::new(DataType::NumericN, 17))
+        <i64 as Type<Mssql>>::type_info()
     }
 
     fn compatible(ty: &MssqlTypeInfo) -> bool {
-        matches!(
-            ty.0.ty,
-            DataType::Numeric | DataType::NumericN | DataType::Decimal | DataType::DecimalN
-        ) && (ty.0.size == 0 || ty.0.size == 17)
+        <i64 as Type<Mssql>>::compatible(ty)
     }
 }
 
 impl Encode<'_, Mssql> for u64 {
     fn encode_by_ref(&self, buf: &mut Vec<u8>) -> IsNull {
-        let bytes = self.to_le_bytes();
-        let scale = 0i8;
-        let len = 17u8;
-
-        buf.push(len);
-        buf.push(scale.to_le_bytes()[0]);
-        buf.extend(&bytes);
-        buf.extend(&[0u8; 8]);
-
-        IsNull::No
+        let v = i64::try_from(*self).unwrap_or_else(|_e| {
+            log::warn!("cannot encode {self} as a signed mssql bigint");
+            i64::MAX
+        });
+        <i64 as Encode<'_, Mssql>>::encode_by_ref(&v, buf)
     }
 }
 
 impl Decode<'_, Mssql> for u64 {
     fn decode(value: MssqlValueRef<'_>) -> Result<Self, BoxDynError> {
-        let bytes = value.as_bytes()?;
-        if bytes.len() < 17 {
-            return Err("Invalid numeric value length".into());
-        }
-
-        let value_bytes = &bytes[2..10];
-        Ok(u64::from_le_bytes(value_bytes.try_into()?))
+        let v = <i64 as Decode<'_, Mssql>>::decode(value)?;
+        Ok(u64::try_from(v)?)
     }
 }
