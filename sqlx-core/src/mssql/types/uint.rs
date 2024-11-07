@@ -7,28 +7,27 @@ use crate::types::Type;
 
 impl Type<Mssql> for u8 {
     fn type_info() -> MssqlTypeInfo {
-        <i8 as Type<Mssql>>::type_info()
+        MssqlTypeInfo(TypeInfo::new(DataType::IntN, 1))
     }
 
     fn compatible(ty: &MssqlTypeInfo) -> bool {
-        <i8 as Type<Mssql>>::compatible(ty)
+        matches!(ty.0.ty, DataType::TinyInt | DataType::IntN) && ty.0.size == 1
     }
 }
 
 impl Encode<'_, Mssql> for u8 {
     fn encode_by_ref(&self, buf: &mut Vec<u8>) -> IsNull {
-        let v = i8::try_from(*self).unwrap_or_else(|_e| {
-            log::warn!("cannot encode {self} as a signed mssql tinyint");
-            i8::MAX
-        });
-        <i8 as Encode<'_, Mssql>>::encode_by_ref(&v, buf)
+        buf.extend(&[*self]);
+        IsNull::No
     }
 }
 
 impl Decode<'_, Mssql> for u8 {
     fn decode(value: MssqlValueRef<'_>) -> Result<Self, BoxDynError> {
-        let v = <i8 as Decode<'_, Mssql>>::decode(value)?;
-        Ok(u8::try_from(v)?)
+        Ok(*value
+            .as_bytes()?
+            .get(0)
+            .ok_or("Invalid numeric value length")?)
     }
 }
 
