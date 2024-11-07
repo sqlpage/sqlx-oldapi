@@ -76,3 +76,34 @@ impl<'r> Decode<'r, Sqlite> for u32 {
         Ok(value.int64().try_into()?)
     }
 }
+
+impl Type<Sqlite> for u64 {
+    fn type_info() -> SqliteTypeInfo {
+        SqliteTypeInfo(DataType::Int64)
+    }
+
+    fn compatible(ty: &SqliteTypeInfo) -> bool {
+        matches!(ty.0, DataType::Int | DataType::Int64)
+    }
+}
+
+impl<'q> Encode<'q, Sqlite> for u64 {
+    fn encode_by_ref(&self, args: &mut Vec<SqliteArgumentValue<'q>>) -> IsNull {
+        match i64::try_from(*self) {
+            Ok(value) => {
+                args.push(SqliteArgumentValue::Int64(value));
+                IsNull::No
+            }
+            Err(_) => {
+                log::warn!("u64 value {} too large for sqlite, encoding as NULL", self);
+                IsNull::Yes
+            }
+        }
+    }
+}
+
+impl<'r> Decode<'r, Sqlite> for u64 {
+    fn decode(value: SqliteValueRef<'r>) -> Result<Self, BoxDynError> {
+        Ok(value.int64().try_into()?)
+    }
+}
