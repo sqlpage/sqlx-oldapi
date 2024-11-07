@@ -32,6 +32,10 @@ impl_any_type!(f64);
 impl_any_type!(str);
 impl_any_type!(String);
 
+impl_any_type!(u16);
+impl_any_type!(u32);
+impl_any_type!(u64);
+
 // Encode
 
 impl_any_encode!(bool);
@@ -46,6 +50,10 @@ impl_any_encode!(f64);
 impl_any_encode!(&'q str);
 impl_any_encode!(String);
 
+impl_any_encode!(u16);
+impl_any_encode!(u32);
+impl_any_encode!(u64);
+
 // Decode
 
 impl_any_decode!(bool);
@@ -59,6 +67,10 @@ impl_any_decode!(f64);
 
 impl_any_decode!(&'r str);
 impl_any_decode!(String);
+
+impl_any_decode!(u16);
+impl_any_decode!(u32);
+impl_any_decode!(u64);
 
 // Conversions for Blob SQL types
 // Type

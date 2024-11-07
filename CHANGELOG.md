@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.6.35
+
+- Add support for unsigned integers in the `Any` driver
+- Add support for unsigned integers in the `postgres` driver
+- Add a `max_size` method to `MySqlTypeInfo` allowing to retrieve the maximum size of the type (for example, `TINYINT(1)` has a maximum size of 1)
+
 ## 0.6.34
 
 - Add support for decoding `DateTime<FixedOffset>` in the `Any` driver

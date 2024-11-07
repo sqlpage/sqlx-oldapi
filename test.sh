@@ -4,3 +4,6 @@ DATABASE_URL="postgres://postgres@localhost:5432/sqlx?sslmode=verify-ca&sslrootc
 
 docker compose -f tests/docker-compose.yml run -it -p 1433:1433 --name mssql_2022 mssql_2022
 DATABASE_URL='mssql://sa:Password123!@localhost/sqlx' cargo test --features any,mssql,macros,all-types,runtime-actix-rustls --
+
+docker compose -f tests/docker-compose.yml run -it -p 3306:3306 --name mysql_8 mysql_8
+DATABASE_URL='mysql://root:password@localhost/sqlx' cargo test --features any,mysql,macros,all-types,runtime-actix-rustls --

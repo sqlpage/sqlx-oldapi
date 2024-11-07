@@ -127,3 +127,88 @@ impl Decode<'_, Postgres> for i64 {
         })
     }
 }
+
+impl Type<Postgres> for u16 {
+    fn type_info() -> PgTypeInfo {
+        PgTypeInfo::INT4
+    }
+}
+
+impl PgHasArrayType for u16 {
+    fn array_type_info() -> PgTypeInfo {
+        PgTypeInfo::INT4_ARRAY
+    }
+}
+
+impl Encode<'_, Postgres> for u16 {
+    fn encode_by_ref(&self, buf: &mut PgArgumentBuffer) -> IsNull {
+        buf.extend(&i32::from(*self).to_be_bytes());
+        IsNull::No
+    }
+}
+
+impl Decode<'_, Postgres> for u16 {
+    fn decode(value: PgValueRef<'_>) -> Result<Self, BoxDynError> {
+        let decoded = match value.format() {
+            PgValueFormat::Binary => BigEndian::read_i32(value.as_bytes()?),
+            PgValueFormat::Text => value.as_str()?.parse::<i32>()?,
+        };
+        Ok(u16::try_from(decoded)?)
+    }
+}
+
+impl Type<Postgres> for u32 {
+    fn type_info() -> PgTypeInfo {
+        PgTypeInfo::INT8
+    }
+}
+
+impl PgHasArrayType for u32 {
+    fn array_type_info() -> PgTypeInfo {
+        PgTypeInfo::INT8_ARRAY
+    }
+}
+
+impl Encode<'_, Postgres> for u32 {
+    fn encode_by_ref(&self, buf: &mut PgArgumentBuffer) -> IsNull {
+        buf.extend(&i64::from(*self).to_be_bytes());
+        IsNull::No
+    }
+}
+
+impl Decode<'_, Postgres> for u32 {
+    fn decode(value: PgValueRef<'_>) -> Result<Self, BoxDynError> {
+        let decoded = match value.format() {
+            PgValueFormat::Binary => BigEndian::read_i64(value.as_bytes()?),
+            PgValueFormat::Text => value.as_str()?.parse::<i64>()?,
+        };
+        Ok(u32::try_from(decoded)?)
+    }
+}
+
+impl Type<Postgres> for u64 {
+    fn type_info() -> PgTypeInfo {
+        PgTypeInfo::NUMERIC
+    }
+}
+
+impl PgHasArrayType for u64 {
+    fn array_type_info() -> PgTypeInfo {
+        PgTypeInfo::NUMERIC_ARRAY
+    }
+}
+
+impl Encode<'_, Postgres> for u64 {
+    fn encode_by_ref(&self, buf: &mut PgArgumentBuffer) -> IsNull {
+        let numeric_str = self.to_string();
+        buf.extend(numeric_str.as_bytes());
+        IsNull::No
+    }
+}
+
+impl Decode<'_, Postgres> for u64 {
+    fn decode(value: PgValueRef<'_>) -> Result<Self, BoxDynError> {
+        let decoded = value.as_str()?.parse::<u64>()?;
+        Ok(decoded)
+    }
+}

@@ -220,3 +220,15 @@ async fn it_can_fail_and_recover_with_pool() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[sqlx_macros::test]
+async fn it_has_unsigned_integers() -> anyhow::Result<()> {
+    let max_value = u64::MAX;
+    let expr = if cfg!(feature = "mysql") {
+        format!("CAST({} AS UNSIGNED)", max_value)
+    } else {
+        max_value.to_string()
+    };
+    assert_eq!(max_value, get_val::<u64>(&expr).await?);
+    Ok(())
+}

@@ -58,6 +58,10 @@ impl MySqlTypeInfo {
             max_size: Some(column.max_size),
         }
     }
+
+    pub fn max_size(&self) -> Option<u32> {
+        self.max_size
+    }
 }
 
 impl Display for MySqlTypeInfo {
