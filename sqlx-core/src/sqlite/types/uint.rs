@@ -83,7 +83,7 @@ impl Type<Sqlite> for u64 {
     }
 
     fn compatible(ty: &SqliteTypeInfo) -> bool {
-        matches!(ty.0, DataType::Int | DataType::Int64)
+        matches!(ty.0, DataType::Int | DataType::Int64 | DataType::Float)
     }
 }
 

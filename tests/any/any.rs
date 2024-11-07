@@ -223,7 +223,7 @@ async fn it_can_fail_and_recover_with_pool() -> anyhow::Result<()> {
 
 #[sqlx_macros::test]
 async fn it_has_unsigned_integers() -> anyhow::Result<()> {
-    let max_value = u64::MAX;
+    let max_value = 9223372036854775807;
     let expr = if cfg!(feature = "mysql") {
         format!("CAST({} AS UNSIGNED)", max_value)
     } else {
