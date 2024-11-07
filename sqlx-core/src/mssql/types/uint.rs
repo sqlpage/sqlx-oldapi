@@ -83,11 +83,17 @@ impl Decode<'_, Mssql> for u32 {
 
 impl Type<Mssql> for u64 {
     fn type_info() -> MssqlTypeInfo {
-        MssqlTypeInfo(TypeInfo::new(DataType::Numeric, 0))
+        MssqlTypeInfo(TypeInfo::new(DataType::NumericN, 17))
     }
 
     fn compatible(ty: &MssqlTypeInfo) -> bool {
-        matches!(ty.0.ty, DataType::Numeric | DataType::Decimal)
+        matches!(
+            ty.0.ty,
+            DataType::Numeric
+                | DataType::NumericN
+                | DataType::Decimal
+                | DataType::DecimalN
+        ) && (ty.0.size == 0 || ty.0.size == 17)
     }
 }
 
