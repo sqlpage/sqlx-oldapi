@@ -130,85 +130,82 @@ impl Decode<'_, Postgres> for i64 {
 
 impl Type<Postgres> for u16 {
     fn type_info() -> PgTypeInfo {
-        PgTypeInfo::INT4
+        <i32 as Type<Postgres>>::type_info()
     }
 }
 
 impl PgHasArrayType for u16 {
     fn array_type_info() -> PgTypeInfo {
-        PgTypeInfo::INT4_ARRAY
+        <i32 as PgHasArrayType>::array_type_info()
     }
 }
 
 impl Encode<'_, Postgres> for u16 {
     fn encode_by_ref(&self, buf: &mut PgArgumentBuffer) -> IsNull {
-        buf.extend(&i32::from(*self).to_be_bytes());
-        IsNull::No
+        let v = i32::from(*self);
+        <i32 as Encode<'_, Postgres>>::encode_by_ref(&v, buf)
     }
 }
 
 impl Decode<'_, Postgres> for u16 {
     fn decode(value: PgValueRef<'_>) -> Result<Self, BoxDynError> {
-        let decoded = match value.format() {
-            PgValueFormat::Binary => BigEndian::read_i32(value.as_bytes()?),
-            PgValueFormat::Text => value.as_str()?.parse::<i32>()?,
-        };
-        Ok(u16::try_from(decoded)?)
+        let v = <i32 as Decode<'_, Postgres>>::decode(value)?;
+        Ok(u16::try_from(v)?)
     }
 }
 
 impl Type<Postgres> for u32 {
     fn type_info() -> PgTypeInfo {
-        PgTypeInfo::INT8
+        <i64 as Type<Postgres>>::type_info()
     }
 }
 
 impl PgHasArrayType for u32 {
     fn array_type_info() -> PgTypeInfo {
-        PgTypeInfo::INT8_ARRAY
+        <i64 as PgHasArrayType>::array_type_info()
     }
 }
 
 impl Encode<'_, Postgres> for u32 {
     fn encode_by_ref(&self, buf: &mut PgArgumentBuffer) -> IsNull {
-        buf.extend(&i64::from(*self).to_be_bytes());
-        IsNull::No
+        let v = i64::from(*self);
+        <i64 as Encode<'_, Postgres>>::encode_by_ref(&v, buf)
     }
 }
 
 impl Decode<'_, Postgres> for u32 {
     fn decode(value: PgValueRef<'_>) -> Result<Self, BoxDynError> {
-        let decoded = match value.format() {
-            PgValueFormat::Binary => BigEndian::read_i64(value.as_bytes()?),
-            PgValueFormat::Text => value.as_str()?.parse::<i64>()?,
-        };
-        Ok(u32::try_from(decoded)?)
+        let v = <i64 as Decode<'_, Postgres>>::decode(value)?;
+        Ok(u32::try_from(v)?)
     }
 }
 
 impl Type<Postgres> for u64 {
     fn type_info() -> PgTypeInfo {
-        PgTypeInfo::NUMERIC
+        <i64 as Type<Postgres>>::type_info()
     }
 }
 
 impl PgHasArrayType for u64 {
     fn array_type_info() -> PgTypeInfo {
-        PgTypeInfo::NUMERIC_ARRAY
+        <i64 as PgHasArrayType>::array_type_info()
     }
 }
 
 impl Encode<'_, Postgres> for u64 {
     fn encode_by_ref(&self, buf: &mut PgArgumentBuffer) -> IsNull {
-        let numeric_str = self.to_string();
-        buf.extend(numeric_str.as_bytes());
-        IsNull::No
+        let v = i64::try_from(*self).unwrap_or_else(|_| {
+            let v = i64::MAX;
+            log::warn!("cannot encode {self} as a signed postgres bigint, encoding as {v} instead");
+            v
+        });
+        <i64 as Encode<'_, Postgres>>::encode_by_ref(&v, buf)
     }
 }
 
 impl Decode<'_, Postgres> for u64 {
     fn decode(value: PgValueRef<'_>) -> Result<Self, BoxDynError> {
-        let decoded = value.as_str()?.parse::<u64>()?;
-        Ok(decoded)
+        let v = <i64 as Decode<'_, Postgres>>::decode(value)?;
+        Ok(u64::try_from(v)?)
     }
 }
