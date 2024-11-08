@@ -91,12 +91,12 @@ impl Encode<'_, MySql> for i64 {
 }
 
 fn int_decode(value: MySqlValueRef<'_>) -> Result<i64, BoxDynError> {
-    Ok(match value.format() {
-        MySqlValueFormat::Text => value.as_str()?.parse()?,
-        MySqlValueFormat::Binary => {
+    Ok(match (value.format(), value.type_info.r#type) {
+        (MySqlValueFormat::Binary, _) | (_, ColumnType::Bit) => {
             let buf = value.as_bytes()?;
             LittleEndian::read_int(buf, buf.len())
         }
+        (MySqlValueFormat::Text, _) => value.as_str()?.parse()?,
     })
 }
 
