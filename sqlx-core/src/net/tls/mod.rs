@@ -145,13 +145,8 @@ where
             MaybeTlsStream::Tls(stream) => {
                 #[cfg(feature = "_tls-rustls")]
                 let raw = stream.into_inner().0;
-
-                #[cfg(all(feature = "_rt-async-std", feature = "_tls-native-tls"))]
-                let raw = stream.into_inner();
-
-                #[cfg(all(not(feature = "_rt-async-std"), feature = "_tls-native-tls"))]
-                let raw = stream.into_inner().into_inner().into_inner();
-
+                #[cfg(feature = "_tls-native-tls")]
+                let raw = unimplemented!("No way to downgrade a native-tls stream, use rustls instead, or never disable tls");
                 raw
             }
 
