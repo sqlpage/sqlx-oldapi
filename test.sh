@@ -7,3 +7,5 @@ DATABASE_URL='mssql://sa:Password123!@localhost/sqlx' cargo test --features any,
 
 docker compose -f tests/docker-compose.yml run -it -p 3306:3306 --name mysql_8 mysql_8
 DATABASE_URL='mysql://root:password@localhost/sqlx' cargo test --features any,mysql,macros,all-types,runtime-actix-rustls --
+
+DATABASE_URL='sqlite://./tests/sqlite/sqlite.db' cargo test --features any,sqlite,macros,all-types,runtime-actix-rustls --

@@ -55,7 +55,7 @@ impl Type<Sqlite> for Time {
 
 impl Encode<'_, Sqlite> for OffsetDateTime {
     fn encode_by_ref(&self, buf: &mut Vec<SqliteArgumentValue<'_>>) -> IsNull {
-        Encode::<Sqlite>::encode(self.format(&Rfc3339).unwrap(), buf)
+        Encode::<Sqlite>::encode(self.format(formats::OFFSET_DATE_TIME).unwrap(), buf)
     }
 }
 
@@ -263,6 +263,7 @@ mod formats {
             Optional(&SECOND),
             Optional(&Literal(b".")),
             Optional(&SUBSECOND),
+            Optional(&Literal(b" ")),
             Optional(&OFFSET_HOUR),
             Optional(&Literal(b":")),
             Optional(&OFFSET_MINUTE),

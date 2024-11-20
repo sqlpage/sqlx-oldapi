@@ -107,8 +107,24 @@ mod chrono {
     ));
 
     test_type!(chrono_date_time_fixed_offset<DateTime::<FixedOffset>>(Sqlite, "SELECT datetime({0}) is datetime(?), {0}, ?",
-        "'2016-11-08T03:50:23-05:00'" == DateTime::parse_from_rfc3339("2016-11-08T03:50:23-05:00").unwrap()
+        "'2016-11-08T03:50:23-05:00'" == DateTime::parse_from_rfc3339("2016-11-08T03:50:23-05:00").unwrap(),
+        "'2024-11-08 03:50:23-05:00'" == DateTime::parse_from_rfc3339("2024-11-08T03:50:23-05:00").unwrap()
     ));
+
+    #[sqlx_macros::test]
+    async fn it_fromats_datetime_with_space() -> anyhow::Result<()> {
+        let mut conn = new::<Sqlite>().await?;
+
+        let value = sqlx_oldapi::query("select ?")
+            .bind(DateTime::parse_from_rfc3339("2024-01-08T03:50:23-05:00").unwrap())
+            .try_map(|row: SqliteRow| row.try_get::<String, _>(0))
+            .fetch_one(&mut conn)
+            .await?;
+
+        assert_eq!(value, "2024-01-08 03:50:23-05:00");
+
+        Ok(())
+    }
 }
 
 #[cfg(feature = "time")]

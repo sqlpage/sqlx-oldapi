@@ -7,9 +7,8 @@ use crate::{
     sqlite::{type_info::DataType, Sqlite, SqliteArgumentValue, SqliteTypeInfo, SqliteValueRef},
     types::Type,
 };
-use chrono::{
-    DateTime, Local, NaiveDate, NaiveDateTime, NaiveTime, Offset, SecondsFormat, TimeZone, Utc,
-};
+use chrono::format::{Fixed, Item, Numeric, Pad};
+use chrono::{DateTime, Local, NaiveDate, NaiveDateTime, NaiveTime, Offset, TimeZone, Utc};
 
 impl<Tz: TimeZone> Type<Sqlite> for DateTime<Tz> {
     fn type_info() -> SqliteTypeInfo {
@@ -62,7 +61,26 @@ where
     Tz::Offset: core::fmt::Display,
 {
     fn encode_by_ref(&self, buf: &mut Vec<SqliteArgumentValue<'_>>) -> IsNull {
-        Encode::<Sqlite>::encode(self.to_rfc3339_opts(SecondsFormat::AutoSi, false), buf)
+        const OFFSET_DATE_TIME: [Item<'static>; 13] = [
+            Item::Numeric(Numeric::Year, Pad::Zero),
+            Item::Literal("-"),
+            Item::Numeric(Numeric::Month, Pad::Zero),
+            Item::Literal("-"),
+            Item::Numeric(Numeric::Day, Pad::Zero),
+            Item::Literal(" "),
+            Item::Numeric(Numeric::Hour, Pad::Zero),
+            Item::Literal(":"),
+            Item::Numeric(Numeric::Minute, Pad::Zero),
+            Item::Literal(":"),
+            Item::Numeric(Numeric::Second, Pad::Zero),
+            Item::Fixed(Fixed::Nanosecond),
+            Item::Fixed(Fixed::TimezoneOffsetColon),
+        ];
+        Encode::<Sqlite>::encode(
+            self.format_with_items(OFFSET_DATE_TIME.into_iter())
+                .to_string(),
+            buf,
+        )
     }
 }
 
