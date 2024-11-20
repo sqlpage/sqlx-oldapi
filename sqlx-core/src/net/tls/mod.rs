@@ -139,6 +139,34 @@ where
 
         Ok(())
     }
+
+    pub fn downgrade(&mut self) -> Result<(), Error> {
+        let stream = match replace(self, MaybeTlsStream::Upgrading) {
+            MaybeTlsStream::Tls(stream) => {
+                #[cfg(feature = "_tls-rustls")]
+                let raw = stream.into_inner().0;
+
+                #[cfg(all(feature = "_rt-async-std", feature = "_tls-native-tls"))]
+                let raw = stream.into_inner();
+
+                #[cfg(all(not(feature = "_rt-async-std"), feature = "_tls-native-tls"))]
+                let raw = stream.into_inner().into_inner().into_inner();
+
+                raw
+            }
+
+            MaybeTlsStream::Raw(_) => {
+                return Ok(());
+            }
+
+            MaybeTlsStream::Upgrading => {
+                return Err(Error::Io(io::ErrorKind::ConnectionAborted.into()));
+            }
+        };
+
+        *self = MaybeTlsStream::Raw(stream);
+        Ok(())
+    }
 }
 
 #[cfg(feature = "_tls-native-tls")]

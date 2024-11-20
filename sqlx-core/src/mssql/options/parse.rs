@@ -87,7 +87,8 @@ impl FromStr for MssqlConnectOptions {
                     match value.to_lowercase().as_str() {
                         "strict" => options = options.encrypt(Encrypt::Required),
                         "mandatory" | "true" | "yes" => options = options.encrypt(Encrypt::On),
-                        "optional" | "false" | "no" => options = options.encrypt(Encrypt::NotSupported),
+                        "optional" | "false" | "no" => options = options.encrypt(Encrypt::Off),
+                        "not_supported" => options = options.encrypt(Encrypt::NotSupported),
                         _ => return Err(Error::config(MssqlInvalidOption(format!(
                             "encrypt={} is not a valid value for encrypt. Valid values are: strict, mandatory, optional, true, false, yes, no",
                             value

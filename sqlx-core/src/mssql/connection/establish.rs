@@ -18,62 +18,76 @@ impl MssqlConnection {
         // TODO: Encryption
         // TODO: Send the version of SQLx over
 
-        log::debug!(
-            "Sending T-SQL PRELOGIN with encryption: {:?}",
-            options.encrypt
-        );
+        let prelogin_packet = PreLogin {
+            version: Version::default(),
+            encryption: options.encrypt,
+            instance: options.instance.clone(),
+            ..Default::default()
+        };
 
+        log::debug!("Sending T-SQL PRELOGIN with encryption: {prelogin_packet:?}");
         stream
-            .write_packet_and_flush(
-                PacketType::PreLogin,
-                PreLogin {
-                    version: Version::default(),
-                    encryption: options.encrypt,
-                    instance: options.instance.clone(),
-
-                    ..Default::default()
-                },
-            )
+            .write_packet_and_flush(PacketType::PreLogin, prelogin_packet)
             .await?;
 
         let (_, packet) = stream.recv_packet().await?;
-        let prelogin_response = PreLogin::decode(packet)?;
 
-        if matches!(
-            prelogin_response.encryption,
-            Encrypt::Required | Encrypt::On
-        ) {
-            stream.setup_encryption().await?;
-        } else if options.encrypt == Encrypt::Required {
-            return Err(Error::Tls(Box::new(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "TLS encryption required but not supported by server",
-            ))));
+        let prelogin_response = PreLogin::decode(packet)?;
+        log::debug!("Received PRELOGIN response: {:?}", prelogin_response);
+
+        let mut disable_encryption_after_login = false;
+
+        match (options.encrypt, prelogin_response.encryption) {
+            (Encrypt::Required | Encrypt::On, Encrypt::Required | Encrypt::On) => {
+                log::trace!("Mssql login phase and data packets encrypted");
+                stream.setup_encryption().await?;
+            }
+            (Encrypt::Required, Encrypt::Off | Encrypt::NotSupported) => {
+                return Err(Error::Tls(Box::new(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    "TLS encryption required but not supported by server",
+                ))));
+            }
+            (Encrypt::Off, _) | (_, Encrypt::Off) => {
+                log::info!("Mssql login phase encrypted, but data packets will be unencrypted");
+                stream.setup_encryption().await?;
+                disable_encryption_after_login = true;
+            }
+            (Encrypt::NotSupported, _) | (_, Encrypt::NotSupported) => {
+                log::warn!("Mssql: fully unencrypted connection - will send plaintext password!");
+            }
         }
 
         // LOGIN7 defines the authentication rules for use between client and server
 
+        let login_packet = Login7 {
+            // FIXME: use a version constant
+            version: 0x74000004, // SQL Server 2012 - SQL Server 2019
+            client_program_version: options.client_program_version,
+            client_pid: options.client_pid,
+            packet_size: options.requested_packet_size, // max allowed size of TDS packet
+            hostname: &options.hostname,
+            username: &options.username,
+            password: options.password.as_deref().unwrap_or_default(),
+            app_name: &options.app_name,
+            server_name: &options.server_name,
+            client_interface_name: &options.client_interface_name,
+            language: &options.language,
+            database: &*options.database,
+            client_id: [0; 6],
+        };
+
+        log::debug!("Sending LOGIN7 packet: {login_packet:?}");
         stream
-            .write_packet_and_flush(
-                PacketType::Tds7Login,
-                Login7 {
-                    // FIXME: use a version constant
-                    version: 0x74000004, // SQL Server 2012 - SQL Server 2019
-                    client_program_version: options.client_program_version,
-                    client_pid: options.client_pid,
-                    packet_size: options.requested_packet_size, // max allowed size of TDS packet
-                    hostname: &options.hostname,
-                    username: &options.username,
-                    password: options.password.as_deref().unwrap_or_default(),
-                    app_name: &options.app_name,
-                    server_name: &options.server_name,
-                    client_interface_name: &options.client_interface_name,
-                    language: &options.language,
-                    database: &*options.database,
-                    client_id: [0; 6],
-                },
-            )
+            .write_packet_and_flush(PacketType::Tds7Login, login_packet)
             .await?;
+
+        log::debug!("Waiting for LOGINACK or DONE");
+
+        if disable_encryption_after_login {
+            log::debug!("Disabling encryption after login");
+            stream.disable_encryption().await?;
+        }
 
         loop {
             // NOTE: we should receive an [Error] message if something goes wrong, otherwise,
@@ -83,13 +97,17 @@ impl MssqlConnection {
                 Message::LoginAck(_) => {
                     // indicates that the login was successful
                     // no action is needed, we are just going to keep waiting till we hit <Done>
+                    log::debug!("Received LoginAck");
                 }
 
                 Message::Done(_) => {
+                    log::debug!("Pre-Login phase completed");
                     break;
                 }
 
-                _ => {}
+                other_msg => {
+                    log::debug!("Ignoring unexpected pre-login message: {:?}", other_msg);
+                }
             }
         }
 

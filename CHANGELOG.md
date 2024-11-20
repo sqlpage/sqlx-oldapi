@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.6.38
+
+- Implement *Login packet encryption* in mssql:
+  - SQL Server has three levels of encryption support, which are now all supported by this library:
+    - No encryption, where all data including the password is sent in plaintext. Used only when either client or server declare missing encryption capabilities. You can enable this mode in this library by setting `encrypt=not_supported` in the connection string.
+    - Encryption is supported on both sides, but disabled on either side. You can enable this mode in this library by setting `encrypt=off` in the connection string. In this mode, the login phase will be encrypted, but data packets will be sent in plaintext.
+    - Encryption is supported and enabled on both sides. You can enable this mode in this library by setting `encrypt=strict` in the connection string. In this mode, both the login phase and data packets will be encrypted.
+- Much improved logging in the mssql driver login phase
+
 ## 0.6.37
 
 - Fix encoding of `DateTime<FixedOffset>` in SQLite. It used to be encoded as an RFC3339 string (with a 'T' between date and time),

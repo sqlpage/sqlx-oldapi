@@ -260,6 +260,11 @@ impl MssqlStream {
         self.inner.deref_mut().handshake_complete();
         Ok(())
     }
+
+    pub(crate) async fn disable_encryption(&mut self) -> Result<(), Error> {
+        self.inner.downgrade()?;
+        Ok(())
+    }
 }
 
 // writes the packet out to the write buffer
