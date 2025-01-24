@@ -116,19 +116,29 @@ pub struct PgCopyIn<C: DerefMut<Target = PgConnection>> {
 }
 
 impl<C: DerefMut<Target = PgConnection>> PgCopyIn<C> {
-    async fn begin(mut conn: C, statement: &str) -> Result<Self> {
+    async fn begin(conn: C, statement: &str) -> Result<Self> {
+        let mut conn = Self::start_copy(conn, statement).await?;
+        match conn.stream.recv_expect(MessageFormat::CopyInResponse).await {
+            Ok(response) => Ok(PgCopyIn {
+                conn: Some(conn),
+                response,
+            }),
+            Err(e) => {
+                conn.stream
+                    .send(CopyFail::new("failed to start COPY"))
+                    .await?;
+                conn.stream
+                    .recv_expect(MessageFormat::ReadyForQuery)
+                    .await?;
+                Err(e)
+            }
+        }
+    }
+
+    async fn start_copy(mut conn: C, statement: &str) -> Result<C> {
         conn.wait_until_ready().await?;
         conn.stream.send(Query(statement)).await?;
-
-        let response: CopyResponse = conn
-            .stream
-            .recv_expect(MessageFormat::CopyInResponse)
-            .await?;
-
-        Ok(PgCopyIn {
-            conn: Some(conn),
-            response,
-        })
+        Ok(conn)
     }
 
     /// Returns `true` if Postgres is expecting data in text or CSV format.
@@ -252,18 +262,15 @@ impl<C: DerefMut<Target = PgConnection>> PgCopyIn<C> {
                 "fail_with: expected ErrorResponse, got: {:?}",
                 msg.format
             )),
-            Err(Error::Database(e)) => {
-                match e.code() {
-                    Some(Cow::Borrowed("57014")) => {
-                        // postgres abort received error code
-                        conn.stream
-                            .recv_expect(MessageFormat::ReadyForQuery)
-                            .await?;
-                        Ok(())
-                    }
-                    _ => Err(Error::Database(e)),
+            Err(Error::Database(e)) => match e.code() {
+                Some(Cow::Borrowed("57014")) => {
+                    conn.stream
+                        .recv_expect(MessageFormat::ReadyForQuery)
+                        .await?;
+                    Ok(())
                 }
-            }
+                _ => Err(Error::Database(e)),
+            },
             Err(e) => Err(e),
         }
     }
