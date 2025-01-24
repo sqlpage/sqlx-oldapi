@@ -262,15 +262,18 @@ impl<C: DerefMut<Target = PgConnection>> PgCopyIn<C> {
                 "fail_with: expected ErrorResponse, got: {:?}",
                 msg.format
             )),
-            Err(Error::Database(e)) => match e.code() {
-                Some(Cow::Borrowed("57014")) => {
-                    conn.stream
-                        .recv_expect(MessageFormat::ReadyForQuery)
-                        .await?;
-                    Ok(())
+            Err(Error::Database(e)) => {
+                match e.code() {
+                    Some(Cow::Borrowed("57014")) => {
+                        // postgres abort received error code
+                        conn.stream
+                            .recv_expect(MessageFormat::ReadyForQuery)
+                            .await?;
+                        Ok(())
+                    }
+                    _ => Err(Error::Database(e)),
                 }
-                _ => Err(Error::Database(e)),
-            },
+            }
             Err(e) => Err(e),
         }
     }
