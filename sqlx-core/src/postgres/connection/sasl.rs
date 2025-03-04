@@ -174,7 +174,7 @@ pub(crate) async fn authenticate(
 
 // nonce is a sequence of random printable bytes
 fn gen_nonce() -> String {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let count = rng.gen_range(64..128);
 
     // printable = %x21-2B / %x2D-7E

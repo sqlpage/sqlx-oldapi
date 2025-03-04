@@ -144,7 +144,7 @@ impl PgConnection {
             transaction_status,
             transaction_depth: 0,
             pending_ready_for_query_count: 0,
-            next_statement_id: Oid(rand::random()),
+            next_statement_id: Oid(rand::rng().gen_range(0..u32::MAX)),
             cache_statement: StatementCache::new(options.statement_cache_capacity),
             cache_type_oid: HashMap::new(),
             cache_type_info: HashMap::new(),
