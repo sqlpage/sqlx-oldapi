@@ -489,3 +489,15 @@ async fn test_pool_callbacks() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[sqlx_macros::test]
+async fn it_can_decode_tinyint_as_i16() -> anyhow::Result<()> {
+    let mut conn = new::<Mssql>().await?;
+
+    let row: MssqlRow = conn.fetch_one("SELECT CAST(42 AS TINYINT) as val").await?;
+    let v: i16 = row.try_get("val")?;
+
+    assert_eq!(v, 42);
+
+    Ok(())
+}

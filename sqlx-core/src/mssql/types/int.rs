@@ -1,4 +1,5 @@
 use byteorder::{ByteOrder, LittleEndian};
+use std::any::type_name;
 
 use crate::decode::Decode;
 use crate::encode::{Encode, IsNull};
@@ -27,7 +28,7 @@ impl Encode<'_, Mssql> for i8 {
 
 impl Decode<'_, Mssql> for i8 {
     fn decode(value: MssqlValueRef<'_>) -> Result<Self, BoxDynError> {
-        Ok(i8::from_le_bytes(value.as_bytes()?[0..1].try_into()?))
+        decode_integer(value)
     }
 }
 
@@ -37,7 +38,10 @@ impl Type<Mssql> for i16 {
     }
 
     fn compatible(ty: &MssqlTypeInfo) -> bool {
-        matches!(ty.0.ty, DataType::SmallInt | DataType::IntN) && ty.0.size == 2
+        matches!(
+            ty.0.ty,
+            DataType::TinyInt | DataType::SmallInt | DataType::Int | DataType::IntN
+        ) && ty.0.size <= 2
     }
 }
 
@@ -51,7 +55,7 @@ impl Encode<'_, Mssql> for i16 {
 
 impl Decode<'_, Mssql> for i16 {
     fn decode(value: MssqlValueRef<'_>) -> Result<Self, BoxDynError> {
-        Ok(LittleEndian::read_i16(value.as_bytes()?))
+        decode_integer(value)
     }
 }
 
@@ -75,7 +79,7 @@ impl Encode<'_, Mssql> for i32 {
 
 impl Decode<'_, Mssql> for i32 {
     fn decode(value: MssqlValueRef<'_>) -> Result<Self, BoxDynError> {
-        Ok(LittleEndian::read_i32(value.as_bytes()?))
+        decode_integer(value)
     }
 }
 
@@ -110,30 +114,7 @@ impl Encode<'_, Mssql> for i64 {
 
 impl Decode<'_, Mssql> for i64 {
     fn decode(value: MssqlValueRef<'_>) -> Result<Self, BoxDynError> {
-        let ty = value.type_info.0.ty;
-        let precision = value.type_info.0.precision;
-        let scale = value.type_info.0.scale;
-        match ty {
-            DataType::SmallInt
-            | DataType::Int
-            | DataType::TinyInt
-            | DataType::BigInt
-            | DataType::IntN => {
-                let mut buf = [0u8; 8];
-                let bytes_val = value.as_bytes()?;
-                buf[..bytes_val.len()].copy_from_slice(bytes_val);
-                Ok(i64::from_le_bytes(buf))
-            }
-            DataType::Numeric | DataType::NumericN | DataType::Decimal | DataType::DecimalN => {
-                decode_numeric(value.as_bytes()?, precision, scale)
-            }
-            _ => Err(err_protocol!(
-                "Decoding {:?} as a float failed because type {:?} is not implemented",
-                value,
-                ty
-            )
-            .into()),
-        }
+        decode_integer(value)
     }
 }
 
@@ -149,4 +130,71 @@ fn decode_numeric(bytes: &[u8], _precision: u8, mut scale: u8) -> Result<i64, Bo
     }
     let n = i64::try_from(numerator)?;
     Ok(n * if negative { -1 } else { 1 })
+}
+
+fn decode_integer<T>(value: MssqlValueRef<'_>) -> Result<T, BoxDynError>
+where
+    T: TryFrom<i64>,
+    T::Error: std::error::Error + Send + Sync + 'static,
+{
+    let ty = value.type_info.0.ty;
+    let precision = value.type_info.0.precision;
+    let scale = value.type_info.0.scale;
+
+    let type_name = type_name::<T>();
+
+    match ty {
+        DataType::SmallInt
+        | DataType::Int
+        | DataType::TinyInt
+        | DataType::BigInt
+        | DataType::IntN => {
+            let mut buf = [0u8; 8];
+            let bytes_val = value.as_bytes()?;
+            let len = bytes_val.len();
+
+            if len > buf.len() {
+                return Err(err_protocol!(
+                    "Decoding {:?} as a {} failed because type {:?} has more than {} bytes",
+                    value,
+                    type_name,
+                    ty,
+                    buf.len()
+                )
+                .into());
+            }
+
+            buf[..len].copy_from_slice(&bytes_val);
+
+            let i64_val = i64::from_le_bytes(buf);
+            T::try_from(i64_val).map_err(|_| {
+                err_protocol!(
+                    "Decoding {:?} as a {} failed because value {} is out of range",
+                    value,
+                    type_name,
+                    i64_val
+                )
+                .into()
+            })
+        }
+        DataType::Numeric | DataType::NumericN | DataType::Decimal | DataType::DecimalN => {
+            let n = decode_numeric(value.as_bytes()?, precision, scale)?;
+            T::try_from(n).map_err(|_| {
+                err_protocol!(
+                    "Decoding {:?} as a {} failed because value {} is out of range",
+                    value,
+                    type_name,
+                    n
+                )
+                .into()
+            })
+        }
+        _ => Err(err_protocol!(
+            "Decoding {:?} as a {} failed because type {:?} is not implemented",
+            value,
+            type_name,
+            ty
+        )
+        .into()),
+    }
 }
