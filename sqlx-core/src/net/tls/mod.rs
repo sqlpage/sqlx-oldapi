@@ -141,26 +141,31 @@ where
     }
 
     pub fn downgrade(&mut self) -> Result<(), Error> {
-        let stream = match replace(self, MaybeTlsStream::Upgrading) {
+        match replace(self, MaybeTlsStream::Upgrading) {
             MaybeTlsStream::Tls(stream) => {
                 #[cfg(feature = "_tls-rustls")]
-                let raw = stream.into_inner().0;
+                {
+                    let raw = stream.into_inner().0;
+                    *self = MaybeTlsStream::Raw(raw);
+                    return Ok(());
+                }
+                
                 #[cfg(feature = "_tls-native-tls")]
-                let raw = unimplemented!("No way to downgrade a native-tls stream, use rustls instead, or never disable tls");
-                raw
+                {
+                    let _ = stream; // Use the variable to avoid warning
+                    return Err(Error::tls("No way to downgrade a native-tls stream, use rustls instead, or never disable tls"));
+                }
             }
 
-            MaybeTlsStream::Raw(_) => {
+            MaybeTlsStream::Raw(stream) => {
+                *self = MaybeTlsStream::Raw(stream);
                 return Ok(());
             }
 
             MaybeTlsStream::Upgrading => {
                 return Err(Error::Io(io::ErrorKind::ConnectionAborted.into()));
             }
-        };
-
-        *self = MaybeTlsStream::Raw(stream);
-        Ok(())
+        }
     }
 }
 

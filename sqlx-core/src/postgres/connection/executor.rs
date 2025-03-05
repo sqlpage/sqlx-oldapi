@@ -63,7 +63,7 @@ async fn prepare(
     conn.stream.flush().await?;
 
     // indicates that the SQL query string is now successfully parsed and has semantic validity
-    let _ = conn
+    let _: () = conn
         .stream
         .recv_expect(MessageFormat::ParseComplete)
         .await?;

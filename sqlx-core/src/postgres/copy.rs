@@ -128,7 +128,7 @@ impl<C: DerefMut<Target = PgConnection>> PgCopyIn<C> {
                     .send(CopyFail::new("failed to start COPY"))
                     .await?;
                 conn.stream
-                    .recv_expect(MessageFormat::ReadyForQuery)
+                    .recv_expect::<()>(MessageFormat::ReadyForQuery)
                     .await?;
                 Err(e)
             }
@@ -213,7 +213,7 @@ impl<C: DerefMut<Target = PgConnection>> PgCopyIn<C> {
             loop {
                 let read = match () {
                     // Tokio lets us read into the buffer without zeroing first
-                    #[cfg(feature = "runtime-tokio")]
+                    #[cfg(feature = "_rt-tokio")]
                     _ if buf.len() != buf.capacity() => {
                         // in case we have some data in the buffer, which can occur
                         // if the previous write did not fill the buffer
@@ -267,7 +267,7 @@ impl<C: DerefMut<Target = PgConnection>> PgCopyIn<C> {
                     Some(Cow::Borrowed("57014")) => {
                         // postgres abort received error code
                         conn.stream
-                            .recv_expect(MessageFormat::ReadyForQuery)
+                            .recv_expect::<()>(MessageFormat::ReadyForQuery)
                             .await?;
                         Ok(())
                     }
@@ -294,7 +294,7 @@ impl<C: DerefMut<Target = PgConnection>> PgCopyIn<C> {
             .await?;
 
         conn.stream
-            .recv_expect(MessageFormat::ReadyForQuery)
+            .recv_expect::<()>(MessageFormat::ReadyForQuery)
             .await?;
 
         Ok(cc.rows_affected())
@@ -330,8 +330,8 @@ async fn pg_begin_copy_out<'c, C: DerefMut<Target = PgConnection> + Send + 'c>(
                 MessageFormat::CopyData => r#yield!(msg.decode::<CopyData<Bytes>>()?.0),
                 MessageFormat::CopyDone => {
                     let _ = msg.decode::<CopyDone>()?;
-                    conn.stream.recv_expect(MessageFormat::CommandComplete).await?;
-                    conn.stream.recv_expect(MessageFormat::ReadyForQuery).await?;
+                    conn.stream.recv_expect::<CommandComplete>(MessageFormat::CommandComplete).await?;
+                    conn.stream.recv_expect::<()>(MessageFormat::ReadyForQuery).await?;
                     return Ok(())
                 },
                 _ => return Err(err_protocol!("unexpected message format during copy out: {:?}", msg.format))
