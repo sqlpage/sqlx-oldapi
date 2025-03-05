@@ -1,6 +1,6 @@
 use futures::TryStreamExt;
-use rand::Rng;
-use rand_xoshiro::{Xoshiro256PlusPlus, rand_core::SeedableRng};
+use rand_xoshiro::rand_core::{RngCore, SeedableRng};
+use rand_xoshiro::Xoshiro256PlusPlus;
 use sqlx_oldapi::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use sqlx_oldapi::{
     query, sqlite::Sqlite, sqlite::SqliteRow, Column, ConnectOptions, Connection, Executor, Row,
@@ -713,8 +713,8 @@ async fn issue_1467() -> anyhow::Result<()> {
         if i % 1_000 == 0 {
             println!("{}", i);
         }
-        let key = rng.gen_range(0..1_000);
-        let value = rng.gen_range(0..1_000);
+        let key = (rng.next_u32() % 1000) as i64;
+        let value = (rng.next_u32() % 1000) as i64;
         let mut tx = conn.begin().await?;
 
         let exists = sqlx_oldapi::query("SELECT 1 FROM kv WHERE k = ?")
