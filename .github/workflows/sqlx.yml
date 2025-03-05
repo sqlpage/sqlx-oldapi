@@ -29,6 +29,8 @@ jobs:
             --manifest-path sqlx-core/Cargo.toml
             --no-default-features
             --features offline,all-databases,all-types,migrate,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
+        env:
+          RUSTFLAGS: -D warnings
 
       - run:
           cargo check

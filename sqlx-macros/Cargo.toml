@@ -88,3 +88,9 @@ url = { version = "2.2.2", default-features = false }
 version = "1.0.109"
 default-features = false
 features = ["full", "parsing", "printing", "derive", "clone-impls", "proc-macro"]
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = [
+    'cfg(procmacro2_semver_exempt)',
+    'cfg(sqlx_macros_unstable)',
+] }
