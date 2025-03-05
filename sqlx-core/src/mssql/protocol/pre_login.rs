@@ -1,4 +1,3 @@
-use std::default;
 use std::fmt::{self, Display, Formatter};
 
 use bytes::{Buf, Bytes};

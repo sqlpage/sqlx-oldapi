@@ -27,7 +27,7 @@ impl<T> Type<Mssql> for Json<T> {
     }
 }
 
-impl<'q, T> Encode<'q, Mssql> for Json<T>
+impl<T> Encode<'_, Mssql> for Json<T>
 where
     T: Serialize,
 {

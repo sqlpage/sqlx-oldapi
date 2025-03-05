@@ -1,5 +1,6 @@
-use byteorder::{ByteOrder, LittleEndian};
 use std::any::type_name;
+use std::convert::TryFrom;
+use std::i16;
 
 use crate::decode::Decode;
 use crate::encode::{Encode, IsNull};
@@ -141,7 +142,7 @@ impl Decode<'_, Mssql> for i64 {
                     .into());
                 }
 
-                buf[..len].copy_from_slice(&bytes_val);
+                buf[..len].copy_from_slice(bytes_val);
                 Ok(i64::from_le_bytes(buf))
             }
             DataType::Numeric | DataType::NumericN | DataType::Decimal | DataType::DecimalN => {

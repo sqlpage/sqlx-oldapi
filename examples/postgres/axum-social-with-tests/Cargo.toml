@@ -13,7 +13,7 @@ tokio = { version = "1.20.1", features = ["rt-multi-thread", "macros"] }
 
 # Important secondary crates
 argon2 = "0.4.1"
-rand = "0.8.5"
+rand = "0.8"
 regex = "1.6.0"
 serde = "1.0.140"
 serde_with = { version = "2.0.0", features = ["time_0_3"] }

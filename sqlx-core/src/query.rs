@@ -396,7 +396,7 @@ where
 // Make a SQL query from a statement.
 pub(crate) fn query_statement<'q, DB>(
     statement: &'q <DB as HasStatement<'q>>::Statement,
-) -> Query<'q, DB, <DB as HasArguments<'_>>::Arguments>
+) -> Query<'q, DB, <DB as HasArguments<'q>>::Arguments>
 where
     DB: Database,
 {

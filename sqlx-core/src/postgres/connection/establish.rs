@@ -1,3 +1,5 @@
+use rand::Rng as _;
+
 use crate::HashMap;
 
 use crate::common::StatementCache;
@@ -144,7 +146,7 @@ impl PgConnection {
             transaction_status,
             transaction_depth: 0,
             pending_ready_for_query_count: 0,
-            next_statement_id: Oid(rand::rng().gen_range(0..u32::MAX)),
+            next_statement_id: Oid(rand::thread_rng().gen()),
             cache_statement: StatementCache::new(options.statement_cache_capacity),
             cache_type_oid: HashMap::new(),
             cache_type_info: HashMap::new(),

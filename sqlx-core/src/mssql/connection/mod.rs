@@ -29,8 +29,6 @@ impl Debug for MssqlConnection {
     }
 }
 
-use std::ops::DerefMut;
-
 impl Connection for MssqlConnection {
     type Database = Mssql;
 

@@ -21,7 +21,7 @@ pub struct QueryAs<'q, DB: Database, O, A> {
     pub(crate) output: PhantomData<O>,
 }
 
-impl<'q, DB, O: Send, A: Send> Execute<'q, DB> for QueryAs<'q, DB, O, A>
+impl<'q, DB: Database, O: Send, A: Send> Execute<'q, DB> for QueryAs<'q, DB, O, A>
 where
     DB: Database,
     A: 'q + IntoArguments<'q, DB>,
@@ -197,7 +197,7 @@ where
 // Make a SQL query from a statement, that is mapped to a concrete type.
 pub(crate) fn query_statement_as<'q, DB, O>(
     statement: &'q <DB as HasStatement<'q>>::Statement,
-) -> QueryAs<'q, DB, O, <DB as HasArguments<'_>>::Arguments>
+) -> QueryAs<'q, DB, O, <DB as HasArguments<'q>>::Arguments>
 where
     DB: Database,
     O: for<'r> FromRow<'r, DB::Row>,

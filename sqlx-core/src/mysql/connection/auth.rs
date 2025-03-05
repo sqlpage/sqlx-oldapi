@@ -149,7 +149,7 @@ async fn encrypt_rsa<'s>(
     // client sends an RSA encrypted password
     let pkey = parse_rsa_pub_key(rsa_pub_key)?;
     let padding = Oaep::new::<sha1::Sha1>();
-    pkey.encrypt(&mut rand::rng(), padding, &pass[..])
+    pkey.encrypt(&mut rand::thread_rng(), padding, &pass[..])
         .map_err(Error::protocol)
 }
 

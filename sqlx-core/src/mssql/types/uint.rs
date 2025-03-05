@@ -26,7 +26,7 @@ impl Decode<'_, Mssql> for u8 {
     fn decode(value: MssqlValueRef<'_>) -> Result<Self, BoxDynError> {
         Ok(*value
             .as_bytes()?
-            .get(0)
+            .first()
             .ok_or("Invalid numeric value length")?)
     }
 }

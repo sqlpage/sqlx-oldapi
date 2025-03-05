@@ -11,7 +11,6 @@ use sqlx_rt::{AsyncRead, AsyncWrite};
 #[cfg(feature = "_rt-tokio")]
 use sqlx_rt::ReadBuf;
 
-use std::cmp;
 use std::io;
 use std::pin::Pin;
 use std::task::{self, ready, Poll};

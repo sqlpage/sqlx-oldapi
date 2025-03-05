@@ -190,7 +190,7 @@ where
 // Make a SQL query from a statement, that is mapped to a concrete value.
 pub(crate) fn query_statement_scalar<'q, DB, O>(
     statement: &'q <DB as HasStatement<'q>>::Statement,
-) -> QueryScalar<'q, DB, O, <DB as HasArguments<'_>>::Arguments>
+) -> QueryScalar<'q, DB, O, <DB as HasArguments<'q>>::Arguments>
 where
     DB: Database,
     (O,): for<'r> FromRow<'r, DB::Row>,
