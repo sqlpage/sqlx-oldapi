@@ -1,5 +1,5 @@
 use sqlx_oldapi::any::{AnyConnectOptions, AnyPoolOptions};
-use sqlx_oldapi::{Executor, Row};
+use sqlx_oldapi::Executor;
 use std::sync::atomic::AtomicI32;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},

@@ -103,6 +103,7 @@ runtime-tokio-rustls = [
 # for conditional compilation
 _rt-async-std = []
 _rt-tokio = []
+_rt-actix = []
 
 # database
 any = ["sqlx-core/any"]
@@ -149,6 +150,10 @@ hex = "0.4.3"
 tempdir = "0.3.7"
 # Needed to test SQLCipher
 libsqlite3-sys = { version = "0", features = ["bundled-sqlcipher-vendored-openssl"] }
+
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(sqlite_ipaddr)'] }
 
 #
 # Any

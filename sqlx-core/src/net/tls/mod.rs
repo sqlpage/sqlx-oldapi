@@ -149,7 +149,7 @@ where
                     *self = MaybeTlsStream::Raw(raw);
                     return Ok(());
                 }
-                
+
                 #[cfg(feature = "_tls-native-tls")]
                 {
                     let _ = stream; // Use the variable to avoid warning
