@@ -53,8 +53,8 @@ impl Encode<'_, Mssql> for u16 {
 
 impl Decode<'_, Mssql> for u16 {
     fn decode(value: MssqlValueRef<'_>) -> Result<Self, BoxDynError> {
-        let v = <i16 as Decode<'_, Mssql>>::decode(value)?;
-        Ok(u16::try_from(v)?)
+        let i64_val = <i64 as Decode<Mssql>>::decode(value)?;
+        super::int::convert_integer::<Self>(i64_val)
     }
 }
 
@@ -80,8 +80,8 @@ impl Encode<'_, Mssql> for u32 {
 
 impl Decode<'_, Mssql> for u32 {
     fn decode(value: MssqlValueRef<'_>) -> Result<Self, BoxDynError> {
-        let v = <i32 as Decode<'_, Mssql>>::decode(value)?;
-        Ok(u32::try_from(v)?)
+        let i64_val = <i64 as Decode<Mssql>>::decode(value)?;
+        super::int::convert_integer::<Self>(i64_val)
     }
 }
 

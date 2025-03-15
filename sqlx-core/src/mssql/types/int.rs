@@ -172,7 +172,7 @@ fn decode_numeric(bytes: &[u8], _precision: u8, mut scale: u8) -> Result<i64, Bo
     Ok(n * if negative { -1 } else { 1 })
 }
 
-fn convert_integer<T>(i64_val: i64) -> Result<T, BoxDynError>
+pub(super) fn convert_integer<T>(i64_val: i64) -> Result<T, BoxDynError>
 where
     T: TryFrom<i64>,
     T::Error: std::error::Error + Send + Sync + 'static,
