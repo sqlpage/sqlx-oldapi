@@ -43,10 +43,7 @@ impl Type<Mssql> for u16 {
 
 impl Encode<'_, Mssql> for u16 {
     fn encode_by_ref(&self, buf: &mut Vec<u8>) -> IsNull {
-        let v = i16::try_from(*self).unwrap_or_else(|_e| {
-            log::warn!("cannot encode {self} as a signed mssql smallint");
-            i16::MAX
-        });
+        let v = *self as i16;
         <i16 as Encode<'_, Mssql>>::encode_by_ref(&v, buf)
     }
 }
@@ -70,10 +67,7 @@ impl Type<Mssql> for u32 {
 
 impl Encode<'_, Mssql> for u32 {
     fn encode_by_ref(&self, buf: &mut Vec<u8>) -> IsNull {
-        let v = i32::try_from(*self).unwrap_or_else(|_e| {
-            log::warn!("cannot encode {self} as a signed mssql int");
-            i32::MAX
-        });
+        let v = *self as i32;
         <i32 as Encode<'_, Mssql>>::encode_by_ref(&v, buf)
     }
 }
@@ -97,10 +91,7 @@ impl Type<Mssql> for u64 {
 
 impl Encode<'_, Mssql> for u64 {
     fn encode_by_ref(&self, buf: &mut Vec<u8>) -> IsNull {
-        let v = i64::try_from(*self).unwrap_or_else(|_e| {
-            log::warn!("cannot encode {self} as a signed mssql bigint");
-            i64::MAX
-        });
+        let v = *self as i64;
         <i64 as Encode<'_, Mssql>>::encode_by_ref(&v, buf)
     }
 }
