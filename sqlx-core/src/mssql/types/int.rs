@@ -30,7 +30,7 @@ impl Encode<'_, Mssql> for i8 {
 impl Decode<'_, Mssql> for i8 {
     fn decode(value: MssqlValueRef<'_>) -> Result<Self, BoxDynError> {
         let i64_val = <i64 as Decode<Mssql>>::decode(value)?;
-        convert_integer::<Self>(i64_val)
+        Ok(convert_integer::<u8>(i64_val)? as Self)
     }
 }
 
@@ -58,7 +58,7 @@ impl Encode<'_, Mssql> for i16 {
 impl Decode<'_, Mssql> for i16 {
     fn decode(value: MssqlValueRef<'_>) -> Result<Self, BoxDynError> {
         let i64_val = <i64 as Decode<Mssql>>::decode(value)?;
-        convert_integer::<Self>(i64_val)
+        Ok(convert_integer::<u16>(i64_val)? as Self)
     }
 }
 
@@ -83,7 +83,7 @@ impl Encode<'_, Mssql> for i32 {
 impl Decode<'_, Mssql> for i32 {
     fn decode(value: MssqlValueRef<'_>) -> Result<Self, BoxDynError> {
         let i64_val = <i64 as Decode<Mssql>>::decode(value)?;
-        convert_integer::<Self>(i64_val)
+        Ok(convert_integer::<u32>(i64_val)? as Self)
     }
 }
 
