@@ -1,7 +1,9 @@
 use futures::TryStreamExt;
 use sqlx_core::mssql::MssqlRow;
 use sqlx_oldapi::mssql::{Mssql, MssqlPoolOptions};
-use sqlx_oldapi::{Column, Connection, Executor, MssqlConnection, Row, Statement, TypeInfo};
+use sqlx_oldapi::{
+    Column, Connection, Execute, Executor, MssqlConnection, Row, Statement, TypeInfo,
+};
 use sqlx_test::new;
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::time::Duration;
@@ -499,5 +501,160 @@ async fn it_can_decode_tinyint_as_i16() -> anyhow::Result<()> {
 
     assert_eq!(v, 42);
 
+    Ok(())
+}
+
+#[sqlx_macros::test]
+async fn it_works_with_query_builder() -> anyhow::Result<()> {
+    let mut conn = new::<Mssql>().await?;
+
+    // Create a temporary table
+    conn.execute(
+        r#"
+CREATE TABLE #qb_test (
+    id INT PRIMARY KEY,
+    name NVARCHAR(50)
+);
+        "#,
+    )
+    .await?;
+
+    // Insert data using QueryBuilder
+    let mut insert_builder = sqlx_oldapi::QueryBuilder::new("INSERT INTO #qb_test (id, name) ");
+
+    #[derive(sqlx_oldapi::FromRow, Debug, PartialEq)]
+    struct TestItem {
+        id: i32,
+        name: String,
+    }
+
+    let items_to_insert = vec![
+        TestItem {
+            id: 1,
+            name: "Alice".to_string(),
+        },
+        TestItem {
+            id: 2,
+            name: "Bob".to_string(),
+        },
+        TestItem {
+            id: 3,
+            name: "Charlie".to_string(),
+        },
+    ];
+
+    insert_builder.push_values(items_to_insert.iter(), |mut b, item| {
+        b.push_bind(item.id).push_bind(&item.name);
+    });
+
+    let insert_query = insert_builder.build();
+    eprintln!("Generated INSERT SQL: {}", insert_query.sql()); // Debug print
+    conn.execute(insert_query).await?;
+
+    // Select data using QueryBuilder
+    let mut select_builder =
+        sqlx_oldapi::QueryBuilder::<'_, Mssql>::new("SELECT id, name FROM #qb_test WHERE id = ");
+    select_builder.push_bind(2i32);
+    let select_query = select_builder.build_query_as::<TestItem>();
+
+    let selected_item: TestItem = select_query.fetch_one(&mut conn).await?;
+
+    assert_eq!(selected_item.id, 2);
+    assert_eq!(selected_item.name, "Bob");
+
+    // Select multiple items
+    let mut select_all_builder = sqlx_oldapi::QueryBuilder::<'_, Mssql>::new(
+        "SELECT id, name FROM #qb_test WHERE name LIKE ",
+    );
+    select_all_builder.push_bind("B%"); // Names starting with B
+    let select_all_query = select_all_builder.build_query_as::<TestItem>();
+
+    let all_b_items: Vec<TestItem> = select_all_query.fetch_all(&mut conn).await?;
+    assert_eq!(all_b_items.len(), 1);
+    assert_eq!(all_b_items[0].id, 2);
+    assert_eq!(all_b_items[0].name, "Bob");
+
+    conn.close().await?;
+    Ok(())
+}
+
+#[sqlx_macros::test]
+async fn it_executes_query_from_issue_11() -> anyhow::Result<()> {
+    // https://github.com/sqlpage/sqlx-oldapi/issues/11
+    let mut conn = new::<Mssql>().await?;
+
+    // Create a temporary table similar to the one in the issue
+    conn.execute(
+        r#"
+CREATE TABLE #temp_issue_table (
+    id INT PRIMARY KEY,
+    name NVARCHAR(50)
+);
+        "#,
+    )
+    .await?;
+
+    // Insert some data
+    let insert_id1 = 100;
+    let insert_name1 = "test_user_1";
+    let insert_id2 = 200;
+    let insert_name2 = "test_user_2";
+
+    sqlx_oldapi::query("INSERT INTO #temp_issue_table (id, name) VALUES (@p1, @p2), (@p3, @p4)")
+        .bind(insert_id1)
+        .bind(insert_name1)
+        .bind(insert_id2)
+        .bind(insert_name2)
+        .execute(&mut conn)
+        .await?;
+
+    // Define a struct to map the query results
+    #[derive(sqlx_oldapi::FromRow, Debug, PartialEq)]
+    struct TableRow {
+        id: i32,
+        name: String,
+    }
+
+    // Use QueryBuilder as in the issue report
+    let id_to_select = insert_id1;
+    let name_to_select = insert_name1;
+
+    let mut builder = sqlx_oldapi::QueryBuilder::new("SELECT id, name FROM #temp_issue_table ");
+    builder
+        .push("WHERE id=")
+        .push_bind(id_to_select) // Bind the specific id we want to find
+        .push(" AND name=")
+        .push_bind(name_to_select); // Bind the specific name
+
+    let query = builder.build_query_as::<TableRow>();
+    let sql = query.sql();
+    eprintln!("Generated SQL for issue report test: {}", sql);
+    assert_eq!(
+        sql,
+        "SELECT id, name FROM #temp_issue_table WHERE id=@p1 AND name=@p2"
+    );
+
+    let selected_row: TableRow = query.fetch_one(&mut conn).await?;
+
+    assert_eq!(selected_row.id, id_to_select);
+    assert_eq!(selected_row.name, name_to_select);
+
+    // Test selecting a non-existent row to ensure a different id/name fails as expected
+    let mut builder_no_match =
+        sqlx_oldapi::QueryBuilder::new("SELECT id, name FROM #temp_issue_table ");
+    builder_no_match
+        .push("WHERE id=")
+        .push_bind(999) // Non-existent ID
+        .push(" AND name=")
+        .push_bind("no_such_user");
+
+    let query_no_match = builder_no_match.build_query_as::<TableRow>();
+    let result_no_match = query_no_match.fetch_optional(&mut conn).await?;
+    assert!(
+        result_no_match.is_none(),
+        "Query should not have found a match for non-existent data"
+    );
+
+    conn.close().await?;
     Ok(())
 }

@@ -4,6 +4,7 @@ use crate::mssql::database::Mssql;
 use crate::mssql::io::MssqlBufMutExt;
 use crate::mssql::protocol::rpc::StatusFlags;
 use crate::types::Type;
+use std::fmt::{self, Write};
 
 #[derive(Default, Clone)]
 pub struct MssqlArguments {
@@ -114,5 +115,56 @@ impl<'q> Arguments<'q> for MssqlArguments {
         T: 'q + Encode<'q, Self::Database> + Type<Mssql>,
     {
         self.add(value)
+    }
+
+    fn format_placeholder<W: Write>(&self, writer: &mut W) -> fmt::Result {
+        // self.ordinal is incremented by the `MssqlArguments::add` method (the inherent one)
+        // *before* this `format_placeholder` method is called by QueryBuilder.
+        // So, `self.ordinal` correctly represents the number of the current parameter (e.g., 1 for @p1).
+        writer.write_str("@p")?;
+        writer.write_str(itoa::Buffer::new().format(self.ordinal))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::query_builder::QueryBuilder;
+
+    #[test]
+    fn test_format_placeholder_method() {
+        let mut args = MssqlArguments::default(); // ordinal = 0 initially
+        let mut buffer = String::new();
+
+        // Simulate first bind operation sequence as done by QueryBuilder:
+        // 1. QueryBuilder calls MssqlArguments::add (via trait)
+        // 2. QueryBuilder calls MssqlArguments::format_placeholder (via trait)
+
+        // First bind:
+        args.add(123i32); // This calls the inherent `MssqlArguments::add`, which increments ordinal to 1.
+        args.format_placeholder(&mut buffer).unwrap(); // This should now use ordinal = 1.
+        assert_eq!(buffer, "@p1");
+
+        buffer.clear();
+
+        // Second bind:
+        args.add("test_val".to_string()); // Inherent `add` increments ordinal to 2.
+        args.format_placeholder(&mut buffer).unwrap(); // This should use ordinal = 2.
+        assert_eq!(buffer, "@p2");
+    }
+
+    #[test]
+    fn test_query_builder_with_mssql_placeholders() {
+        // This test replicates the scenario from GitHub issue #11
+        let id = 100;
+        let mut builder = QueryBuilder::<Mssql>::new("SELECT * FROM table ");
+        builder
+            .push("WHERE id=")
+            .push_bind(id)
+            .push(" AND name=")
+            .push_bind("test");
+        let sql = builder.sql(); // Get the generated SQL string
+
+        assert_eq!(sql, "SELECT * FROM table WHERE id=@p1 AND name=@p2");
     }
 }
