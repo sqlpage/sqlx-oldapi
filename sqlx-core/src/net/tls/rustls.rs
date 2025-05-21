@@ -288,7 +288,13 @@ impl ServerCertVerifier for NoHostnameTlsVerifier {
 
 fn remove_hostname_error<O>(r: Result<O, TlsError>, ok: O) -> Result<O, TlsError> {
     match r {
-        Err(TlsError::InvalidCertificate(CertificateError::NotValidForName)) => Ok(ok),
+        Err(TlsError::InvalidCertificate(
+            e @ (CertificateError::NotValidForNameContext { .. }
+            | CertificateError::NotValidForName),
+        )) => {
+            log::debug!("Ignoring TLS certificate hostname mismatch error: {:?}", e);
+            Ok(ok)
+        }
         res => res,
     }
 }
