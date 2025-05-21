@@ -10,6 +10,21 @@ impl_database_ext! {
         f32,
         f64,
         String,
+
+        #[cfg(feature = "chrono")]
+        sqlx::types::chrono::NaiveTime,
+
+        #[cfg(feature = "chrono")]
+        sqlx::types::chrono::NaiveDate,
+
+        #[cfg(feature = "chrono")]
+        sqlx::types::chrono::NaiveDateTime,
+
+        #[cfg(feature = "chrono")]
+        sqlx::types::chrono::DateTime<sqlx::types::chrono::Utc>,
+
+        #[cfg(feature = "chrono")]
+        sqlx::types::chrono::DateTime<sqlx::types::chrono::FixedOffset>,
     },
     ParamChecking::Weak,
     feature-types: _info => None,
