@@ -131,9 +131,9 @@ SQLx is compatible with the [`async-std`], [`tokio`] and [`actix`] runtimes; and
 # Cargo.toml
 [dependencies]
 # tokio + rustls
-sqlx = { package = "sqlx-oldapi",  version = "0.6", features = [ "runtime-tokio-rustls" ] }
+sqlx-oldapi = { version = "0.6", features = [ "runtime-tokio-rustls" ] }
 # async-std + native-tls
-sqlx = { package = "sqlx-oldapi",  version = "0.6", features = [ "runtime-async-std-native-tls" ] }
+sqlx-oldapi = { version = "0.6", features = [ "runtime-async-std-native-tls" ] }
 ```
 
 <small><small>The runtime and TLS backend not being separate feature sets to select is a workaround for a [Cargo issue](https://github.com/rust-lang/cargo/issues/3494).</small></small>
@@ -219,27 +219,27 @@ See the `examples/` folder for more in-depth usage.
 [dependencies]
 # PICK ONE:
 # Async-std:
-sqlx = { package = "sqlx-oldapi",  version = "0.6", features = [  "runtime-async-std-native-tls", "postgres" ] }
+sqlx-oldapi = { version = "0.6", features = [  "runtime-async-std-native-tls", "postgres" ] }
 async-std = { version = "1", features = [ "attributes" ] }
 
 # Tokio:
-sqlx = { package = "sqlx-oldapi",  version = "0.6", features = [ "runtime-tokio-native-tls" , "postgres" ] }
+sqlx-oldapi = { version = "0.6", features = [ "runtime-tokio-native-tls" , "postgres" ] }
 tokio = { version = "1", features = ["full"] }
 
 # Actix-web:
-sqlx = { package = "sqlx-oldapi",  version = "0.6", features = [ "runtime-actix-native-tls" , "postgres" ] }
+sqlx-oldapi = { version = "0.6", features = [ "runtime-actix-native-tls" , "postgres" ] }
 actix-web = "4"
 ```
 
 ```rust
-use sqlx::postgres::PgPoolOptions;
-// use sqlx::mysql::MySqlPoolOptions;
+use sqlx_oldapi::postgres::PgPoolOptions;
+// use sqlx_oldapi::mysql::MySqlPoolOptions;
 // etc.
 
 #[async_std::main]
 // or #[tokio::main]
 // or #[actix_web::main]
-async fn main() -> Result<(), sqlx::Error> {
+async fn main() -> Result<(), sqlx_oldapi::Error> {
     // Create a connection pool
     //  for MySQL, use MySqlPoolOptions::new()
     //  for SQLite, use SqlitePoolOptions::new()
@@ -249,7 +249,7 @@ async fn main() -> Result<(), sqlx::Error> {
         .connect("postgres://postgres:password@localhost/test").await?;
 
     // Make a simple query to return the given parameter (use a question mark `?` instead of `$1` for MySQL)
-    let row: (i64,) = sqlx::query_as("SELECT $1")
+    let row: (i64,) = sqlx_oldapi::query_as("SELECT $1")
         .bind(150_i64)
         .fetch_one(&pool).await?;
 
@@ -264,12 +264,12 @@ async fn main() -> Result<(), sqlx::Error> {
 A single connection can be established using any of the database connection types and calling `connect()`.
 
 ```rust
-use sqlx::Connection;
+use sqlx_oldapi::Connection;
 
 let conn = SqliteConnection::connect("sqlite::memory:").await?;
 ```
 
-Generally, you will want to instead create a connection pool (`sqlx::Pool`) in order for your application to
+Generally, you will want to instead create a connection pool (`sqlx_oldapi::Pool`) in order for your application to
 regulate how many server-side connections it's using.
 
 ```rust
@@ -289,21 +289,21 @@ and a `Query` or `QueryAs` struct is treated as a prepared query.
 ```rust
 // low-level, Executor trait
 conn.execute("BEGIN").await?; // unprepared, simple query
-conn.execute(sqlx::query("DELETE FROM table")).await?; // prepared, cached query
+conn.execute(sqlx_oldapi::query("DELETE FROM table")).await?; // prepared, cached query
 ```
 
 We should prefer to use the high level, `query` interface whenever possible. To make this easier, there are finalizers
 on the type to avoid the need to wrap with an executor.
 
 ```rust
-sqlx::query("DELETE FROM table").execute(&mut conn).await?;
-sqlx::query("DELETE FROM table").execute(&pool).await?;
+sqlx_oldapi::query("DELETE FROM table").execute(&mut conn).await?;
+sqlx_oldapi::query("DELETE FROM table").execute(&pool).await?;
 ```
 
 The `execute` query finalizer returns the number of affected rows, if any, and drops all received results.
 In addition, there are `fetch`, `fetch_one`, `fetch_optional`, and `fetch_all` to receive results.
 
-The `Query` type returned from `sqlx::query` will return `Row<'conn>` from the database. Column values can be accessed
+The `Query` type returned from `sqlx_oldapi::query` will return `Row<'conn>` from the database. Column values can be accessed
 by ordinal or by name with `row.get()`. As the `Row` retains an immutable borrow on the connection, only one
 `Row` may exist at a time.
 
@@ -313,7 +313,7 @@ The `fetch` query finalizer returns a stream-like type that iterates through the
 // provides `try_next`
 use futures::TryStreamExt;
 
-let mut rows = sqlx::query("SELECT * FROM users WHERE email = ?")
+let mut rows = sqlx_oldapi::query("SELECT * FROM users WHERE email = ?")
     .bind(email)
     .fetch(&mut conn);
 
@@ -326,7 +326,7 @@ while let Some(row) = rows.try_next().await? {
 To assist with mapping the row into a domain type, there are two idioms that may be used:
 
 ```rust
-let mut stream = sqlx::query("SELECT * FROM users")
+let mut stream = sqlx_oldapi::query("SELECT * FROM users")
     .map(|row: PgRow| {
         // map the row into a user-defined domain type
     })
@@ -334,10 +334,10 @@ let mut stream = sqlx::query("SELECT * FROM users")
 ```
 
 ```rust
-#[derive(sqlx::FromRow)]
+#[derive(sqlx_oldapi::FromRow)]
 struct User { name: String, id: i64 }
 
-let mut stream = sqlx::query_as::<_, User>("SELECT * FROM users WHERE email = ? OR name = ?")
+let mut stream = sqlx_oldapi::query_as::<_, User>("SELECT * FROM users WHERE email = ? OR name = ?")
     .bind(user_email)
     .bind(user_name)
     .fetch(&mut conn);
@@ -348,11 +348,11 @@ from the database.
 
 ### Compile-time verification
 
-We can use the macro, `sqlx::query!` to achieve compile-time syntactic and semantic verification of the SQL, with
+We can use the macro, `sqlx_oldapi::query!` to achieve compile-time syntactic and semantic verification of the SQL, with
 an output to an anonymous record type where each SQL column is a Rust field (using raw identifiers where needed).
 
 ```rust
-let countries = sqlx::query!(
+let countries = sqlx_oldapi::query!(
         "
 SELECT country, COUNT(*) as count
 FROM users
@@ -399,7 +399,7 @@ mostly identical except that you can name the output type.
 // no traits are needed
 struct Country { country: String, count: i64 }
 
-let countries = sqlx::query_as!(Country,
+let countries = sqlx_oldapi::query_as!(Country,
         "
 SELECT country, COUNT(*) as count
 FROM users
