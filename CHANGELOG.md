@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## 0.6.42
  - Fix `QueryBuilder` for Microsoft SQL Server: https://github.com/sqlpage/sqlx-oldapi/issues/11
  - Add support for Microsoft SQL Server DateTime columns in sqlx macros: macros https://github.com/sqlpage/sqlx-oldapi/issues/16
+ - updated the dependency to "syn"
 
 ## 0.6.41
  - Upgrade rustls to 0.23
