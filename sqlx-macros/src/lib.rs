@@ -13,8 +13,8 @@ use proc_macro::TokenStream;
 use quote::quote;
 
 use syn::parse::{Parse, ParseStream};
-use syn::{parse_macro_input, DeriveInput, ItemFn, LitStr, Token, Meta};
 use syn::punctuated::Punctuated;
+use syn::{parse_macro_input, DeriveInput, ItemFn, LitStr, Meta, Token};
 
 type Error = Box<dyn std::error::Error>;
 
@@ -35,7 +35,9 @@ struct ArgsParser(Punctuated<Meta, Token![,]>);
 
 impl Parse for ArgsParser {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        Ok(ArgsParser(Punctuated::<Meta, Token![,]>::parse_terminated(input)?))
+        Ok(ArgsParser(Punctuated::<Meta, Token![,]>::parse_terminated(
+            input,
+        )?))
     }
 }
 

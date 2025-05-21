@@ -3,7 +3,9 @@ use quote::{quote, quote_spanned};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
-use syn::{Attribute, DeriveInput, Field, Lit, Meta, MetaNameValue, Variant, Expr, LitStr, Token, Path};
+use syn::{
+    Attribute, DeriveInput, Expr, Field, Lit, LitStr, Meta, MetaNameValue, Path, Token, Variant,
+};
 
 macro_rules! assert_attribute {
     ($e:expr, $err:expr, $input:expr) => {
@@ -87,7 +89,8 @@ pub fn parse_container_attributes(input: &[Attribute]) -> syn::Result<SqlxContai
     {
         match &attr.meta {
             Meta::List(list) if list.path.is_ident("sqlx") => {
-                let nested_metas = list.parse_args_with(Punctuated::<Meta, syn::token::Comma>::parse_terminated)?;
+                let nested_metas =
+                    list.parse_args_with(Punctuated::<Meta, syn::token::Comma>::parse_terminated)?;
                 for meta_item in nested_metas {
                     match meta_item {
                         Meta::Path(p) if p.is_ident("transparent") => {
@@ -157,7 +160,8 @@ pub fn parse_container_attributes(input: &[Attribute]) -> syn::Result<SqlxContai
                 }
             }
             Meta::List(list) if list.path.is_ident("repr") => {
-                let nested_metas = list.parse_args_with(Punctuated::<Meta, syn::token::Comma>::parse_terminated)?;
+                let nested_metas =
+                    list.parse_args_with(Punctuated::<Meta, syn::token::Comma>::parse_terminated)?;
                 if nested_metas.len() != 1 {
                     fail!(&list.path, "expected one value for repr")
                 }
@@ -188,7 +192,8 @@ pub fn parse_child_attributes(input: &[Attribute]) -> syn::Result<SqlxChildAttri
 
     for attr in input.iter().filter(|a| a.path().is_ident("sqlx")) {
         if let Meta::List(list) = &attr.meta {
-            let nested_metas = list.parse_args_with(Punctuated::<Meta, syn::token::Comma>::parse_terminated)?;
+            let nested_metas =
+                list.parse_args_with(Punctuated::<Meta, syn::token::Comma>::parse_terminated)?;
             for meta_item in nested_metas {
                 match meta_item {
                     Meta::NameValue(mnv) if mnv.path.is_ident("rename") => {

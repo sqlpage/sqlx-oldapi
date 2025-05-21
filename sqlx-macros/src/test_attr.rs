@@ -1,7 +1,7 @@
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
-use syn::{LitStr, LitBool, Expr, Meta, MetaList, MetaNameValue, Path, Token};
 use syn::punctuated::Punctuated;
+use syn::{Expr, LitBool, LitStr, Meta, MetaList, MetaNameValue, Path, Token};
 
 struct Args {
     fixtures: Vec<LitStr>,
@@ -15,7 +15,10 @@ enum MigrationsOpt {
     Disabled,
 }
 
-pub fn expand(args: Punctuated<syn::Meta, Token![,]>, input: syn::ItemFn) -> proc_macro::TokenStream {
+pub fn expand(
+    args: Punctuated<syn::Meta, Token![,]>,
+    input: syn::ItemFn,
+) -> proc_macro::TokenStream {
     let result: crate::Result<TokenStream> = if input.sig.inputs.is_empty() {
         if !args.is_empty() {
             if cfg!(feature = "migrate") {
@@ -24,13 +27,15 @@ pub fn expand(args: Punctuated<syn::Meta, Token![,]>, input: syn::ItemFn) -> pro
                     "control attributes are not allowed unless \
                         the `migrate` feature is enabled and \
                         automatic test DB management is used; see docs",
-                ).into())
+                )
+                .into())
             } else {
                 Err(syn::Error::new_spanned(
                     args.first().unwrap(),
                     "control attributes are not allowed unless \
                     automatic test DB management is used; see docs",
-                ).into())
+                )
+                .into())
             }
         } else {
             expand_simple(input)
@@ -76,7 +81,10 @@ fn expand_simple(input: syn::ItemFn) -> crate::Result<TokenStream> {
 }
 
 #[cfg(feature = "migrate")]
-fn expand_advanced(args: Punctuated<syn::Meta, Token![,]>, input: syn::ItemFn) -> crate::Result<TokenStream> {
+fn expand_advanced(
+    args: Punctuated<syn::Meta, Token![,]>,
+    input: syn::ItemFn,
+) -> crate::Result<TokenStream> {
     let ret = &input.sig.output;
     let name = &input.sig.ident;
     let inputs = &input.sig.inputs;
