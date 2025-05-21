@@ -125,6 +125,7 @@ static METADATA: Lazy<Metadata> = Lazy::new(|| {
     }
 });
 
+#[allow(unused_variables)]
 pub fn expand_input(input: QueryMacroInput) -> crate::Result<TokenStream> {
     match &*METADATA {
         #[cfg(not(any(
@@ -135,7 +136,7 @@ pub fn expand_input(input: QueryMacroInput) -> crate::Result<TokenStream> {
         )))]
         Metadata {
             offline: false,
-            database_url: Some(db_url),
+            database_url: Some(_db_url),
             ..
         } => Err(
             "At least one of the features ['postgres', 'mysql', 'mssql', 'sqlite'] must be enabled \
@@ -359,13 +360,9 @@ where
                     }
                 }
 
-                let record_fields = columns.iter().map(
-                    |&output::RustColumn {
-                         ref ident,
-                         ref type_,
-                         ..
-                     }| quote!(#ident: #type_,),
-                );
+                let record_fields = columns
+                    .iter()
+                    .map(|output::RustColumn { ident, type_, .. }| quote!(#ident: #type_,));
 
                 let mut record_tokens = quote! {
                     #[derive(Debug)]

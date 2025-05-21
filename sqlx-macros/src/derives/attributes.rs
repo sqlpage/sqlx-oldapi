@@ -3,7 +3,9 @@ use quote::{quote, quote_spanned};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
-use syn::{Attribute, DeriveInput, Field, Lit, Meta, MetaNameValue, NestedMeta, Variant};
+use syn::{
+    Attribute, DeriveInput, Expr, Field, Lit, LitStr, Meta, MetaNameValue, Path, Token, Variant,
+};
 
 macro_rules! assert_attribute {
     ($e:expr, $err:expr, $input:expr) => {
@@ -83,89 +85,94 @@ pub fn parse_container_attributes(input: &[Attribute]) -> syn::Result<SqlxContai
 
     for attr in input
         .iter()
-        .filter(|a| a.path.is_ident("sqlx") || a.path.is_ident("repr"))
+        .filter(|a| a.path().is_ident("sqlx") || a.path().is_ident("repr"))
     {
-        let meta = attr
-            .parse_meta()
-            .map_err(|e| syn::Error::new_spanned(attr, e))?;
-        match meta {
+        match &attr.meta {
             Meta::List(list) if list.path.is_ident("sqlx") => {
-                for value in list.nested.iter() {
-                    match value {
-                        NestedMeta::Meta(meta) => match meta {
-                            Meta::Path(p) if p.is_ident("transparent") => {
-                                try_set!(transparent, true, value)
+                let nested_metas =
+                    list.parse_args_with(Punctuated::<Meta, syn::token::Comma>::parse_terminated)?;
+                for meta_item in nested_metas {
+                    match meta_item {
+                        Meta::Path(p) if p.is_ident("transparent") => {
+                            try_set!(transparent, true, p)
+                        }
+                        Meta::NameValue(mnv) if mnv.path.is_ident("rename_all") => {
+                            if let Expr::Lit(expr_lit) = &mnv.value {
+                                if let Lit::Str(val_str) = &expr_lit.lit {
+                                    let val = match &*val_str.value() {
+                                        "lowercase" => RenameAll::LowerCase,
+                                        "snake_case" => RenameAll::SnakeCase,
+                                        "UPPERCASE" => RenameAll::UpperCase,
+                                        "SCREAMING_SNAKE_CASE" => RenameAll::ScreamingSnakeCase,
+                                        "kebab-case" => RenameAll::KebabCase,
+                                        "camelCase" => RenameAll::CamelCase,
+                                        "PascalCase" => RenameAll::PascalCase,
+                                        _ => fail!(val_str, "unexpected value for rename_all"),
+                                    };
+                                    try_set!(rename_all, val, &mnv.path)
+                                } else {
+                                    fail!(expr_lit, "expected string literal for rename_all")
+                                }
+                            } else {
+                                fail!(&mnv.value, "expected literal expression for rename_all")
                             }
-
-                            Meta::NameValue(MetaNameValue {
-                                path,
-                                lit: Lit::Str(val),
-                                ..
-                            }) if path.is_ident("rename_all") => {
-                                let val = match &*val.value() {
-                                    "lowercase" => RenameAll::LowerCase,
-                                    "snake_case" => RenameAll::SnakeCase,
-                                    "UPPERCASE" => RenameAll::UpperCase,
-                                    "SCREAMING_SNAKE_CASE" => RenameAll::ScreamingSnakeCase,
-                                    "kebab-case" => RenameAll::KebabCase,
-                                    "camelCase" => RenameAll::CamelCase,
-                                    "PascalCase" => RenameAll::PascalCase,
-                                    _ => fail!(meta, "unexpected value for rename_all"),
-                                };
-
-                                try_set!(rename_all, val, value)
+                        }
+                        Meta::NameValue(mnv) if mnv.path.is_ident("type_name") => {
+                            if let Expr::Lit(expr_lit) = &mnv.value {
+                                if let Lit::Str(val_str) = &expr_lit.lit {
+                                    try_set!(
+                                        type_name,
+                                        TypeName {
+                                            val: val_str.value(),
+                                            span: val_str.span(),
+                                            deprecated_rename: false
+                                        },
+                                        &mnv.path
+                                    )
+                                } else {
+                                    fail!(expr_lit, "expected string literal for type_name")
+                                }
+                            } else {
+                                fail!(&mnv.value, "expected literal expression for type_name")
                             }
-
-                            Meta::NameValue(MetaNameValue {
-                                path,
-                                lit: Lit::Str(val),
-                                ..
-                            }) if path.is_ident("type_name") => {
-                                try_set!(
-                                    type_name,
-                                    TypeName {
-                                        val: val.value(),
-                                        span: value.span(),
-                                        deprecated_rename: false
-                                    },
-                                    value
-                                )
+                        }
+                        Meta::NameValue(mnv) if mnv.path.is_ident("rename") => {
+                            if let Expr::Lit(expr_lit) = &mnv.value {
+                                if let Lit::Str(val_str) = &expr_lit.lit {
+                                    try_set!(
+                                        type_name,
+                                        TypeName {
+                                            val: val_str.value(),
+                                            span: val_str.span(),
+                                            deprecated_rename: true
+                                        },
+                                        &mnv.path
+                                    )
+                                } else {
+                                    fail!(expr_lit, "expected string literal for rename")
+                                }
+                            } else {
+                                fail!(&mnv.value, "expected literal expression for rename")
                             }
-
-                            Meta::NameValue(MetaNameValue {
-                                path,
-                                lit: Lit::Str(val),
-                                ..
-                            }) if path.is_ident("rename") => {
-                                try_set!(
-                                    type_name,
-                                    TypeName {
-                                        val: val.value(),
-                                        span: value.span(),
-                                        deprecated_rename: true
-                                    },
-                                    value
-                                )
-                            }
-
-                            u => fail!(u, "unexpected attribute"),
-                        },
-                        u => fail!(u, "unexpected attribute"),
+                        }
+                        u => fail!(u, "unexpected attribute inside sqlx(...)"),
                     }
                 }
             }
             Meta::List(list) if list.path.is_ident("repr") => {
-                if list.nested.len() != 1 {
-                    fail!(&list.nested, "expected one value")
+                let nested_metas =
+                    list.parse_args_with(Punctuated::<Meta, syn::token::Comma>::parse_terminated)?;
+                if nested_metas.len() != 1 {
+                    fail!(&list.path, "expected one value for repr")
                 }
-                match list.nested.first().unwrap() {
-                    NestedMeta::Meta(Meta::Path(p)) if p.get_ident().is_some() => {
-                        try_set!(repr, p.get_ident().unwrap().clone(), list);
+                match nested_metas.first().unwrap() {
+                    Meta::Path(p) if p.get_ident().is_some() => {
+                        try_set!(repr, p.get_ident().unwrap().clone(), &list.path);
                     }
-                    u => fail!(u, "unexpected value"),
+                    u => fail!(u, "unexpected value for repr"),
                 }
             }
-            _ => {}
+            _ => { /* Not an attribute we are interested in, or not a list */ }
         }
     }
 
@@ -183,30 +190,37 @@ pub fn parse_child_attributes(input: &[Attribute]) -> syn::Result<SqlxChildAttri
     let mut try_from = None;
     let mut flatten = false;
 
-    for attr in input.iter().filter(|a| a.path.is_ident("sqlx")) {
-        let meta = attr
-            .parse_meta()
-            .map_err(|e| syn::Error::new_spanned(attr, e))?;
-
-        if let Meta::List(list) = meta {
-            for value in list.nested.iter() {
-                match value {
-                    NestedMeta::Meta(meta) => match meta {
-                        Meta::NameValue(MetaNameValue {
-                            path,
-                            lit: Lit::Str(val),
-                            ..
-                        }) if path.is_ident("rename") => try_set!(rename, val.value(), value),
-                        Meta::NameValue(MetaNameValue {
-                            path,
-                            lit: Lit::Str(val),
-                            ..
-                        }) if path.is_ident("try_from") => try_set!(try_from, val.parse()?, value),
-                        Meta::Path(path) if path.is_ident("default") => default = true,
-                        Meta::Path(path) if path.is_ident("flatten") => flatten = true,
-                        u => fail!(u, "unexpected attribute"),
-                    },
-                    u => fail!(u, "unexpected attribute"),
+    for attr in input.iter().filter(|a| a.path().is_ident("sqlx")) {
+        if let Meta::List(list) = &attr.meta {
+            let nested_metas =
+                list.parse_args_with(Punctuated::<Meta, syn::token::Comma>::parse_terminated)?;
+            for meta_item in nested_metas {
+                match meta_item {
+                    Meta::NameValue(mnv) if mnv.path.is_ident("rename") => {
+                        if let Expr::Lit(expr_lit) = &mnv.value {
+                            if let Lit::Str(val_str) = &expr_lit.lit {
+                                try_set!(rename, val_str.value(), &mnv.path)
+                            } else {
+                                fail!(expr_lit, "expected string literal for rename")
+                            }
+                        } else {
+                            fail!(&mnv.value, "expected literal expression for rename")
+                        }
+                    }
+                    Meta::NameValue(mnv) if mnv.path.is_ident("try_from") => {
+                        if let Expr::Lit(expr_lit) = &mnv.value {
+                            if let Lit::Str(val_str) = &expr_lit.lit {
+                                try_set!(try_from, val_str.parse()?, &mnv.path)
+                            } else {
+                                fail!(expr_lit, "expected string literal for try_from")
+                            }
+                        } else {
+                            fail!(&mnv.value, "expected literal expression for try_from")
+                        }
+                    }
+                    Meta::Path(path) if path.is_ident("default") => default = true,
+                    Meta::Path(path) if path.is_ident("flatten") => flatten = true,
+                    u => fail!(u, "unexpected attribute inside sqlx(...)"),
                 }
             }
         }
