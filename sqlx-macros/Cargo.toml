@@ -85,7 +85,7 @@ url = { version = "2.2.2", default-features = false }
 
 [dependencies.syn]
 # This is basically default features plus "full" but if they add more defaults later then we don't need to enable those.
-version = "1.0.109"
+version = "2.0.101"
 default-features = false
 features = ["full", "parsing", "printing", "derive", "clone-impls", "proc-macro"]
 

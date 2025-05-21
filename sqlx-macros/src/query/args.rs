@@ -5,7 +5,7 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote, quote_spanned};
 use sqlx_core::describe::Describe;
 use syn::spanned::Spanned;
-use syn::{Expr, ExprCast, ExprGroup, ExprType, Type};
+use syn::{Expr, ExprCast, ExprGroup, Type};
 
 /// Returns a tokenstream which typechecks the arguments passed to the macro
 /// and binds them to `DB::Arguments` with the ident `query_args`.
@@ -118,7 +118,6 @@ fn get_type_override(expr: &Expr) -> Option<&Type> {
     match expr {
         Expr::Group(group) => get_type_override(&group.expr),
         Expr::Cast(cast) => Some(&cast.ty),
-        Expr::Type(ascription) => Some(&ascription.ty),
         _ => None,
     }
 }
@@ -135,7 +134,8 @@ fn strip_wildcard(expr: Expr) -> Expr {
             expr: Box::new(strip_wildcard(*expr)),
         }),
         // type ascription syntax is experimental so we always strip it
-        Expr::Type(ExprType { expr, .. }) => *expr,
+        // In syn v2, Expr::Type and ExprType are removed.
+        // Expr::Type(ExprType { expr, .. }) => *expr,
         // we want to retain casts if they semantically matter
         Expr::Cast(ExprCast {
             attrs,

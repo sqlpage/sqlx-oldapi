@@ -3701,7 +3701,7 @@ dependencies = [
  "sha2",
  "sqlx-core-oldapi",
  "sqlx-rt-oldapi",
- "syn 1.0.109",
+ "syn 2.0.101",
  "url",
 ]
 

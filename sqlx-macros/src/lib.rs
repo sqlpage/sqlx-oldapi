@@ -12,6 +12,10 @@ use proc_macro::TokenStream;
 
 use quote::quote;
 
+use syn::parse::{Parse, ParseStream};
+use syn::{parse_macro_input, DeriveInput, ItemFn, LitStr, Token, Meta};
+use syn::punctuated::Punctuated;
+
 type Error = Box<dyn std::error::Error>;
 
 type Result<T> = std::result::Result<T, Error>;
@@ -26,6 +30,14 @@ mod test_attr;
 
 #[cfg(feature = "migrate")]
 mod migrate;
+
+struct ArgsParser(Punctuated<Meta, Token![,]>);
+
+impl Parse for ArgsParser {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        Ok(ArgsParser(Punctuated::<Meta, Token![,]>::parse_terminated(input)?))
+    }
+}
 
 #[proc_macro]
 pub fn expand_query(input: TokenStream) -> TokenStream {
@@ -101,19 +113,12 @@ pub fn migrate(input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_attribute]
-pub fn test(args: TokenStream, input: TokenStream) -> TokenStream {
-    let args = syn::parse_macro_input!(args as syn::AttributeArgs);
-    let input = syn::parse_macro_input!(input as syn::ItemFn);
+pub fn test(
+    args: proc_macro::TokenStream,
+    input: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    let args = parse_macro_input!(args as ArgsParser).0;
+    let input = parse_macro_input!(input as ItemFn);
 
-    match test_attr::expand(args, input) {
-        Ok(ts) => ts.into(),
-        Err(e) => {
-            if let Some(parse_err) = e.downcast_ref::<syn::Error>() {
-                parse_err.to_compile_error().into()
-            } else {
-                let msg = e.to_string();
-                quote!(::std::compile_error!(#msg)).into()
-            }
-        }
-    }
+    test_attr::expand(args, input)
 }
