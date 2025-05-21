@@ -19,7 +19,7 @@ impl ToTokens for QuotedMigrationType {
                 quote! { ::sqlx_oldapi::migrate::MigrationType::ReversibleDown }
             }
         };
-        tokens.append_all(ts.into_iter());
+        tokens.append_all(ts);
     }
 }
 
@@ -101,7 +101,7 @@ pub(crate) fn expand_migrator(path: &Path) -> crate::Result<TokenStream> {
             .replace('_', " ")
             .to_owned();
 
-        let sql = fs::read_to_string(&entry.path())?;
+        let sql = fs::read_to_string(entry.path())?;
 
         let checksum = Vec::from(Sha384::digest(sql.as_bytes()).as_slice());
 

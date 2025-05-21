@@ -14,11 +14,7 @@ pub(crate) fn resolve_path(path: impl AsRef<Path>, err_span: Span) -> syn::Resul
 
     // requires `proc_macro::SourceFile::path()` to be stable
     // https://github.com/rust-lang/rust/issues/54725
-    if path.is_relative()
-        && !path
-            .parent()
-            .map_or(false, |parent| !parent.as_os_str().is_empty())
-    {
+    if path.is_relative() && path.parent().is_none_or(|p| p.as_os_str().is_empty()) {
         return Err(syn::Error::new(
             err_span,
             "paths relative to the current file's directory are not currently supported",

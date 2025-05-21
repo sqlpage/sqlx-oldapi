@@ -1,3 +1,4 @@
+#![allow(clippy::large_enum_variant)]
 #![cfg_attr(
     not(any(feature = "postgres", feature = "mysql", feature = "offline")),
     allow(dead_code, unused_macros, unused_imports)
