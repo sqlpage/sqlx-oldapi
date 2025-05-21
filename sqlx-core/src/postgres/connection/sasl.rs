@@ -66,8 +66,11 @@ pub(crate) async fn authenticate(
     let client_nonce = gen_nonce();
 
     // client-first-message-bare = [reserved-mext ","] username "," nonce ["," extensions]
-    let client_first_message_bare =
-        format!("{username},{client_nonce}", username = username, client_nonce = client_nonce);
+    let client_first_message_bare = format!(
+        "{username},{client_nonce}",
+        username = username,
+        client_nonce = client_nonce
+    );
 
     let client_first_message = format!(
         "{gs2_header}{client_first_message_bare}",
