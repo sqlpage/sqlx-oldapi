@@ -1,5 +1,5 @@
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
-use rustls::client::WebPkiServerVerifier;
+use rustls::client::{VerifierBuilderError, WebPkiServerVerifier};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, ServerName, UnixTime};
 use rustls::{
     CertificateError, ClientConfig, DigitallySignedStruct, Error as TlsError, KeyLogFile,
@@ -11,6 +11,56 @@ use std::sync::Arc;
 use crate::error::Error;
 
 use super::TlsConfig;
+
+#[derive(Debug, thiserror::Error)]
+pub enum RustlsError {
+    #[error("failed to add root certificate from {path_desc} to trust store: {source}")]
+    AddRootCert {
+        path_desc: String,
+        #[source]
+        source: rustls::Error,
+    },
+    #[error("failed to parse PEM certificate from {file_description}: {source}")]
+    ParsePemCert {
+        file_description: String,
+        #[source]
+        source: std::io::Error,
+    },
+    #[error("failed to build TLS verifier, ensure CA certificates are valid and correctly configured: {source}")]
+    BuildVerifier {
+        #[source]
+        source: VerifierBuilderError,
+    },
+    #[error("failed to parse client certificate from {file_description}: {source}")]
+    ParseClientCert {
+        file_description: String,
+        #[source]
+        source: std::io::Error,
+    },
+    #[error("failed to parse client private key from {file_description}: {source}")]
+    ParseClientKey {
+        file_description: String,
+        #[source]
+        source: std::io::Error,
+    },
+    #[error("failed to set client authentication using certificate from {cert_path_desc} and private key from {key_path_desc}; ensure the certificate and key are valid: {source}")]
+    ClientAuthCert {
+        cert_path_desc: String,
+        key_path_desc: String,
+        #[source]
+        source: TlsError,
+    },
+    #[error("no supported private keys (Sec1, Pkcs8, Pkcs1) found in the provided PEM data for the client private key")]
+    NoKeysFound,
+    #[error("TLS configuration error: {0}. Please check your TLS settings, including paths to certificates and keys, and ensure they are correctly specified.")]
+    Configuration(String),
+}
+
+impl From<RustlsError> for Error {
+    fn from(err: RustlsError) -> Self {
+        Error::Tls(Box::new(err))
+    }
+}
 
 pub async fn configure_tls_connector(
     tls_config: TlsConfig<'_>,
@@ -26,20 +76,29 @@ pub async fn configure_tls_connector(
         };
 
         if let Some(ca) = tls_config.root_cert_path {
-            let data = ca.data().await?;
+            let path_description = ca.to_string();
+            let data = ca.data().await.map_err(|e| RustlsError::ParsePemCert {
+                file_description: path_description.clone(),
+                source: std::io::Error::new(std::io::ErrorKind::Other, e),
+            })?;
             let mut cursor = Cursor::new(data);
 
-            for cert in rustls_pemfile::certs(&mut cursor) {
-                cert_store
-                    .add(cert.map_err(|err| Error::Tls(err.into()))?)
-                    .map_err(|err| Error::Tls(err.into()))?;
+            for cert_result in rustls_pemfile::certs(&mut cursor) {
+                let cert = cert_result.map_err(|e| RustlsError::ParsePemCert {
+                    file_description: path_description.clone(),
+                    source: e,
+                })?;
+                cert_store.add(cert).map_err(|e| RustlsError::AddRootCert {
+                    path_desc: path_description.clone(),
+                    source: e,
+                })?;
             }
         }
 
         if tls_config.accept_invalid_hostnames {
             let verifier = WebPkiServerVerifier::builder(Arc::new(cert_store))
                 .build()
-                .map_err(|err| Error::Tls(err.into()))?;
+                .map_err(|e| RustlsError::BuildVerifier { source: e })?;
 
             config
                 .dangerous()
@@ -49,41 +108,65 @@ pub async fn configure_tls_connector(
         }
     };
 
-    // authentication using user's key and its associated certificate
     let mut config = match (tls_config.client_cert_path, tls_config.client_key_path) {
         (Some(cert_path), Some(key_path)) => {
-            let cert_chain = certs_from_pem(cert_path.data().await?)?;
-            let key_der = private_key_from_pem(key_path.data().await?)?;
+            let cert_file_desc = cert_path.to_string();
+            let key_file_desc = key_path.to_string();
+
+            let cert_chain = certs_from_pem(cert_path.data().await.map_err(|e| {
+                RustlsError::ParseClientCert {
+                    file_description: cert_file_desc.clone(),
+                    source: std::io::Error::new(std::io::ErrorKind::Other, e),
+                }
+            })?)?;
+            let key_der = private_key_from_pem(key_path.data().await.map_err(|e| {
+                RustlsError::ParseClientKey {
+                    file_description: key_file_desc.clone(),
+                    source: std::io::Error::new(std::io::ErrorKind::Other, e),
+                }
+            })?)?;
             config
                 .with_client_auth_cert(cert_chain, key_der)
-                .map_err(Error::tls)?
+                .map_err(|e| RustlsError::ClientAuthCert {
+                    cert_path_desc: cert_file_desc,
+                    key_path_desc: key_file_desc,
+                    source: e,
+                })?
         }
         (None, None) => config.with_no_client_auth(),
         (_, _) => {
-            return Err(Error::Configuration(
+            return Err(RustlsError::Configuration(
                 "user auth key and certs must be given together".into(),
-            ))
+            )
+            .into())
         }
     };
 
-    // When SSLKEYLOGFILE is set, write the TLS keys to a file for use with Wireshark
     config.key_log = Arc::new(KeyLogFile::new());
 
     Ok(Arc::new(config).into())
 }
 
-fn certs_from_pem(pem: Vec<u8>) -> std::io::Result<Vec<CertificateDer<'static>>> {
+fn certs_from_pem(pem: Vec<u8>) -> Result<Vec<CertificateDer<'static>>, RustlsError> {
     let cur = Cursor::new(pem);
     let mut reader = BufReader::new(cur);
-    rustls_pemfile::certs(&mut reader).collect()
+    rustls_pemfile::certs(&mut reader)
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| RustlsError::ParsePemCert {
+            file_description: String::from("PEM data"),
+            source: e,
+        })
 }
 
-fn private_key_from_pem(pem: Vec<u8>) -> Result<PrivateKeyDer<'static>, Error> {
+fn private_key_from_pem(pem: Vec<u8>) -> Result<PrivateKeyDer<'static>, RustlsError> {
     let cur = Cursor::new(pem);
     let mut reader = BufReader::new(cur);
 
     loop {
-        match rustls_pemfile::read_one(&mut reader)? {
+        match rustls_pemfile::read_one(&mut reader).map_err(|e| RustlsError::ParseClientKey {
+            file_description: String::from("PEM data"),
+            source: e,
+        })? {
             Some(rustls_pemfile::Item::Sec1Key(key)) => return Ok(PrivateKeyDer::Sec1(key)),
             Some(rustls_pemfile::Item::Pkcs8Key(key)) => return Ok(PrivateKeyDer::Pkcs8(key)),
             Some(rustls_pemfile::Item::Pkcs1Key(key)) => return Ok(PrivateKeyDer::Pkcs1(key)),
@@ -92,7 +175,7 @@ fn private_key_from_pem(pem: Vec<u8>) -> Result<PrivateKeyDer<'static>, Error> {
         }
     }
 
-    Err(Error::Configuration("no keys found pem file".into()))
+    Err(RustlsError::NoKeysFound)
 }
 
 #[derive(Debug)]
@@ -205,7 +288,13 @@ impl ServerCertVerifier for NoHostnameTlsVerifier {
 
 fn remove_hostname_error<O>(r: Result<O, TlsError>, ok: O) -> Result<O, TlsError> {
     match r {
-        Err(TlsError::InvalidCertificate(CertificateError::NotValidForName)) => Ok(ok),
+        Err(TlsError::InvalidCertificate(
+            e @ (CertificateError::NotValidForNameContext { .. }
+            | CertificateError::NotValidForName),
+        )) => {
+            log::debug!("Ignoring TLS certificate hostname mismatch error: {:?}", e);
+            Ok(ok)
+        }
         res => res,
     }
 }
