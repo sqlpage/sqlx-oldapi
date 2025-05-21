@@ -233,6 +233,7 @@ actix-web = "4"
 
 ```rust
 use sqlx_oldapi::postgres::PgPoolOptions;
+use sqlx_oldapi::{query, query_as, query_as_unchecked, query_scalar, query_with};
 // use sqlx_oldapi::mysql::MySqlPoolOptions;
 // etc.
 
@@ -249,7 +250,7 @@ async fn main() -> Result<(), sqlx_oldapi::Error> {
         .connect("postgres://postgres:password@localhost/test").await?;
 
     // Make a simple query to return the given parameter (use a question mark `?` instead of `$1` for MySQL)
-    let row: (i64,) = sqlx_oldapi::query_as("SELECT $1")
+    let row: (i64,) = query_as("SELECT $1")
         .bind(150_i64)
         .fetch_one(&pool).await?;
 
@@ -289,21 +290,21 @@ and a `Query` or `QueryAs` struct is treated as a prepared query.
 ```rust
 // low-level, Executor trait
 conn.execute("BEGIN").await?; // unprepared, simple query
-conn.execute(sqlx_oldapi::query("DELETE FROM table")).await?; // prepared, cached query
+conn.execute(query("DELETE FROM table")).await?; // prepared, cached query
 ```
 
 We should prefer to use the high level, `query` interface whenever possible. To make this easier, there are finalizers
 on the type to avoid the need to wrap with an executor.
 
 ```rust
-sqlx_oldapi::query("DELETE FROM table").execute(&mut conn).await?;
-sqlx_oldapi::query("DELETE FROM table").execute(&pool).await?;
+query("DELETE FROM table").execute(&mut conn).await?;
+query("DELETE FROM table").execute(&pool).await?;
 ```
 
 The `execute` query finalizer returns the number of affected rows, if any, and drops all received results.
 In addition, there are `fetch`, `fetch_one`, `fetch_optional`, and `fetch_all` to receive results.
 
-The `Query` type returned from `sqlx_oldapi::query` will return `Row<'conn>` from the database. Column values can be accessed
+The `Query` type returned from `query` will return `Row<'conn>` from the database. Column values can be accessed
 by ordinal or by name with `row.get()`. As the `Row` retains an immutable borrow on the connection, only one
 `Row` may exist at a time.
 
@@ -313,7 +314,7 @@ The `fetch` query finalizer returns a stream-like type that iterates through the
 // provides `try_next`
 use futures::TryStreamExt;
 
-let mut rows = sqlx_oldapi::query("SELECT * FROM users WHERE email = ?")
+let mut rows = query("SELECT * FROM users WHERE email = ?")
     .bind(email)
     .fetch(&mut conn);
 
@@ -326,7 +327,7 @@ while let Some(row) = rows.try_next().await? {
 To assist with mapping the row into a domain type, there are two idioms that may be used:
 
 ```rust
-let mut stream = sqlx_oldapi::query("SELECT * FROM users")
+let mut stream = query("SELECT * FROM users")
     .map(|row: PgRow| {
         // map the row into a user-defined domain type
     })
@@ -337,7 +338,7 @@ let mut stream = sqlx_oldapi::query("SELECT * FROM users")
 #[derive(sqlx_oldapi::FromRow)]
 struct User { name: String, id: i64 }
 
-let mut stream = sqlx_oldapi::query_as::<_, User>("SELECT * FROM users WHERE email = ? OR name = ?")
+let mut stream = query_as::<_, User>("SELECT * FROM users WHERE email = ? OR name = ?")
     .bind(user_email)
     .bind(user_name)
     .fetch(&mut conn);
@@ -352,7 +353,7 @@ We can use the macro, `sqlx_oldapi::query!` to achieve compile-time syntactic an
 an output to an anonymous record type where each SQL column is a Rust field (using raw identifiers where needed).
 
 ```rust
-let countries = sqlx_oldapi::query!(
+let countries = query!(
         "
 SELECT country, COUNT(*) as count
 FROM users
@@ -399,7 +400,7 @@ mostly identical except that you can name the output type.
 // no traits are needed
 struct Country { country: String, count: i64 }
 
-let countries = sqlx_oldapi::query_as!(Country,
+let countries = query_as!(Country,
         "
 SELECT country, COUNT(*) as count
 FROM users
