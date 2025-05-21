@@ -104,7 +104,7 @@ impl<DB: Database> PoolInner<DB> {
 
     pub(crate) fn close_event(&self) -> CloseEvent {
         CloseEvent {
-            listener: (!self.is_closed()).then(|| self.on_closed.listen()),
+            listener: (!self.is_closed()).then(|| Box::pin(self.on_closed.listen())),
         }
     }
 
