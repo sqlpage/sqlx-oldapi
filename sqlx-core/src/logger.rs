@@ -51,14 +51,7 @@ impl<'q> QueryLogger<'q> {
 
             let sql = if summary != self.sql {
                 summary.push_str(" …");
-                format!(
-                    "\n\n{}\n",
-                    sqlformat::format(
-                        &self.sql,
-                        &sqlformat::QueryParams::None,
-                        sqlformat::FormatOptions::default()
-                    )
-                )
+                format!("\n\n{}\n", &self.sql)
             } else {
                 String::new()
             };
@@ -137,14 +130,7 @@ impl<'q, O: Debug + Hash + Eq, R: Debug, P: Debug> QueryPlanLogger<'q, O, R, P> 
 
             let sql = if summary != self.sql {
                 summary.push_str(" …");
-                format!(
-                    "\n\n{}\n",
-                    sqlformat::format(
-                        &self.sql,
-                        &sqlformat::QueryParams::None,
-                        sqlformat::FormatOptions::default()
-                    )
-                )
+                format!("\n\n{}\n", &self.sql)
             } else {
                 String::new()
             };

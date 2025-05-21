@@ -113,7 +113,7 @@ chrono = { version = "0.4.19", default-features = false, features = ["clock"], o
 crc = { version = "3", optional = true }
 crossbeam-queue = "0.3.2"
 digest = { version = "0.10.0", default-features = false, optional = true, features = ["std"] }
-dirs = { version = "5.0.1", optional = true }
+dirs = { version = "6.0.0", optional = true }
 encoding_rs = { version = "0.8.30", optional = true }
 either = "1.6.1"
 futures-channel = { version = "0.3.19", default-features = false, features = ["sink", "alloc", "std"] }
@@ -150,7 +150,6 @@ serde = { version = "1.0.132", features = ["derive", "rc"], optional = true }
 serde_json = { version = "1.0.73", features = ["raw_value"], optional = true }
 sha1 = { version = "0.10.1", default-features = false, optional = true }
 sha2 = { version = "0.10.0", default-features = false, optional = true }
-sqlformat = "0.2.0"
 thiserror = "2.0.3"
 time = { version = "0.3.2", features = ["macros", "formatting", "parsing"], optional = true }
 tokio-stream = { version = "0.1.8", features = ["fs"], optional = true }
