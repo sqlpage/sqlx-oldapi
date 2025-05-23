@@ -25,6 +25,16 @@ impl_database_ext! {
 
         #[cfg(feature = "chrono")]
         sqlx::types::chrono::DateTime<sqlx::types::chrono::FixedOffset>,
+
+        #[cfg(feature = "bigdecimal")]
+        sqlx::types::BigDecimal,
+
+        #[cfg(feature = "decimal")]
+        sqlx::types::Decimal,
+
+        #[cfg(feature = "json")]
+        sqlx::types::JsonValue,
+
     },
     ParamChecking::Weak,
     feature-types: _info => None,

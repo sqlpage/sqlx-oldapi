@@ -28,6 +28,7 @@ impl FromStr for MssqlConnectOptions {
     ///   - `strict`: Requires encryption and validates the server certificate.
     ///   - `mandatory` or `true` or `yes`: Requires encryption but doesn't validate the server certificate.
     ///   - `optional` or `false` or `no`: Uses encryption if available, falls back to unencrypted.
+    ///   - `not_supported`: No encryption.
     /// - `sslrootcert` or `ssl-root-cert` or `ssl-ca`: Path to the root certificate for validating the server's SSL certificate.
     /// - `trust_server_certificate`: When true, skips validation of the server's SSL certificate. Use with caution as it makes the connection vulnerable to man-in-the-middle attacks.
     /// - `hostname_in_certificate`: The hostname expected in the server's SSL certificate. Use this when the server's hostname doesn't match the certificate.
