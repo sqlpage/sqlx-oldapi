@@ -23,7 +23,13 @@ impl Type<Mssql> for BigDecimal {
     fn compatible(ty: &MssqlTypeInfo) -> bool {
         matches!(
             ty.0.ty,
-            DataType::Numeric | DataType::NumericN | DataType::Decimal | DataType::DecimalN
+            DataType::Numeric
+                | DataType::NumericN
+                | DataType::Decimal
+                | DataType::DecimalN
+                | DataType::MoneyN
+                | DataType::Money
+                | DataType::SmallMoney
         )
     }
 }
@@ -58,15 +64,32 @@ impl Encode<'_, Mssql> for BigDecimal {
 impl Decode<'_, Mssql> for BigDecimal {
     fn decode(value: MssqlValueRef<'_>) -> Result<Self, BoxDynError> {
         let ty = value.type_info.0.ty;
-        if !matches!(
-            ty,
-            DataType::Decimal | DataType::DecimalN | DataType::Numeric | DataType::NumericN
-        ) {
-            return Err(err_protocol!("expected numeric type, got {:?}", value.type_info.0).into());
+        match ty {
+            DataType::Decimal | DataType::DecimalN | DataType::Numeric | DataType::NumericN => {
+                let precision = value.type_info.0.precision;
+                let scale = value.type_info.0.scale;
+                decode_numeric(value.as_bytes()?, precision, scale)
+            }
+            DataType::MoneyN | DataType::Money | DataType::SmallMoney => {
+                // Money is stored as an 8-byte integer representing the amount in ten-thousandths of a currency unit
+                let bytes = value.as_bytes()?;
+                // println!("bytes: {:?}", bytes);
+                if bytes.len() != 8 && bytes.len() != 4 {
+                    return Err(
+                        err_protocol!("expected 8/4 bytes for Money, got {}", bytes.len()).into(),
+                    );
+                }
+                let amount = if bytes.len() == 8 {
+                    let amount_h = i32::from_le_bytes(bytes[0..4].try_into()?) as i64;
+                    let amount_l = u32::from_le_bytes(bytes[4..8].try_into()?) as i64;
+                    (amount_h << 32) | amount_l
+                } else {
+                    i32::from_le_bytes(bytes.try_into()?) as i64
+                };
+                Ok(BigDecimal::new(BigInt::from(amount), 4))
+            }
+            _ => Err(err_protocol!("expected numeric type, got {:?}", value.type_info.0).into()),
         }
-        let precision = value.type_info.0.precision;
-        let scale = value.type_info.0.scale;
-        decode_numeric(value.as_bytes()?, precision, scale)
     }
 }
 
