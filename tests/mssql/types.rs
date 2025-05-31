@@ -37,11 +37,43 @@ test_type!(i8(
     "CAST(0 AS TINYINT)" == 0_i8
 ));
 
+test_type!(u8_edge_cases<u8>(
+    Mssql,
+    "CAST(0 AS TINYINT)" == 0_u8,
+    "CAST(127 AS TINYINT)" == 127_u8,
+    "CAST(128 AS TINYINT)" == 128_u8,
+    "CAST(255 AS TINYINT)" == 255_u8,
+));
+
 test_type!(i16(Mssql, "CAST(21415 AS SMALLINT)" == 21415_i16));
+
+test_type!(i16_edge_cases<i16>(
+    Mssql,
+    "CAST(-32768 AS SMALLINT)" == -32768_i16,
+    "CAST(-1 AS SMALLINT)" == -1_i16,
+    "CAST(0 AS SMALLINT)" == 0_i16,
+    "CAST(32767 AS SMALLINT)" == 32767_i16,
+));
 
 test_type!(i32(Mssql, "CAST(2141512 AS INT)" == 2141512_i32));
 
+test_type!(i32_edge_cases<i32>(
+    Mssql,
+    "CAST(-2147483648 AS INT)" == -2147483648_i32,
+    "CAST(-1 AS INT)" == -1_i32,
+    "CAST(0 AS INT)" == 0_i32,
+    "CAST(2147483647 AS INT)" == 2147483647_i32,
+));
+
 test_type!(i64(Mssql, "CAST(32324324432 AS BIGINT)" == 32324324432_i64));
+
+test_type!(i64_edge_cases<i64>(
+    Mssql,
+    "CAST(-9223372036854775808 AS BIGINT)" == -9223372036854775808_i64,
+    "CAST(-1 AS BIGINT)" == -1_i64,
+    "CAST(0 AS BIGINT)" == 0_i64,
+    "CAST(9223372036854775807 AS BIGINT)" == 9223372036854775807_i64,
+));
 
 test_type!(f32(
     Mssql,
