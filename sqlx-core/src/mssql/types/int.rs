@@ -175,9 +175,12 @@ fn decode_numeric(bytes: &[u8], _precision: u8, mut scale: u8) -> Result<i64, Bo
     let mut fixed_bytes = [0u8; 16];
     fixed_bytes[0..rest.len()].copy_from_slice(rest);
     let mut numerator = u128::from_le_bytes(fixed_bytes);
-    while scale > 0 {
-        scale -= 1;
+    while numerator % 10 == 0 && scale > 0 {
         numerator /= 10;
+        scale -= 1;
+    }
+    if scale > 0 {
+        numerator /= 10u128.pow(scale as u32);
     }
     let n = i64::try_from(numerator)?;
     Ok(n * if negative { -1 } else { 1 })
