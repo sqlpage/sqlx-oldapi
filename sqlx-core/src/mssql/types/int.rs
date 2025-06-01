@@ -62,33 +62,6 @@ where
     })
 }
 
-fn decode_tinyint<T>(bytes: &[u8], type_info: &MssqlTypeInfo) -> Result<T, BoxDynError>
-where
-    T: TryFrom<u8>,
-    T::Error: std::error::Error + Send + Sync + 'static,
-{
-    if bytes.len() != 1 {
-        return Err(err_protocol!(
-            "{} should have exactly 1 byte, got {}",
-            type_info,
-            bytes.len()
-        )
-        .into());
-    }
-
-    let val = u8::from_le_bytes([bytes[0]]);
-    T::try_from(val).map_err(|err| {
-        err_protocol!(
-            "Converting {} {} to {} failed: {}",
-            type_info,
-            val,
-            type_name::<T>(),
-            err
-        )
-        .into()
-    })
-}
-
 fn decode_int_direct<T>(value: MssqlValueRef<'_>) -> Result<T, BoxDynError>
 where
     T: TryFrom<i64> + TryFrom<u8> + TryFrom<i16> + TryFrom<i32>,
@@ -104,12 +77,12 @@ where
     let bytes_val = value.as_bytes()?;
 
     match ty {
-        DataType::TinyInt => decode_tinyint(bytes_val, type_info),
+        DataType::TinyInt => decode_int_bytes(bytes_val, type_info, u8::from_le_bytes),
         DataType::SmallInt => decode_int_bytes(bytes_val, type_info, i16::from_le_bytes),
         DataType::Int => decode_int_bytes(bytes_val, type_info, i32::from_le_bytes),
         DataType::BigInt => decode_int_bytes(bytes_val, type_info, i64::from_le_bytes),
         DataType::IntN => match bytes_val.len() {
-            1 => decode_tinyint(bytes_val, type_info),
+            1 => decode_int_bytes(bytes_val, type_info, u8::from_le_bytes),
             2 => decode_int_bytes(bytes_val, type_info, i16::from_le_bytes),
             4 => decode_int_bytes(bytes_val, type_info, i32::from_le_bytes),
             8 => decode_int_bytes(bytes_val, type_info, i64::from_le_bytes),
