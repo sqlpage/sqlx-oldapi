@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## 0.6.43
  - Fix decoding of small negative unsigned integer in Mssql.
+ - The subdependency on aws-lc-rs (dependency of rustls) is no optional. You can use your own crypto provider (such as ring or openssl) by using the new crate feature `runtime-tokio-rustls-nocrypto` instead of `runtime-tokio-rustls`.
 
 ## 0.6.42
  - Fix `QueryBuilder` for Microsoft SQL Server: https://github.com/sqlpage/sqlx-oldapi/issues/11
