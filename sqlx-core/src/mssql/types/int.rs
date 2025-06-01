@@ -26,37 +26,12 @@ impl Encode<'_, Mssql> for i8 {
     }
 }
 
-trait FromLeBytes<const N: usize> {
-    fn from_le_bytes(bytes: [u8; N]) -> Self;
-}
-
-impl FromLeBytes<1> for i8 {
-    fn from_le_bytes(bytes: [u8; 1]) -> Self {
-        i8::from_le_bytes(bytes)
-    }
-}
-
-impl FromLeBytes<2> for i16 {
-    fn from_le_bytes(bytes: [u8; 2]) -> Self {
-        i16::from_le_bytes(bytes)
-    }
-}
-
-impl FromLeBytes<4> for i32 {
-    fn from_le_bytes(bytes: [u8; 4]) -> Self {
-        i32::from_le_bytes(bytes)
-    }
-}
-
-impl FromLeBytes<8> for i64 {
-    fn from_le_bytes(bytes: [u8; 8]) -> Self {
-        i64::from_le_bytes(bytes)
-    }
-}
-
-fn decode_int_direct<T, const N: usize>(value: MssqlValueRef<'_>) -> Result<T, BoxDynError>
+fn decode_int_direct<T, const N: usize>(
+    value: MssqlValueRef<'_>,
+    from_le_bytes: impl FnOnce([u8; N]) -> T,
+) -> Result<T, BoxDynError>
 where
-    T: FromLeBytes<N> + TryFrom<i64>,
+    T: TryFrom<i64>,
     T::Error: std::error::Error + Send + Sync + 'static,
 {
     let ty = value.type_info.0.ty;
@@ -86,7 +61,7 @@ where
 
             let mut buf = [0u8; N];
             buf[..len].copy_from_slice(bytes_val);
-            Ok(T::from_le_bytes(buf))
+            Ok(from_le_bytes(buf))
         }
         DataType::Numeric | DataType::NumericN | DataType::Decimal | DataType::DecimalN => {
             let i64_val = decode_numeric(value.as_bytes()?, precision, scale)?;
@@ -104,7 +79,7 @@ where
 
 impl Decode<'_, Mssql> for i8 {
     fn decode(value: MssqlValueRef<'_>) -> Result<Self, BoxDynError> {
-        decode_int_direct::<Self, 1>(value)
+        decode_int_direct(value, i8::from_le_bytes)
     }
 }
 
@@ -131,7 +106,7 @@ impl Encode<'_, Mssql> for i16 {
 
 impl Decode<'_, Mssql> for i16 {
     fn decode(value: MssqlValueRef<'_>) -> Result<Self, BoxDynError> {
-        decode_int_direct::<Self, 2>(value)
+        decode_int_direct(value, i16::from_le_bytes)
     }
 }
 
@@ -155,7 +130,7 @@ impl Encode<'_, Mssql> for i32 {
 
 impl Decode<'_, Mssql> for i32 {
     fn decode(value: MssqlValueRef<'_>) -> Result<Self, BoxDynError> {
-        decode_int_direct::<Self, 4>(value)
+        decode_int_direct(value, i32::from_le_bytes)
     }
 }
 
@@ -190,7 +165,7 @@ impl Encode<'_, Mssql> for i64 {
 
 impl Decode<'_, Mssql> for i64 {
     fn decode(value: MssqlValueRef<'_>) -> Result<Self, BoxDynError> {
-        decode_int_direct::<Self, 8>(value)
+        decode_int_direct(value, i64::from_le_bytes)
     }
 }
 
