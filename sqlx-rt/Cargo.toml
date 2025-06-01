@@ -21,6 +21,7 @@ runtime-tokio-native-tls = ["_rt-tokio", "_tls-native-tls", "tokio-native-tls"]
 runtime-actix-rustls = ["runtime-tokio-rustls"]
 runtime-async-std-rustls = ["_rt-async-std", "_tls-rustls", "futures-rustls"]
 runtime-tokio-rustls = ["_rt-tokio", "_tls-rustls", "tokio-rustls"]
+aws_lc_rs = ["tokio-rustls/aws_lc_rs"]
 
 # Not used directly and not re-exported from sqlx
 _rt-async-std = ["async-std"]
