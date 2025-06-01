@@ -334,25 +334,3 @@ test_type!(cross_type_decimal_to_integers<i64>(
     "CAST(-123456789 AS DECIMAL(15,0))" == -123456789_i64,
     "CAST(0 AS DECIMAL(15,0))" == 0_i64,
 ));
-
-// Changes made to fix cross-type compatibility issues:
-//
-// 1. Fixed sign extension bug in decode_int_direct function:
-//    - When decoding smaller signed integers to larger types, we now properly
-//      sign-extend negative values instead of zero-padding
-//    - This fixes cases like decoding SMALLINT(-32768) to i64 which was
-//      incorrectly returning +32768 instead of -32768
-//
-// 2. Removed unsupported cross-type tests based on current compatibility matrix:
-//    - i8: Only supports TINYINT and IntN with size 1
-//    - i16: Supports TINYINT, SMALLINT, INT, IntN with size <= 2
-//    - i32: Only supports INT and IntN with size == 4
-//    - i64: Supports most integer types plus numeric types
-//    - u8/u16/u32/u64: Follow same patterns as their signed counterparts
-//
-// 3. Remaining supported cross-type conversions:
-//    - TINYINT to i8, i16, i64, u16, u64
-//    - SMALLINT to i64, u16, u64
-//    - INT to i64, u32, u64
-//    - BIGINT to u64
-//    - DECIMAL/NUMERIC to i64
