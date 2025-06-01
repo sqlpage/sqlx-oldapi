@@ -93,6 +93,7 @@ runtime-async-std-rustls = [
     "sqlx-core/runtime-async-std-rustls",
     "sqlx-macros/runtime-async-std-rustls",
     "aws_lc_rs",
+    "tls12",
     "_rt-async-std",
 ]
 runtime-async-std-rustls-nocrypto = [
@@ -104,6 +105,7 @@ runtime-tokio-rustls = [
     "sqlx-core/runtime-tokio-rustls",
     "sqlx-macros/runtime-tokio-rustls",
     "aws_lc_rs",
+    "tls12",
     "_rt-tokio",
 ]
 runtime-tokio-rustls-nocrypto = [
@@ -113,6 +115,7 @@ runtime-tokio-rustls-nocrypto = [
 ]
 
 aws_lc_rs = ["sqlx-core/aws_lc_rs"]
+tls12 = ["sqlx-core/tls12"]
 
 # for conditional compilation
 _rt-async-std = []

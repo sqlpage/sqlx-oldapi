@@ -94,6 +94,7 @@ _rt-tokio = ["tokio-stream", "tokio-util"]
 _tls-native-tls = []
 _tls-rustls = ["rustls", "rustls-pemfile", "webpki-roots"]
 aws_lc_rs = ["rustls/aws_lc_rs", "sqlx-rt/aws_lc_rs"]
+tls12 = ["rustls/tls12"]
 
 # support offline/decoupled building (enables serialization of `Describe`)
 offline = ["serde", "either/serde"]
