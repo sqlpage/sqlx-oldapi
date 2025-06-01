@@ -1,6 +1,5 @@
 use std::any::type_name;
 use std::convert::TryFrom;
-use std::i16;
 
 use crate::decode::Decode;
 use crate::encode::{Encode, IsNull};
@@ -27,10 +26,85 @@ impl Encode<'_, Mssql> for i8 {
     }
 }
 
+fn decode_int_bytes<T, U, const N: usize>(
+    bytes: &[u8],
+    type_info: &MssqlTypeInfo,
+    from_le_bytes: impl Fn([u8; N]) -> U,
+) -> Result<T, BoxDynError>
+where
+    T: TryFrom<U>,
+    T::Error: std::error::Error + Send + Sync + 'static,
+    U: std::fmt::Display + Copy,
+{
+    if bytes.len() != N {
+        return Err(err_protocol!(
+            "{} should have exactly {} byte(s), got {}",
+            type_info,
+            N,
+            bytes.len()
+        )
+        .into());
+    }
+
+    let mut buf = [0u8; N];
+    buf.copy_from_slice(bytes);
+    let val = from_le_bytes(buf);
+
+    T::try_from(val).map_err(|err| {
+        err_protocol!(
+            "Converting {} {} to {} failed: {}",
+            type_info,
+            val,
+            type_name::<T>(),
+            err
+        )
+        .into()
+    })
+}
+
+fn decode_int_direct<T>(value: MssqlValueRef<'_>) -> Result<T, BoxDynError>
+where
+    T: TryFrom<i64> + TryFrom<u8> + TryFrom<i16> + TryFrom<i32>,
+    <T as TryFrom<i64>>::Error: std::error::Error + Send + Sync + 'static,
+    <T as TryFrom<u8>>::Error: std::error::Error + Send + Sync + 'static,
+    <T as TryFrom<i16>>::Error: std::error::Error + Send + Sync + 'static,
+    <T as TryFrom<i32>>::Error: std::error::Error + Send + Sync + 'static,
+{
+    let type_info = &value.type_info;
+    let ty = type_info.0.ty;
+    let precision = type_info.0.precision;
+    let scale = type_info.0.scale;
+    let bytes_val = value.as_bytes()?;
+
+    match ty {
+        DataType::TinyInt => decode_int_bytes(bytes_val, type_info, u8::from_le_bytes),
+        DataType::SmallInt => decode_int_bytes(bytes_val, type_info, i16::from_le_bytes),
+        DataType::Int => decode_int_bytes(bytes_val, type_info, i32::from_le_bytes),
+        DataType::BigInt => decode_int_bytes(bytes_val, type_info, i64::from_le_bytes),
+        DataType::IntN => match bytes_val.len() {
+            1 => decode_int_bytes(bytes_val, type_info, u8::from_le_bytes),
+            2 => decode_int_bytes(bytes_val, type_info, i16::from_le_bytes),
+            4 => decode_int_bytes(bytes_val, type_info, i32::from_le_bytes),
+            8 => decode_int_bytes(bytes_val, type_info, i64::from_le_bytes),
+            len => Err(err_protocol!("IntN with {} bytes is not supported", len).into()),
+        },
+        DataType::Numeric | DataType::NumericN | DataType::Decimal | DataType::DecimalN => {
+            let i64_val = decode_numeric(bytes_val, precision, scale)?;
+            convert_integer::<T>(i64_val)
+        }
+        _ => Err(err_protocol!(
+            "Decoding {:?} as {} failed because type {:?} is not supported",
+            value,
+            type_name::<T>(),
+            ty
+        )
+        .into()),
+    }
+}
+
 impl Decode<'_, Mssql> for i8 {
     fn decode(value: MssqlValueRef<'_>) -> Result<Self, BoxDynError> {
-        let i64_val = <i64 as Decode<Mssql>>::decode(value)?;
-        convert_integer::<Self>(i64_val)
+        decode_int_direct(value)
     }
 }
 
@@ -57,8 +131,7 @@ impl Encode<'_, Mssql> for i16 {
 
 impl Decode<'_, Mssql> for i16 {
     fn decode(value: MssqlValueRef<'_>) -> Result<Self, BoxDynError> {
-        let i64_val = <i64 as Decode<Mssql>>::decode(value)?;
-        convert_integer::<Self>(i64_val)
+        decode_int_direct(value)
     }
 }
 
@@ -82,8 +155,7 @@ impl Encode<'_, Mssql> for i32 {
 
 impl Decode<'_, Mssql> for i32 {
     fn decode(value: MssqlValueRef<'_>) -> Result<Self, BoxDynError> {
-        let i64_val = <i64 as Decode<Mssql>>::decode(value)?;
-        convert_integer::<Self>(i64_val)
+        decode_int_direct(value)
     }
 }
 
@@ -118,43 +190,7 @@ impl Encode<'_, Mssql> for i64 {
 
 impl Decode<'_, Mssql> for i64 {
     fn decode(value: MssqlValueRef<'_>) -> Result<Self, BoxDynError> {
-        let ty = value.type_info.0.ty;
-        let precision = value.type_info.0.precision;
-        let scale = value.type_info.0.scale;
-
-        match ty {
-            DataType::SmallInt
-            | DataType::Int
-            | DataType::TinyInt
-            | DataType::BigInt
-            | DataType::IntN => {
-                let mut buf = [0u8; 8];
-                let bytes_val = value.as_bytes()?;
-                let len = bytes_val.len();
-
-                if len > buf.len() {
-                    return Err(err_protocol!(
-                        "Decoding {:?} as a i64 failed because type {:?} has more than {} bytes",
-                        value,
-                        ty,
-                        buf.len()
-                    )
-                    .into());
-                }
-
-                buf[..len].copy_from_slice(bytes_val);
-                Ok(i64::from_le_bytes(buf))
-            }
-            DataType::Numeric | DataType::NumericN | DataType::Decimal | DataType::DecimalN => {
-                decode_numeric(value.as_bytes()?, precision, scale)
-            }
-            _ => Err(err_protocol!(
-                "Decoding {:?} as a i64 failed because type {:?} is not implemented",
-                value,
-                ty
-            )
-            .into()),
-        }
+        decode_int_direct(value)
     }
 }
 
@@ -164,9 +200,12 @@ fn decode_numeric(bytes: &[u8], _precision: u8, mut scale: u8) -> Result<i64, Bo
     let mut fixed_bytes = [0u8; 16];
     fixed_bytes[0..rest.len()].copy_from_slice(rest);
     let mut numerator = u128::from_le_bytes(fixed_bytes);
-    while scale > 0 {
-        scale -= 1;
+    while numerator % 10 == 0 && scale > 0 {
         numerator /= 10;
+        scale -= 1;
+    }
+    if scale > 0 {
+        numerator /= 10u128.pow(scale as u32);
     }
     let n = i64::try_from(numerator)?;
     Ok(n * if negative { -1 } else { 1 })

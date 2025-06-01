@@ -5,6 +5,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.6.43
+ - Fix decoding of small negative unsigned integer in Mssql.
+
 ## 0.6.42
  - Fix `QueryBuilder` for Microsoft SQL Server: https://github.com/sqlpage/sqlx-oldapi/issues/11
  - Add support for Microsoft SQL Server DateTime columns in sqlx macros: macros https://github.com/sqlpage/sqlx-oldapi/issues/16
