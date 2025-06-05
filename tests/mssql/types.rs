@@ -37,11 +37,43 @@ test_type!(i8(
     "CAST(0 AS TINYINT)" == 0_i8
 ));
 
+test_type!(u8_edge_cases<u8>(
+    Mssql,
+    "CAST(0 AS TINYINT)" == 0_u8,
+    "CAST(127 AS TINYINT)" == 127_u8,
+    "CAST(128 AS TINYINT)" == 128_u8,
+    "CAST(255 AS TINYINT)" == 255_u8,
+));
+
 test_type!(i16(Mssql, "CAST(21415 AS SMALLINT)" == 21415_i16));
+
+test_type!(i16_edge_cases<i16>(
+    Mssql,
+    "CAST(-32768 AS SMALLINT)" == -32768_i16,
+    "CAST(-1 AS SMALLINT)" == -1_i16,
+    "CAST(0 AS SMALLINT)" == 0_i16,
+    "CAST(32767 AS SMALLINT)" == 32767_i16,
+));
 
 test_type!(i32(Mssql, "CAST(2141512 AS INT)" == 2141512_i32));
 
+test_type!(i32_edge_cases<i32>(
+    Mssql,
+    "CAST(-2147483648 AS INT)" == -2147483648_i32,
+    "CAST(-1 AS INT)" == -1_i32,
+    "CAST(0 AS INT)" == 0_i32,
+    "CAST(2147483647 AS INT)" == 2147483647_i32,
+));
+
 test_type!(i64(Mssql, "CAST(32324324432 AS BIGINT)" == 32324324432_i64));
+
+test_type!(i64_edge_cases<i64>(
+    Mssql,
+    "CAST(-9223372036854775808 AS BIGINT)" == -9223372036854775808_i64,
+    "CAST(-1 AS BIGINT)" == -1_i64,
+    "CAST(0 AS BIGINT)" == 0_i64,
+    "CAST(9223372036854775807 AS BIGINT)" == 9223372036854775807_i64,
+));
 
 test_type!(f32(
     Mssql,
@@ -220,3 +252,88 @@ mod json {
         r#"'123'"# == Json(Value::Number(123.into()))
     ));
 }
+
+test_type!(cross_type_tinyint_to_all_signed<i8>(
+    Mssql,
+    "CAST(0 AS TINYINT)" == 0_i8,
+    "CAST(127 AS TINYINT)" == 127_i8,
+));
+
+test_type!(cross_type_tinyint_to_i16<i16>(
+    Mssql,
+    "CAST(0 AS TINYINT)" == 0_i16,
+    "CAST(127 AS TINYINT)" == 127_i16,
+    "CAST(255 AS TINYINT)" == 255_i16,
+));
+
+test_type!(cross_type_tinyint_to_i64<i64>(
+    Mssql,
+    "CAST(0 AS TINYINT)" == 0_i64,
+    "CAST(127 AS TINYINT)" == 127_i64,
+    "CAST(255 AS TINYINT)" == 255_i64,
+));
+
+test_type!(cross_type_tinyint_to_u16<u16>(
+    Mssql,
+    "CAST(0 AS TINYINT)" == 0_u16,
+    "CAST(127 AS TINYINT)" == 127_u16,
+    "CAST(255 AS TINYINT)" == 255_u16,
+));
+
+test_type!(cross_type_tinyint_to_u64<u64>(
+    Mssql,
+    "CAST(0 AS TINYINT)" == 0_u64,
+    "CAST(127 AS TINYINT)" == 127_u64,
+    "CAST(255 AS TINYINT)" == 255_u64,
+));
+
+test_type!(cross_type_smallint_to_i64<i64>(
+    Mssql,
+    "CAST(-32768 AS SMALLINT)" == -32768_i64,
+    "CAST(0 AS SMALLINT)" == 0_i64,
+    "CAST(32767 AS SMALLINT)" == 32767_i64,
+));
+
+test_type!(cross_type_smallint_to_u16<u16>(
+    Mssql,
+    "CAST(0 AS SMALLINT)" == 0_u16,
+    "CAST(32767 AS SMALLINT)" == 32767_u16,
+));
+
+test_type!(cross_type_smallint_to_u64<u64>(
+    Mssql,
+    "CAST(0 AS SMALLINT)" == 0_u64,
+    "CAST(32767 AS SMALLINT)" == 32767_u64,
+));
+
+test_type!(cross_type_int_to_i64<i64>(
+    Mssql,
+    "CAST(-2147483648 AS INT)" == -2147483648_i64,
+    "CAST(0 AS INT)" == 0_i64,
+    "CAST(2147483647 AS INT)" == 2147483647_i64,
+));
+
+test_type!(cross_type_int_to_u32<u32>(
+    Mssql,
+    "CAST(0 AS INT)" == 0_u32,
+    "CAST(2147483647 AS INT)" == 2147483647_u32,
+));
+
+test_type!(cross_type_int_to_u64<u64>(
+    Mssql,
+    "CAST(0 AS INT)" == 0_u64,
+    "CAST(2147483647 AS INT)" == 2147483647_u64,
+));
+
+test_type!(cross_type_bigint_to_u64<u64>(
+    Mssql,
+    "CAST(0 AS BIGINT)" == 0_u64,
+    "CAST(9223372036854775807 AS BIGINT)" == 9223372036854775807_u64,
+));
+
+test_type!(cross_type_decimal_to_integers<i64>(
+    Mssql,
+    "CAST(123456789 AS DECIMAL(15,0))" == 123456789_i64,
+    "CAST(-123456789 AS DECIMAL(15,0))" == -123456789_i64,
+    "CAST(0 AS DECIMAL(15,0))" == 0_i64,
+));

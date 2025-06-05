@@ -20,7 +20,7 @@ members = [
 
 [package]
 name = "sqlx-oldapi"
-version = "0.6.42"
+version = "0.6.43"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/lovasoa/sqlx"
@@ -92,13 +92,30 @@ runtime-actix-rustls = ["runtime-tokio-rustls"]
 runtime-async-std-rustls = [
     "sqlx-core/runtime-async-std-rustls",
     "sqlx-macros/runtime-async-std-rustls",
+    "aws_lc_rs",
+    "tls12",
+    "_rt-async-std",
+]
+runtime-async-std-rustls-nocrypto = [
+    "sqlx-core/runtime-async-std-rustls",
+    "sqlx-macros/runtime-async-std-rustls",
     "_rt-async-std",
 ]
 runtime-tokio-rustls = [
     "sqlx-core/runtime-tokio-rustls",
     "sqlx-macros/runtime-tokio-rustls",
+    "aws_lc_rs",
+    "tls12",
     "_rt-tokio",
 ]
+runtime-tokio-rustls-nocrypto = [
+    "sqlx-core/runtime-tokio-rustls",
+    "sqlx-macros/runtime-tokio-rustls",
+    "_rt-tokio",
+]
+
+aws_lc_rs = ["sqlx-core/aws_lc_rs"]
+tls12 = ["sqlx-core/tls12"]
 
 # for conditional compilation
 _rt-async-std = []
@@ -126,8 +143,8 @@ bstr = ["sqlx-core/bstr"]
 git2 = ["sqlx-core/git2"]
 
 [dependencies]
-sqlx-core = { package = "sqlx-core-oldapi", version = "0.6.42", path = "sqlx-core", default-features = false }
-sqlx-macros = { package = "sqlx-macros-oldapi", version = "0.6.42", path = "sqlx-macros", default-features = false, optional = true }
+sqlx-core = { package = "sqlx-core-oldapi",  version = "0.6.43", path = "sqlx-core", default-features = false }
+sqlx-macros = { package = "sqlx-macros-oldapi", version = "0.6.43", path = "sqlx-macros", default-features = false, optional = true }
 
 [dev-dependencies]
 anyhow = "1.0.52"
