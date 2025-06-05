@@ -41,11 +41,7 @@ mod tests {
     use super::*;
     use std::error::Error;
 
-    fn err_of(msg: &str) -> String {
-        format!("encountered unexpected or invalid data: {}", msg)
-    }
-
-    // ========== decode_money_bytes  ==========
+    // ========== test decode_money_bytes  ==========
 
     #[test]
     fn test_decode_money_bytes_empty() {
@@ -54,7 +50,7 @@ mod tests {
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err().to_string(),
-            err_of("expected 8/4 bytes for Money, got 0")
+            err_protocol!("expected 8/4 bytes for Money, got {}", bytes.len()).to_string()
         );
     }
 
@@ -65,7 +61,7 @@ mod tests {
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err().to_string(),
-            err_of("expected 8/4 bytes for Money, got 3")
+            err_protocol!("expected 8/4 bytes for Money, got {}", bytes.len()).to_string()
         );
     }
 
@@ -118,7 +114,7 @@ mod tests {
         assert_eq!(amount, 0);
     }
 
-    // ========== decode_numeric_bytes  ==========
+    // ========== test decode_numeric_bytes  ==========
 
     #[test]
     fn test_decode_numeric_bytes_empty() {
@@ -127,7 +123,7 @@ mod tests {
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err().to_string(),
-            err_of("numeric bytes cannot be empty")
+            err_protocol!("numeric bytes cannot be empty").to_string()
         );
     }
 
@@ -138,7 +134,7 @@ mod tests {
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err().to_string(),
-            err_of("invalid sign byte: 0x02")
+            err_protocol!("invalid sign byte: 0x02").to_string()
         );
     }
 
@@ -149,7 +145,7 @@ mod tests {
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err().to_string(),
-            err_of("numeric value exceeds 16 bytes")
+            err_protocol!("numeric value exceeds 16 bytes").to_string()
         );
     }
 

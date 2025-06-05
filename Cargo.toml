@@ -27,7 +27,7 @@ repository = "https://github.com/lovasoa/sqlx"
 documentation = "https://docs.rs/sqlx"
 description = "🧰 The Rust SQL Toolkit. An async, pure Rust SQL crate featuring compile-time checked queries without a DSL. Supports PostgreSQL, MySQL, and SQLite."
 edition = "2021"
-keywords = ["database", "async", "postgres", "mysql", "sqlite"]
+keywords = ["database", "async", "postgres", "mysql", "sqlite", "mssql"]
 categories = ["database", "asynchronous"]
 authors = [
     "Ryan Leckey <leckey.ryan@gmail.com>",
@@ -126,7 +126,7 @@ bstr = ["sqlx-core/bstr"]
 git2 = ["sqlx-core/git2"]
 
 [dependencies]
-sqlx-core = { package = "sqlx-core-oldapi",  version = "0.6.42", path = "sqlx-core", default-features = false }
+sqlx-core = { package = "sqlx-core-oldapi", version = "0.6.42", path = "sqlx-core", default-features = false }
 sqlx-macros = { package = "sqlx-macros-oldapi", version = "0.6.42", path = "sqlx-macros", default-features = false, optional = true }
 
 [dev-dependencies]
@@ -149,7 +149,9 @@ rand_xoshiro = "0.7.0"
 hex = "0.4.3"
 tempdir = "0.3.7"
 # Needed to test SQLCipher
-libsqlite3-sys = { version = "0", features = ["bundled-sqlcipher-vendored-openssl"] }
+libsqlite3-sys = { version = "0", features = [
+    "bundled-sqlcipher-vendored-openssl",
+] }
 
 
 [lints.rust]
