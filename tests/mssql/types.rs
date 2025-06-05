@@ -217,6 +217,15 @@ mod decimal {
             == Decimal::from_str_exact("-12345678901234").unwrap(),
         "CAST('-1234567890.1234' AS MONEY)" == Decimal::from_str_exact("-1234567890.1234").unwrap(),
         "CAST('-123456.1234' AS SMALLMONEY)" == Decimal::from_str_exact("-123456.1234").unwrap(),
+        "CAST('922337203685477.5807' AS MONEY)" == Decimal::from_str_exact("922337203685477.5807").unwrap(),
+        "CAST('-922337203685477.5808' AS MONEY)" == Decimal::from_str_exact("-922337203685477.5808").unwrap(),
+        "CAST('214748.3647' AS SMALLMONEY)" == Decimal::from_str_exact("214748.3647").unwrap(),
+        "CAST('-214748.3648' AS SMALLMONEY)" == Decimal::from_str_exact("-214748.3648").unwrap(),
+        "CAST('0.0001' AS MONEY)" == Decimal::from_str_exact("0.0001").unwrap(),
+        "CAST('-0.0001' AS MONEY)" == Decimal::from_str_exact("-0.0001").unwrap(),
+        "CAST('0.0000' AS MONEY)" == Decimal::from_str_exact("0.0000").unwrap(),
+        "CAST('999999999999999.9999' AS MONEY)" == Decimal::from_str_exact("999999999999999.9999").unwrap(),
+        "CAST('-999999999999999.9999' AS MONEY)" == Decimal::from_str_exact("-999999999999999.9999").unwrap(),
     ));
 }
 
