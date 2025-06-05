@@ -73,6 +73,19 @@ impl Decode<'_, Mssql> for Decimal {
 
 fn decode_numeric(bytes: &[u8], _precision: u8, scale: u8) -> Result<Decimal, BoxDynError> {
     let (sign, numerator) = decode_numeric_bytes(bytes)?;
-    let small_num: i64 = sign as i64 * i64::try_from(numerator)?;
-    Ok(Decimal::new(small_num, u32::from(scale)))
+    
+    // Try to convert to i128 to handle larger values than i64
+    let signed_numerator = match i128::try_from(numerator) {
+        Ok(val) => sign as i128 * val,
+        Err(_) => {
+            return Err(err_protocol!(
+                "numeric value {} is too large to be represented as an i128 (max: {}, min: {})",
+                numerator,
+                i128::MAX,
+                i128::MIN
+            ).into());
+        }
+    };
+    
+    Ok(Decimal::from_i128_with_scale(signed_numerator, u32::from(scale)))
 }

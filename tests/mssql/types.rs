@@ -215,17 +215,43 @@ mod decimal {
             == Decimal::from_str_exact("0.01234567890123456789").unwrap(),
         "CAST('-12345678901234' AS DECIMAL(28,5))"
             == Decimal::from_str_exact("-12345678901234").unwrap(),
-        "CAST('-1234567890.1234' AS MONEY)" == Decimal::from_str_exact("-1234567890.1234").unwrap(),
-        "CAST('-123456.1234' AS SMALLMONEY)" == Decimal::from_str_exact("-123456.1234").unwrap(),
+    ));
+
+    test_type!(money_boundary_tests<Decimal>(
+        Mssql,
+        "CAST('922337203685477.5807' AS MONEY)" == Decimal::from_str_exact("922337203685477.5807").unwrap(),
+        "CAST('-922337203685477.5808' AS MONEY)" == Decimal::from_str_exact("-922337203685477.5808").unwrap(),
+        "CAST('922337203685477.5806' AS MONEY)" == Decimal::from_str_exact("922337203685477.5806").unwrap(),
+        "CAST('-922337203685477.5807' AS MONEY)" == Decimal::from_str_exact("-922337203685477.5807").unwrap(),
+        "CAST('922337203685477.0000' AS MONEY)" == Decimal::from_str_exact("922337203685477.0000").unwrap(),
+        "CAST('-922337203685477.0000' AS MONEY)" == Decimal::from_str_exact("-922337203685477.0000").unwrap(),
+    ));
+
+    test_type!(smallmoney_boundary_tests<Decimal>(
+        Mssql,
+        "CAST('214748.3647' AS SMALLMONEY)" == Decimal::from_str_exact("214748.3647").unwrap(),
+        "CAST('-214748.3648' AS SMALLMONEY)" == Decimal::from_str_exact("-214748.3648").unwrap(),
+        "CAST('214748.3646' AS SMALLMONEY)" == Decimal::from_str_exact("214748.3646").unwrap(),
+        "CAST('-214748.3647' AS SMALLMONEY)" == Decimal::from_str_exact("-214748.3647").unwrap(),
+        "CAST('214748.0000' AS SMALLMONEY)" == Decimal::from_str_exact("214748.0000").unwrap(),
+        "CAST('-214748.0000' AS SMALLMONEY)" == Decimal::from_str_exact("-214748.0000").unwrap(),
+    ));
+
+    test_type!(money_precision_tests<Decimal>(
+        Mssql,
+        "CAST('0.0000' AS MONEY)" == Decimal::from_str_exact("0.0000").unwrap(),
+        "CAST('0.0001' AS MONEY)" == Decimal::from_str_exact("0.0001").unwrap(),
+        "CAST('-0.0001' AS MONEY)" == Decimal::from_str_exact("-0.0001").unwrap(),
+        "CAST('0.9999' AS MONEY)" == Decimal::from_str_exact("0.9999").unwrap(),
+        "CAST('-0.9999' AS MONEY)" == Decimal::from_str_exact("-0.9999").unwrap(),
+        "CAST('1.0000' AS MONEY)" == Decimal::from_str_exact("1.0000").unwrap(),
+        "CAST('-1.0000' AS MONEY)" == Decimal::from_str_exact("-1.0000").unwrap(),
+        "CAST('2.15' AS MONEY)" == Decimal::from_str_exact("2.15").unwrap(),
+        "CAST('214748.3647' AS SMALLMONEY)" == Decimal::from_str_exact("214748.3647").unwrap(),
         "CAST('922337203685477.5807' AS MONEY)" == Decimal::from_str_exact("922337203685477.5807").unwrap(),
         "CAST('-922337203685477.5808' AS MONEY)" == Decimal::from_str_exact("-922337203685477.5808").unwrap(),
         "CAST('214748.3647' AS SMALLMONEY)" == Decimal::from_str_exact("214748.3647").unwrap(),
         "CAST('-214748.3648' AS SMALLMONEY)" == Decimal::from_str_exact("-214748.3648").unwrap(),
-        "CAST('0.0001' AS MONEY)" == Decimal::from_str_exact("0.0001").unwrap(),
-        "CAST('-0.0001' AS MONEY)" == Decimal::from_str_exact("-0.0001").unwrap(),
-        "CAST('0.0000' AS MONEY)" == Decimal::from_str_exact("0.0000").unwrap(),
-        "CAST('999999999999999.9999' AS MONEY)" == Decimal::from_str_exact("999999999999999.9999").unwrap(),
-        "CAST('-999999999999999.9999' AS MONEY)" == Decimal::from_str_exact("-999999999999999.9999").unwrap(),
     ));
 }
 
