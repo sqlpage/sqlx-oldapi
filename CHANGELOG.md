@@ -5,6 +5,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.6.44
+ - Add support for mssql MONEY and SMALLMONEY types.
+ 
 ## 0.6.43
  - Fix decoding of small negative unsigned integer in Mssql.
  - The subdependency on aws-lc-rs (dependency of rustls) is no optional. You can use your own crypto provider (such as ring or openssl) by using the new crate feature `runtime-tokio-rustls-nocrypto` instead of `runtime-tokio-rustls`.
