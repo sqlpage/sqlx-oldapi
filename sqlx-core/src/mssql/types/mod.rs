@@ -9,6 +9,9 @@ mod int;
 mod str;
 mod uint;
 
+#[cfg(any(feature = "decimal", feature = "bigdecimal"))]
+mod decimal_tools;
+
 #[cfg(feature = "chrono")]
 mod chrono;
 
