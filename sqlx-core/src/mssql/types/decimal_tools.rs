@@ -1,5 +1,6 @@
 use crate::error::BoxDynError;
 
+/// Returns value*10000
 pub(crate) fn decode_money_bytes(bytes: &[u8]) -> Result<i64, BoxDynError> {
     if bytes.len() != 8 && bytes.len() != 4 {
         return Err(err_protocol!("expected 8/4 bytes for Money, got {}", bytes.len()).into());
@@ -14,7 +15,7 @@ pub(crate) fn decode_money_bytes(bytes: &[u8]) -> Result<i64, BoxDynError> {
     Ok(amount)
 }
 
-/// Returns
+/// Returns (sign, denominator)
 pub(crate) fn decode_numeric_bytes(bytes: &[u8]) -> Result<(i8, u128), BoxDynError> {
     if bytes.is_empty() {
         return Err(err_protocol!("numeric bytes cannot be empty").into());
