@@ -13,6 +13,8 @@ pub(crate) fn decode_money_bytes(bytes: &[u8]) -> Result<i64, BoxDynError> {
     };
     Ok(amount)
 }
+
+/// Returns
 pub(crate) fn decode_numeric_bytes(bytes: &[u8]) -> Result<(i8, u128), BoxDynError> {
     if bytes.is_empty() {
         return Err(err_protocol!("numeric bytes cannot be empty").into());

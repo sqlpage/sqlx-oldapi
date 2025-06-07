@@ -1,5 +1,6 @@
 use byteorder::{ByteOrder, LittleEndian};
 
+use super::decimal_tools::{decode_money_bytes, decode_numeric_bytes};
 use crate::decode::Decode;
 use crate::encode::{Encode, IsNull};
 use crate::error::BoxDynError;
@@ -46,6 +47,9 @@ impl Type<Mssql> for f64 {
                 | DataType::DecimalN
                 | DataType::Numeric
                 | DataType::NumericN
+                | DataType::MoneyN
+                | DataType::Money
+                | DataType::SmallMoney
         )
     }
 }
@@ -74,6 +78,13 @@ impl Decode<'_, Mssql> for f64 {
             DataType::Numeric | DataType::NumericN | DataType::Decimal | DataType::DecimalN => {
                 decode_numeric(value.as_bytes()?, precision, scale)
             }
+            DataType::MoneyN | DataType::Money | DataType::SmallMoney => {
+                let numerator = decode_money_bytes(value.as_bytes()?)?;
+                let denominator = 10_000;
+                let integer_part = (numerator / denominator) as f64;
+                let fractional_part = (numerator % denominator) as f64 / denominator as f64;
+                Ok(integer_part + fractional_part)
+            }
             _ => Err(err_protocol!(
                 "Decoding {:?} as a float failed because type {:?} is not implemented",
                 value,
@@ -86,11 +97,8 @@ impl Decode<'_, Mssql> for f64 {
 
 #[allow(clippy::cast_precision_loss)]
 fn decode_numeric(bytes: &[u8], _precision: u8, mut scale: u8) -> Result<f64, BoxDynError> {
-    let sign = if bytes[0] == 0 { -1. } else { 1. };
-    let rest = &bytes[1..];
-    let mut fixed_bytes = [0u8; 16];
-    fixed_bytes[0..rest.len()].copy_from_slice(rest);
-    let mut numerator = u128::from_le_bytes(fixed_bytes);
+    let (sign, mut numerator) = decode_numeric_bytes(bytes)?;
+
     while numerator % 10 == 0 && scale > 0 {
         numerator /= 10;
         scale -= 1;
@@ -98,5 +106,7 @@ fn decode_numeric(bytes: &[u8], _precision: u8, mut scale: u8) -> Result<f64, Bo
     let denominator = 10u128.pow(scale as u32);
     let integer_part = (numerator / denominator) as f64;
     let fractional_part = (numerator % denominator) as f64 / denominator as f64;
-    Ok(sign * (integer_part + fractional_part))
+    let absolute = integer_part + fractional_part;
+    let positive = sign == 1;
+    Ok(if positive { absolute } else { -absolute })
 }

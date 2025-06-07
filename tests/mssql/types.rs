@@ -253,6 +253,23 @@ mod decimal {
         "CAST('214748.3647' AS SMALLMONEY)" == Decimal::from_str_exact("214748.3647").unwrap(),
         "CAST('-214748.3648' AS SMALLMONEY)" == Decimal::from_str_exact("-214748.3648").unwrap(),
     ));
+
+    test_type!(money_precision_tests_f64<f64>(
+        Mssql,
+        "CAST('0.0000' AS MONEY)" == 0.0000,
+        "CAST('0.0001' AS MONEY)" == 0.0001,
+        "CAST('-0.0001' AS MONEY)" == -0.0001,
+        "CAST('0.9999' AS MONEY)" == 0.9999,
+        "CAST('-0.9999' AS MONEY)" == -0.9999,
+        "CAST('1.0000' AS MONEY)" == 1.0000,
+        "CAST('-1.0000' AS MONEY)" == -1.0000,
+        "CAST('2.15' AS MONEY)" == 2.15,
+        "CAST('214748.3647' AS SMALLMONEY)" == 214748.3647,
+        "CAST('922337203685477.5807' AS MONEY)" == 922337203685477.5807,
+        "CAST('-922337203685477.5808' AS MONEY)" == -922337203685477.5808,
+        "CAST('214748.3647' AS SMALLMONEY)" == 214748.3647,
+        "CAST('-214748.3648' AS SMALLMONEY)" == -214748.3648,
+    ));
 }
 
 #[cfg(feature = "bigdecimal")]
