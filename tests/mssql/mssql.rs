@@ -363,6 +363,7 @@ async fn it_can_prepare_then_execute() -> anyhow::Result<()> {
 // MSSQL-specific copy of the test case in `tests/any/pool.rs`
 // because MSSQL has its own bespoke syntax for temporary tables.
 #[sqlx_macros::test]
+#[cfg(feature = "macros")]
 async fn test_pool_callbacks() -> anyhow::Result<()> {
     #[derive(sqlx_oldapi::FromRow, Debug, PartialEq, Eq)]
     struct ConnStats {
@@ -505,6 +506,7 @@ async fn it_can_decode_tinyint_as_i16() -> anyhow::Result<()> {
 }
 
 #[sqlx_macros::test]
+#[cfg(feature = "macros")]
 async fn it_works_with_query_builder() -> anyhow::Result<()> {
     let mut conn = new::<Mssql>().await?;
 
@@ -579,6 +581,7 @@ CREATE TABLE #qb_test (
 }
 
 #[sqlx_macros::test]
+#[cfg(feature = "macros")]
 async fn it_executes_query_from_issue_11() -> anyhow::Result<()> {
     // https://github.com/sqlpage/sqlx-oldapi/issues/11
     let mut conn = new::<Mssql>().await?;

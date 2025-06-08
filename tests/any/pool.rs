@@ -98,6 +98,7 @@ async fn big_pool() -> anyhow::Result<()> {
 }
 
 #[sqlx_macros::test]
+#[cfg(feature = "macros")]
 async fn test_pool_callbacks() -> anyhow::Result<()> {
     #[derive(sqlx_oldapi::FromRow, Debug, PartialEq, Eq)]
     struct ConnStats {

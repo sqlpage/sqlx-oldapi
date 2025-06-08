@@ -1160,6 +1160,7 @@ CREATE TABLE heating_bills (
 }
 
 #[sqlx_macros::test]
+#[cfg(feature = "macros")]
 async fn it_resolves_custom_type_in_array() -> anyhow::Result<()> {
     // Only supported in Postgres 11+
     let mut conn = new::<Postgres>().await?;
@@ -1247,6 +1248,7 @@ VALUES
 }
 
 #[sqlx_macros::test]
+#[cfg(feature = "macros")]
 async fn it_resolves_custom_types_in_anonymous_records() -> anyhow::Result<()> {
     use sqlx_core::error::Error;
     // This request involves nested records and array types.
@@ -1632,6 +1634,7 @@ async fn it_encodes_custom_array_issue_1504() -> anyhow::Result<()> {
 }
 
 #[sqlx_macros::test]
+#[cfg(feature = "macros")]
 async fn test_issue_1254() -> anyhow::Result<()> {
     #[derive(sqlx_oldapi::Type)]
     #[sqlx(type_name = "pair")]

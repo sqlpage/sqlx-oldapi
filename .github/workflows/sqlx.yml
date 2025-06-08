@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-22.04
     strategy:
       matrix:
-        runtime: [async-std, tokio, actix]
+        runtime: [async-std, tokio]
         tls: [native-tls, rustls]
     steps:
       - uses: actions/checkout@v4
@@ -38,8 +38,8 @@ jobs:
       - run:
           cargo check
             --no-default-features
-            --all-targets
-            --features offline,all-databases,migrate,runtime-tokio-rustls,macros
+            --lib --tests
+            --features offline,all-databases,migrate,runtime-${{ matrix.runtime }}-${{ matrix.tls }},macros
 
   test:
     name: Unit Test
