@@ -1,7 +1,7 @@
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::punctuated::Punctuated;
-use syn::{Expr, LitBool, LitStr, Meta, MetaList, MetaNameValue, Path, Token};
+use syn::{LitStr, Token};
 
 struct Args {
     fixtures: Vec<LitStr>,

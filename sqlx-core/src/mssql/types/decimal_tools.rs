@@ -42,7 +42,6 @@ pub(crate) fn decode_numeric_bytes(bytes: &[u8]) -> Result<(i8, u128), BoxDynErr
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::error::Error;
 
     // ========== test decode_money_bytes  ==========
 

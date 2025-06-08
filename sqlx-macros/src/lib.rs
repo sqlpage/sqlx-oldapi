@@ -20,7 +20,7 @@ use quote::quote;
 
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
-use syn::{parse_macro_input, DeriveInput, ItemFn, LitStr, Meta, Token};
+use syn::{parse_macro_input, ItemFn, Meta, Token};
 
 type Error = Box<dyn std::error::Error>;
 

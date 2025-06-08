@@ -1,11 +1,8 @@
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, quote_spanned};
 use syn::punctuated::Punctuated;
-use syn::spanned::Spanned;
 use syn::token::Comma;
-use syn::{
-    Attribute, DeriveInput, Expr, Field, Lit, LitStr, Meta, MetaNameValue, Path, Token, Variant,
-};
+use syn::{Attribute, DeriveInput, Expr, Field, Lit, Meta, Variant};
 
 macro_rules! assert_attribute {
     ($e:expr, $err:expr, $input:expr) => {
