@@ -132,7 +132,7 @@ pub mod offline {
                 query_data
             };
 
-            #[cfg(procmacr2_semver_exempt)]
+            #[cfg(procmacro2_semver_exempt)]
             {
                 let path = path.as_ref().canonicalize()?;
                 let path = path.to_str().ok_or_else(|| {
