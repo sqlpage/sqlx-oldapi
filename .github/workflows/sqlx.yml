@@ -39,7 +39,7 @@ jobs:
           cargo check
             --no-default-features
             --lib --tests
-            --features offline,all-databases,migrate,runtime-${{ matrix.runtime }}-${{ matrix.tls }},macros
+            --features offline,all-databases,migrate,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
 
   test:
     name: Unit Test
