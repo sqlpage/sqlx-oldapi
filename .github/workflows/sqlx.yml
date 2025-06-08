@@ -19,7 +19,6 @@ jobs:
     runs-on: ubuntu-22.04
     strategy:
       matrix:
-        runtime: [async-std, tokio, actix]
         tls: [native-tls, rustls]
     steps:
       - uses: actions/checkout@v4
@@ -29,7 +28,7 @@ jobs:
             --manifest-path sqlx-core/Cargo.toml
             --no-default-features
             --all-targets
-            --features offline,all-databases,all-types,migrate,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
+            --features offline,all-databases,all-types,migrate,runtime-tokio-${{ matrix.tls }}
         env:
           RUSTFLAGS: -D warnings
 
@@ -37,13 +36,13 @@ jobs:
           cargo check
             --no-default-features
             --all-targets
-            --features offline,all-databases,all-types,migrate,runtime-${{ matrix.runtime }}-${{ matrix.tls }},macros
+            --features offline,all-databases,all-types,migrate,runtime-tokio-${{ matrix.tls }},macros
 
       - run:
           cargo check
             --no-default-features
             --all-targets
-            --features offline,all-databases,migrate,runtime-${{ matrix.runtime }}-${{ matrix.tls }},macros
+            --features offline,all-databases,migrate,runtime-tokio-${{ matrix.tls }},macros
 
   test:
     name: Unit Test
