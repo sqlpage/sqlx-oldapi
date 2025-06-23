@@ -5,6 +5,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## unpublished
+ - MySqlValueRef::format/as_bytes/as_str/as_bytes() are now public (#27)
+
 ## 0.6.44
  - Add support for mssql MONEY and SMALLMONEY types.
  
