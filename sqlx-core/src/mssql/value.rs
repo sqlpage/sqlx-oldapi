@@ -12,7 +12,7 @@ pub struct MssqlValueRef<'r> {
 }
 
 impl<'r> MssqlValueRef<'r> {
-    pub(crate) fn as_bytes(&self) -> Result<&'r [u8], BoxDynError> {
+    pub fn as_bytes(&self) -> Result<&'r [u8], BoxDynError> {
         match &self.data {
             Some(v) => Ok(v),
             None => Err(UnexpectedNullError.into()),
