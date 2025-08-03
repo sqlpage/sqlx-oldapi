@@ -3428,9 +3428,9 @@ checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
 
 [[package]]
 name = "signal-hook-registry"
-version = "1.4.5"
+version = "1.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9203b8055f63a2a00e2f593bb0510367fe707d7ff1e5c872de2f537b339e5410"
+checksum = "b2a4719bff48cee6b39d12c020eeb490953ad2443b7055bd0b21fca26bd8c28b"
 dependencies = [
  "libc",
 ]
@@ -3516,7 +3516,7 @@ dependencies = [
 
 [[package]]
 name = "sqlx-cli"
-version = "0.6.46"
+version = "0.6.47"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3541,7 +3541,7 @@ dependencies = [
 
 [[package]]
 name = "sqlx-core-oldapi"
-version = "0.6.46"
+version = "0.6.47"
 dependencies = [
  "ahash 0.8.12",
  "atoi",
@@ -3702,7 +3702,7 @@ dependencies = [
 
 [[package]]
 name = "sqlx-macros-oldapi"
-version = "0.6.46"
+version = "0.6.47"
 dependencies = [
  "dotenvy",
  "either",
@@ -3722,7 +3722,7 @@ dependencies = [
 
 [[package]]
 name = "sqlx-oldapi"
-version = "0.6.46"
+version = "0.6.47"
 dependencies = [
  "anyhow",
  "async-std",
@@ -3749,7 +3749,7 @@ dependencies = [
 
 [[package]]
 name = "sqlx-rt-oldapi"
-version = "0.6.46"
+version = "0.6.47"
 dependencies = [
  "async-native-tls",
  "async-std",

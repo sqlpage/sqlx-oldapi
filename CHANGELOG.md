@@ -5,6 +5,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.6.47
+ - Fixed a bug with postgres interval to string conversion.
+
 ## 0.6.46
  - MySqlValueRef::format/as_bytes/as_str/as_bytes() are now public (#27)
  - allow decoding postgres `interval` values as strings. Previously, there was no way to decode an interval without knowing in advance which representation (textual or binary) it had.
