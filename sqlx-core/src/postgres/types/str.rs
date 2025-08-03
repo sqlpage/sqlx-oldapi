@@ -1,6 +1,7 @@
 use crate::decode::Decode;
 use crate::encode::{Encode, IsNull};
 use crate::error::BoxDynError;
+use crate::postgres::type_info::PgType;
 use crate::postgres::types::array_compatible;
 use crate::postgres::{PgArgumentBuffer, PgHasArrayType, PgTypeInfo, PgValueRef, Postgres};
 use crate::types::Type;
@@ -17,6 +18,8 @@ impl Type<Postgres> for str {
             PgTypeInfo::NAME,
             PgTypeInfo::BPCHAR,
             PgTypeInfo::VARCHAR,
+            PgTypeInfo::INTERVAL,
+            PgTypeInfo::MONEY,
             PgTypeInfo::UNKNOWN,
         ]
         .contains(ty)
@@ -98,7 +101,7 @@ impl Encode<'_, Postgres> for String {
 
 impl<'r> Decode<'r, Postgres> for &'r str {
     fn decode(value: PgValueRef<'r>) -> Result<Self, BoxDynError> {
-        value.as_str()
+        Ok(value.as_str()?)
     }
 }
 
@@ -110,6 +113,9 @@ impl<'r> Decode<'r, Postgres> for Cow<'r, str> {
 
 impl Decode<'_, Postgres> for String {
     fn decode(value: PgValueRef<'_>) -> Result<Self, BoxDynError> {
-        Ok(value.as_str()?.to_owned())
+        match *value.type_info {
+            PgType::Interval => super::interval::decode_as_string(value),
+            _ => Ok(value.as_str()?.to_owned()),
+        }
     }
 }

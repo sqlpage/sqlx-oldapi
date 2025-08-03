@@ -19,6 +19,21 @@ pub struct PgInterval {
     pub microseconds: i64,
 }
 
+/// Decode an interval value as a string representation
+pub fn decode_as_string(value: PgValueRef<'_>) -> Result<String, BoxDynError> {
+    match value.format() {
+        PgValueFormat::Binary => {
+            let interval = PgInterval::decode(value)?;
+            Ok(interval.to_string())
+        }
+
+        PgValueFormat::Text => {
+            // For text format, we can just return the string as-is
+            Ok(value.as_str()?.to_owned())
+        }
+    }
+}
+
 impl Type<Postgres> for PgInterval {
     fn type_info() -> PgTypeInfo {
         PgTypeInfo::INTERVAL
@@ -66,6 +81,67 @@ impl Encode<'_, Postgres> for PgInterval {
 
     fn size_hint(&self) -> usize {
         2 * mem::size_of::<i64>()
+    }
+}
+
+impl std::fmt::Display for PgInterval {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut parts = Vec::new();
+
+        if self.months != 0 {
+            let years = self.months / 12;
+            let months = self.months % 12;
+
+            if years != 0 {
+                parts.push(format!(
+                    "{} year{}",
+                    years,
+                    if years != 1 { "s" } else { "" }
+                ));
+            }
+            if months != 0 {
+                parts.push(format!(
+                    "{} mon{}",
+                    months,
+                    if months != 1 { "s" } else { "" }
+                ));
+            }
+        }
+
+        if self.days != 0 {
+            parts.push(format!(
+                "{} day{}",
+                self.days,
+                if self.days != 1 { "s" } else { "" }
+            ));
+        }
+
+        let total_seconds = self.microseconds / 1_000_000;
+        let microseconds = self.microseconds % 1_000_000;
+        let hours = total_seconds / 3600;
+        let minutes = (total_seconds % 3600) / 60;
+        let seconds = total_seconds % 60;
+
+        if hours != 0 || minutes != 0 || seconds != 0 || microseconds != 0 {
+            let time_part = if microseconds != 0 {
+                format!(
+                    "{:02}:{:02}:{:02}.{:06}",
+                    hours,
+                    minutes,
+                    seconds,
+                    microseconds.abs()
+                )
+            } else {
+                format!("{:02}:{:02}:{:02}", hours, minutes, seconds)
+            };
+            parts.push(time_part);
+        }
+
+        if parts.is_empty() {
+            write!(f, "00:00:00")
+        } else {
+            write!(f, "{}", parts.join(" "))
+        }
     }
 }
 
@@ -391,4 +467,82 @@ fn test_pginterval_time() {
     // Case when microsecond overflow occurs
     assert!(PgInterval::try_from(time::Duration::seconds(10_000_000_000_000)).is_err());
     assert!(PgInterval::try_from(time::Duration::seconds(-10_000_000_000_000)).is_err());
+}
+
+#[test]
+fn test_pginterval_display() {
+    // Zero interval
+    let interval = PgInterval {
+        months: 0,
+        days: 0,
+        microseconds: 0,
+    };
+    assert_eq!(interval.to_string(), "00:00:00");
+
+    // Time only
+    let interval = PgInterval {
+        months: 0,
+        days: 0,
+        microseconds: 3_600_000_000, // 1 hour
+    };
+    assert_eq!(interval.to_string(), "01:00:00");
+
+    // Time with microseconds
+    let interval = PgInterval {
+        months: 0,
+        days: 0,
+        microseconds: 3_660_000_000, // 1 hour 1 minute
+    };
+    assert_eq!(interval.to_string(), "01:01:00");
+
+    // Time with microseconds
+    let interval = PgInterval {
+        months: 0,
+        days: 0,
+        microseconds: 3_660_000_000 + 30_000, // 1 hour 1 minute 30 microseconds
+    };
+    assert_eq!(interval.to_string(), "01:01:00.000030");
+
+    // Days only
+    let interval = PgInterval {
+        months: 0,
+        days: 27,
+        microseconds: 0,
+    };
+    assert_eq!(interval.to_string(), "27 days");
+
+    // Months only
+    let interval = PgInterval {
+        months: 11,
+        days: 0,
+        microseconds: 0,
+    };
+    assert_eq!(interval.to_string(), "11 mons");
+
+    // Years and months
+    let interval = PgInterval {
+        months: 14, // 1 year 2 months
+        days: 0,
+        microseconds: 0,
+    };
+    assert_eq!(interval.to_string(), "1 year 2 mons");
+
+    // Complex interval
+    let interval = PgInterval {
+        months: 14, // 1 year 2 months
+        days: 27,
+        microseconds: 43_200_000_000 + 180_000_000 + 30_000, // 12 hours 3 minutes 30 microseconds
+    };
+    assert_eq!(
+        interval.to_string(),
+        "1 year 2 mons 27 days 12:03:00.000030"
+    );
+
+    // Negative microseconds
+    let interval = PgInterval {
+        months: 0,
+        days: 0,
+        microseconds: -1_000_000, // -1 second
+    };
+    assert_eq!(interval.to_string(), "00:00:01.000000");
 }

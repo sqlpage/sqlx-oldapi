@@ -553,6 +553,11 @@ test_prepared_type!(interval<PgInterval>(
         },
 ));
 
+test_decode_type!(interval_string<String>(Postgres,
+    "'00:00:00'::INTERVAL" == "00:00:00",
+    "'00:01:00'::INTERVAL * 60" == "01:00:00"
+));
+
 test_prepared_type!(money<PgMoney>(Postgres, "123.45::money" == PgMoney(12345)));
 
 test_prepared_type!(money_vec<Vec<PgMoney>>(Postgres,

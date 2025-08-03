@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## unpublished
  - MySqlValueRef::format/as_bytes/as_str/as_bytes() are now public (#27)
+- allow decoding postgres `interval` values as strings. Previously, there was no way to decode an interval without knowing in advance which representation (textual or binary) it had.
 
 ## 0.6.44
  - Add support for mssql MONEY and SMALLMONEY types.
