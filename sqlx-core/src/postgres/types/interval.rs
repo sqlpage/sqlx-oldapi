@@ -96,14 +96,14 @@ impl std::fmt::Display for PgInterval {
                 parts.push(format!(
                     "{} year{}",
                     years,
-                    if years != 1 { "s" } else { "" }
+                    if years.abs() != 1 { "s" } else { "" }
                 ));
             }
             if months != 0 {
                 parts.push(format!(
                     "{} mon{}",
                     months,
-                    if months != 1 { "s" } else { "" }
+                    if months.abs() != 1 { "s" } else { "" }
                 ));
             }
         }
@@ -112,27 +112,29 @@ impl std::fmt::Display for PgInterval {
             parts.push(format!(
                 "{} day{}",
                 self.days,
-                if self.days != 1 { "s" } else { "" }
+                if self.days.abs() != 1 { "s" } else { "" }
             ));
         }
 
-        let total_seconds = self.microseconds / 1_000_000;
-        let microseconds = self.microseconds % 1_000_000;
-        let hours = total_seconds / 3600;
-        let minutes = (total_seconds % 3600) / 60;
-        let seconds = total_seconds % 60;
+        let time_us = self.microseconds;
 
-        if hours != 0 || minutes != 0 || seconds != 0 || microseconds != 0 {
+        if time_us != 0 || parts.is_empty() {
+            let sign = if time_us < 0 { "-" } else { "" };
+            let us = time_us.abs();
+
+            let total_seconds = us / 1_000_000;
+            let microseconds = us % 1_000_000;
+            let hours = total_seconds / 3600;
+            let minutes = (total_seconds % 3600) / 60;
+            let seconds = total_seconds % 60;
+
             let time_part = if microseconds != 0 {
                 format!(
-                    "{:02}:{:02}:{:02}.{:06}",
-                    hours,
-                    minutes,
-                    seconds,
-                    microseconds.abs()
+                    "{}{:02}:{:02}:{:02}.{:06}",
+                    sign, hours, minutes, seconds, microseconds
                 )
             } else {
-                format!("{:02}:{:02}:{:02}", hours, minutes, seconds)
+                format!("{}{:02}:{:02}:{:02}", sign, hours, minutes, seconds)
             };
             parts.push(time_part);
         }
@@ -499,7 +501,7 @@ fn test_pginterval_display() {
     let interval = PgInterval {
         months: 0,
         days: 0,
-        microseconds: 3_660_000_000 + 30_000, // 1 hour 1 minute 30 microseconds
+        microseconds: 3_600 * 1_000_000 + 60 * 1_000_000 + 30, // 1 hour 1 minute 30 microseconds
     };
     assert_eq!(interval.to_string(), "01:01:00.000030");
 
@@ -531,11 +533,11 @@ fn test_pginterval_display() {
     let interval = PgInterval {
         months: 14, // 1 year 2 months
         days: 27,
-        microseconds: 43_200_000_000 + 180_000_000 + 30_000, // 12 hours 3 minutes 30 microseconds
+        microseconds: 43_200_000_000 + 180_000_000 + 30_000, // 12 hours 3 minutes 30 milliseconds
     };
     assert_eq!(
         interval.to_string(),
-        "1 year 2 mons 27 days 12:03:00.000030"
+        "1 year 2 mons 27 days 12:03:00.030000"
     );
 
     // Negative microseconds
@@ -544,5 +546,5 @@ fn test_pginterval_display() {
         days: 0,
         microseconds: -1_000_000, // -1 second
     };
-    assert_eq!(interval.to_string(), "00:00:01.000000");
+    assert_eq!(interval.to_string(), "-00:00:01");
 }
