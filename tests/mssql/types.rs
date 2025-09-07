@@ -389,3 +389,15 @@ test_type!(cross_type_decimal_to_integers<i64>(
     "CAST(-123456789 AS DECIMAL(15,0))" == -123456789_i64,
     "CAST(0 AS DECIMAL(15,0))" == 0_i64,
 ));
+
+#[cfg(feature = "uuid")]
+mod uuid {
+    use super::*;
+    use sqlx_oldapi::types::Uuid;
+
+    test_type!(uuid<Uuid>(
+        Mssql,
+        "CAST('00000000-0000-0000-0000-000000000000' AS UNIQUEIDENTIFIER)" == Uuid::nil(),
+        "CAST('6F9619FF-8B86-D011-B42D-00C04FC964FF' AS UNIQUEIDENTIFIER)" == Uuid::parse_str("6F9619FF-8B86-D011-B42D-00C04FC964FF").unwrap()
+    ));
+}

@@ -7,8 +7,10 @@
 >    - Latest SQLite version
 > - Improved support for Microsoft SQL Server, including:
 >     -   Support for reading and writing `binary` and `varbinary` data
->     -   Support for reading and writing `date`, `datetime`, and `datetimeoffset` data using the `chrono` feature.
->     -   Support for reading and writing `numeric` and `decimal`.
+>     -   Support for reading and writing  
+>          - `numeric`, `decimal`,
+>          - `date`, `datetime`, and `datetimeoffset` data (using the `chrono` feature),
+>          - `uuid` data (using the `uuid` feature),
 >     -   Multiple bug fixes around string handling, including better support for long strings
 >     -   Support for packet chunking, which fixes a bug where large bound parameters or large queries would fail
 >     -   Support for TLS encrypted connections

@@ -23,6 +23,9 @@ mod decimal;
 #[cfg(feature = "bigdecimal")]
 mod bigdecimal;
 
+#[cfg(feature = "uuid")]
+mod uuid;
+
 impl<'q, T: 'q + Encode<'q, Mssql>> Encode<'q, Mssql> for Option<T> {
     fn encode(self, buf: &mut Vec<u8>) -> IsNull {
         if let Some(v) = self {
