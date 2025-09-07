@@ -119,7 +119,7 @@ async fn it_has_uuid() -> anyhow::Result<()> {
     assert_eq!(
         Uuid::parse_str("123e4567-e89b-12d3-a456-426614174000")?,
         get_val::<Uuid>(if cfg!(feature = "mssql") {
-            "CONVERT(uniqueidentifier, '123e4567-e89b-12d3-a456-426614174000')²"
+            "CONVERT(uniqueidentifier, '123e4567-e89b-12d3-a456-426614174000')"
         } else if cfg!(feature = "postgres") {
             "'123e4567-e89b-12d3-a456-426614174000'::uuid"
         } else {
