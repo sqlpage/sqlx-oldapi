@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## 0.6.48
  - Added support for reading and writing `uuid` data (using the `uuid` feature) in MsSql and Any.
 
-## 0.6.47
+## 0.6.48
  - Fixed a bug with postgres interval to string conversion.
 
 ## 0.6.46
