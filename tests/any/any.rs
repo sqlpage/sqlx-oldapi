@@ -112,6 +112,23 @@ async fn it_has_json() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "uuid")]
+#[sqlx_macros::test]
+async fn it_has_uuid() -> anyhow::Result<()> {
+    use sqlx_oldapi::types::Uuid;
+    #[cfg(feature = "sqlite")]
+    let sql = "CAST('123e4567-e89b-12d3-a456-426614174000' AS TEXT)";
+    #[cfg(feature = "mssql")]
+    let sql = "CONVERT(uniqueidentifier, '123e4567-e89b-12d3-a456-426614174000')";
+    #[cfg(feature = "postgres")]
+    let sql = "CAST('123e4567-e89b-12d3-a456-426614174000' AS UUID)";
+    assert_eq!(
+        Uuid::parse_str("123e4567-e89b-12d3-a456-426614174000")?,
+        get_val::<Uuid>(sql).await?
+    );
+    Ok(())
+}
+
 #[sqlx_macros::test]
 async fn it_pings() -> anyhow::Result<()> {
     let mut conn = new::<Any>().await?;

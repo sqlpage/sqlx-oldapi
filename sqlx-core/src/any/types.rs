@@ -151,3 +151,11 @@ mod decimal_types {
     impl_any_encode!(Decimal);
     impl_any_decode!(Decimal);
 }
+
+#[cfg(feature = "uuid")]
+mod uuid_types {
+    use uuid::Uuid;
+    impl_any_type!(Uuid);
+    impl_any_encode!(Uuid);
+    impl_any_decode!(Uuid);
+}
