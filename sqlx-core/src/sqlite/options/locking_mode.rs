@@ -4,8 +4,9 @@ use std::str::FromStr;
 /// Refer to [SQLite documentation] for the meaning of the connection locking mode.
 ///
 /// [SQLite documentation]: https://www.sqlite.org/pragma.html#pragma_locking_mode
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum SqliteLockingMode {
+    #[default]
     Normal,
     Exclusive,
 }
@@ -19,11 +20,6 @@ impl SqliteLockingMode {
     }
 }
 
-impl Default for SqliteLockingMode {
-    fn default() -> Self {
-        SqliteLockingMode::Normal
-    }
-}
 
 impl FromStr for SqliteLockingMode {
     type Err = Error;

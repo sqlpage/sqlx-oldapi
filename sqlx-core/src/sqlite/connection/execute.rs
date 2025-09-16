@@ -68,7 +68,7 @@ impl Iterator for ExecuteIter<'_> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let statement = if self.goto_next {
-            let mut statement = match self.statement.prepare_next(self.handle) {
+            let statement = match self.statement.prepare_next(self.handle) {
                 Ok(Some(statement)) => statement,
                 Ok(None) => return None,
                 Err(e) => return Some(Err(e)),

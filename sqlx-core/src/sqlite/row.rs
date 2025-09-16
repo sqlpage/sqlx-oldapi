@@ -74,8 +74,8 @@ impl ColumnIndex<SqliteRow> for &'_ str {
     fn index(&self, row: &SqliteRow) -> Result<usize, Error> {
         row.column_names
             .get(*self)
+            .copied()
             .ok_or_else(|| Error::ColumnNotFound((*self).into()))
-            .map(|v| *v)
     }
 }
 

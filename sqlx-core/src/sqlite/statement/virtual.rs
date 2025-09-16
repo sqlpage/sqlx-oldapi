@@ -14,7 +14,7 @@ use smallvec::SmallVec;
 use std::os::raw::c_char;
 use std::ptr::{null, null_mut, NonNull};
 use std::sync::Arc;
-use std::{cmp, i32};
+use std::cmp;
 
 // A virtual statement consists of *zero* or more raw SQLite3 statements. We chop up a SQL statement
 // on `;` to support multiple statements in one query.
@@ -72,7 +72,7 @@ impl VirtualStatement {
             }
         }
 
-        if query.len() > i32::max_value() as usize {
+        if query.len() > i32::MAX as usize {
             return Err(err_protocol!(
                 "query string must be smaller than {} bytes",
                 i32::MAX
