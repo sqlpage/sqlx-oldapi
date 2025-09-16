@@ -192,7 +192,7 @@ CREATE TABLE IF NOT EXISTS _sqlx_migrations (
                     .map_err(MigrateError::AccessMigrationMetadata)?;
 
             if let Some(checksum) = checksum {
-                if checksum == &*migration.checksum {
+                if checksum == *migration.checksum {
                     Ok(())
                 } else {
                     Err(MigrateError::VersionMismatch(migration.version))

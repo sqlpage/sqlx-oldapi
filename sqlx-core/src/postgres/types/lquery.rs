@@ -75,7 +75,7 @@ impl PgLQuery {
     }
 
     /// creates lquery from an iterator with checking labels
-    pub fn from_iter<I, S>(levels: I) -> Result<Self, PgLQueryParseError>
+    pub fn from_levels<I, S>(levels: I) -> Result<Self, PgLQueryParseError>
     where
         S: Into<String>,
         I: IntoIterator<Item = S>,
@@ -104,7 +104,7 @@ impl FromStr for PgLQuery {
         Ok(Self {
             levels: s
                 .split('.')
-                .map(|s| PgLQueryLevel::from_str(s))
+                .map(PgLQueryLevel::from_str)
                 .collect::<Result<_, Self::Err>>()?,
         })
     }
@@ -263,10 +263,10 @@ impl FromStr for PgLQueryVariant {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut label_length = s.len();
-        let mut rev_iter = s.bytes().rev();
+        let rev_iter = s.bytes().rev();
         let mut modifiers = PgLQueryVariantFlag::default();
 
-        while let Some(b) = rev_iter.next() {
+        for b in rev_iter {
             match b {
                 b'@' => modifiers.insert(PgLQueryVariantFlag::IN_CASE),
                 b'*' => modifiers.insert(PgLQueryVariantFlag::ANY_END),

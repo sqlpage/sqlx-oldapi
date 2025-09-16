@@ -103,7 +103,7 @@ impl PgLTree {
     }
 
     /// creates ltree from an iterator with checking labels
-    pub fn from_iter<I, S>(labels: I) -> Result<Self, PgLTreeParseError>
+    pub fn from_labels<I, S>(labels: I) -> Result<Self, PgLTreeParseError>
     where
         String: From<S>,
         I: IntoIterator<Item = S>,

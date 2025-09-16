@@ -4,17 +4,17 @@ use crate::error::Error;
 
 #[derive(Debug, Copy, Clone)]
 pub enum AuthPlugin {
-    MySqlNativePassword,
-    CachingSha2Password,
-    Sha256Password,
+    MySqlNative,
+    CachingSha2,
+    Sha256,
 }
 
 impl AuthPlugin {
     pub(crate) fn name(self) -> &'static str {
         match self {
-            AuthPlugin::MySqlNativePassword => "mysql_native_password",
-            AuthPlugin::CachingSha2Password => "caching_sha2_password",
-            AuthPlugin::Sha256Password => "sha256_password",
+            AuthPlugin::MySqlNative => "mysql_native_password",
+            AuthPlugin::CachingSha2 => "caching_sha2_password",
+            AuthPlugin::Sha256 => "sha256_password",
         }
     }
 }
@@ -24,9 +24,9 @@ impl FromStr for AuthPlugin {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "mysql_native_password" => Ok(AuthPlugin::MySqlNativePassword),
-            "caching_sha2_password" => Ok(AuthPlugin::CachingSha2Password),
-            "sha256_password" => Ok(AuthPlugin::Sha256Password),
+            "mysql_native_password" => Ok(AuthPlugin::MySqlNative),
+            "caching_sha2_password" => Ok(AuthPlugin::CachingSha2),
+            "sha256_password" => Ok(AuthPlugin::Sha256),
 
             _ => Err(err_protocol!("unknown authentication plugin: {}", s)),
         }

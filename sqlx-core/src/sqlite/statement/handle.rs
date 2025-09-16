@@ -213,7 +213,7 @@ impl StatementHandle {
         unsafe {
             sqlite3_bind_blob64(
                 self.0.as_ptr(),
-                index as c_int,
+                c_int::try_from(index).expect("bind index exceeds c_int"),
                 v.as_ptr() as *const c_void,
                 v.len() as u64,
                 SQLITE_TRANSIENT(),
@@ -226,28 +226,46 @@ impl StatementHandle {
         unsafe {
             sqlite3_bind_text64(
                 self.0.as_ptr(),
-                index as c_int,
+                c_int::try_from(index).expect("bind index exceeds c_int"),
                 v.as_ptr() as *const c_char,
                 v.len() as u64,
                 SQLITE_TRANSIENT(),
-                SQLITE_UTF8 as u8,
+                u8::try_from(SQLITE_UTF8).expect("SQLITE_UTF8 fits in u8"),
             )
         }
     }
 
     #[inline]
     pub(crate) fn bind_int(&self, index: usize, v: i32) -> c_int {
-        unsafe { sqlite3_bind_int(self.0.as_ptr(), index as c_int, v as c_int) }
+        unsafe {
+            sqlite3_bind_int(
+                self.0.as_ptr(),
+                c_int::try_from(index).expect("bind index exceeds c_int"),
+                v as c_int,
+            )
+        }
     }
 
     #[inline]
     pub(crate) fn bind_int64(&self, index: usize, v: i64) -> c_int {
-        unsafe { sqlite3_bind_int64(self.0.as_ptr(), index as c_int, v) }
+        unsafe {
+            sqlite3_bind_int64(
+                self.0.as_ptr(),
+                c_int::try_from(index).expect("bind index exceeds c_int"),
+                v,
+            )
+        }
     }
 
     #[inline]
     pub(crate) fn bind_double(&self, index: usize, v: f64) -> c_int {
-        unsafe { sqlite3_bind_double(self.0.as_ptr(), index as c_int, v) }
+        unsafe {
+            sqlite3_bind_double(
+                self.0.as_ptr(),
+                c_int::try_from(index).expect("bind index exceeds c_int"),
+                v,
+            )
+        }
     }
 
     #[inline]

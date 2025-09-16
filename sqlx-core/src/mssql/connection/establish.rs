@@ -43,8 +43,7 @@ impl MssqlConnection {
                 stream.setup_encryption().await?;
             }
             (Encrypt::Required, Encrypt::Off | Encrypt::NotSupported) => {
-                return Err(Error::Tls(Box::new(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                return Err(Error::Tls(Box::new(std::io::Error::other(
                     "TLS encryption required but not supported by server",
                 ))));
             }

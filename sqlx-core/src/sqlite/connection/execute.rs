@@ -71,7 +71,7 @@ impl Iterator for ExecuteIter<'_> {
             let mut statement = match self.statement.prepare_next(self.handle) {
                 Ok(Some(statement)) => statement,
                 Ok(None) => return None,
-                Err(e) => return Some(Err(e.into())),
+                Err(e) => return Some(Err(e)),
             };
 
             self.goto_next = false;

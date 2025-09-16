@@ -19,12 +19,12 @@ impl AuthPlugin {
     ) -> Result<Vec<u8>, Error> {
         match self {
             // https://mariadb.com/kb/en/caching_sha2_password-authentication-plugin/
-            AuthPlugin::CachingSha2Password => Ok(scramble_sha256(password, nonce)),
+            AuthPlugin::CachingSha2 => Ok(scramble_sha256(password, nonce)),
 
-            AuthPlugin::MySqlNativePassword => Ok(scramble_sha1(password, nonce)),
+            AuthPlugin::MySqlNative => Ok(scramble_sha1(password, nonce)),
 
             // https://mariadb.com/kb/en/sha256_password-plugin/
-            AuthPlugin::Sha256Password => encrypt_rsa(stream, 0x01, password, nonce).await,
+            AuthPlugin::Sha256 => encrypt_rsa(stream, 0x01, password, nonce).await,
         }
     }
 
@@ -36,7 +36,7 @@ impl AuthPlugin {
         nonce: &Chain<Bytes, Bytes>,
     ) -> Result<bool, Error> {
         match self {
-            AuthPlugin::CachingSha2Password if packet[0] == 0x01 => {
+            AuthPlugin::CachingSha2 if packet[0] == 0x01 => {
                 match packet[1] {
                     // AUTH_OK
                     0x03 => Ok(true),

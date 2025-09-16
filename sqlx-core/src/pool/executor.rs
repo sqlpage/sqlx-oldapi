@@ -89,7 +89,7 @@ macro_rules! impl_executor_for_pool_connection {
             where
                 'c: 'e,
                 'q: 'e,
-                E: crate::executor::Execute<'q, $DB>,
+                E: crate::executor::Execute<'q, $DB> + 'e,
             {
                 (**self).fetch_many(query)
             }
@@ -102,7 +102,7 @@ macro_rules! impl_executor_for_pool_connection {
             where
                 'c: 'e,
                 'q: 'e,
-                E: crate::executor::Execute<'q, $DB>,
+                E: crate::executor::Execute<'q, $DB> + 'e,
             {
                 (**self).fetch_optional(query)
             }

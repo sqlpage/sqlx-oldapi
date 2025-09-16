@@ -60,7 +60,7 @@ impl TransactionManager for MySqlTransactionManager {
             conn.stream.waiting.push_back(Waiting::Result);
             conn.stream.sequence_id = 0;
             conn.stream
-                .write_packet(Query(&*rollback_ansi_transaction_sql(depth)));
+                .write_packet(Query(&rollback_ansi_transaction_sql(depth)));
 
             conn.transaction_depth = depth - 1;
         }

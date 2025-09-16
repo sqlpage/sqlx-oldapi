@@ -48,7 +48,7 @@ async fn prepare(
 
     // next we send the PARSE command to the server
     conn.stream.write(Parse {
-        param_types: &*param_types,
+        param_types: &param_types,
         query: sql,
         statement: id,
     });
@@ -160,7 +160,7 @@ impl PgConnection {
         self.pending_ready_for_query_count += 1;
     }
 
-    async fn get_or_prepare<'a>(
+    async fn get_or_prepare(
         &mut self,
         sql: &str,
         parameters: &[PgTypeInfo],
@@ -226,8 +226,9 @@ impl PgConnection {
                 portal: None,
                 statement,
                 formats: &[PgValueFormat::Binary],
-                num_params: arguments.types.len() as i16,
-                params: &*arguments.buffer,
+                num_params: i16::try_from(arguments.types.len())
+                    .expect("too many bind parameters for i16 count"),
+                params: &arguments.buffer,
                 result_formats: &[PgValueFormat::Binary],
             });
 

@@ -116,7 +116,7 @@ macro_rules! impl_executor_for_transaction {
             where
                 't: 'e,
                 'q: 'e,
-                E: crate::executor::Execute<'q, Self::Database>,
+                E: crate::executor::Execute<'q, Self::Database> + 'e,
             {
                 (&mut **self).fetch_many(query)
             }
@@ -128,7 +128,7 @@ macro_rules! impl_executor_for_transaction {
             where
                 't: 'e,
                 'q: 'e,
-                E: crate::executor::Execute<'q, Self::Database>,
+                E: crate::executor::Execute<'q, Self::Database> + 'e,
             {
                 (&mut **self).fetch_optional(query)
             }

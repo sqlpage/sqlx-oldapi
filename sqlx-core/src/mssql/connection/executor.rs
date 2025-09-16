@@ -140,7 +140,7 @@ impl<'c> Executor<'c> for &'c mut MssqlConnection {
     where
         'c: 'e,
         'q: 'e,
-        E: Execute<'q, Self::Database>,
+        E: Execute<'q, Self::Database> + 'e,
     {
         let mut s = self.fetch_many(query);
 

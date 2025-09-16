@@ -128,11 +128,17 @@ where
     let boxed_f: *mut C = data as *mut C;
     debug_assert!(!boxed_f.is_null());
     let s1 = {
-        let c_slice = slice::from_raw_parts(left_ptr as *const u8, left_len as usize);
+        let c_slice = slice::from_raw_parts(
+            left_ptr as *const u8,
+            usize::try_from(left_len).expect("left length should be non-negative"),
+        );
         from_utf8_unchecked(c_slice)
     };
     let s2 = {
-        let c_slice = slice::from_raw_parts(right_ptr as *const u8, right_len as usize);
+        let c_slice = slice::from_raw_parts(
+            right_ptr as *const u8,
+            usize::try_from(right_len).expect("right length should be non-negative"),
+        );
         from_utf8_unchecked(c_slice)
     };
     let t = (*boxed_f)(s1, s2);

@@ -203,7 +203,7 @@ fn parse_server_version(s: &str) -> Option<u32> {
                     break;
                 }
             }
-            _ if ch.is_digit(10) => {
+            _ if ch.is_ascii_digit() => {
                 if chs.peek().is_none() {
                     if let Ok(num) = u32::from_str(&s[from..]) {
                         parts.push(num);

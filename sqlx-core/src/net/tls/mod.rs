@@ -96,7 +96,7 @@ where
     S: AsyncRead + AsyncWrite + Unpin,
 {
     Raw(S),
-    Tls(TlsStream<S>),
+    Tls(Box<TlsStream<S>>),
     Upgrading,
 }
 
@@ -133,7 +133,7 @@ where
             .map_err(|err| Error::Tls(err.into()))?
             .to_owned();
 
-        *self = MaybeTlsStream::Tls(connector.connect(host, stream).await?);
+        *self = MaybeTlsStream::Tls(Box::new(connector.connect(host, stream).await?));
 
         Ok(())
     }

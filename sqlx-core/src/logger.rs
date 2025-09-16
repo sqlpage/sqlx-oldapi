@@ -47,11 +47,11 @@ impl<'q> QueryLogger<'q> {
             .to_level()
             .filter(|lvl| log::log_enabled!(target: "sqlx::query", *lvl))
         {
-            let mut summary = parse_query_summary(&self.sql);
+            let mut summary = parse_query_summary(self.sql);
 
             let sql = if summary != self.sql {
                 summary.push_str(" …");
-                format!("\n\n{}\n", &self.sql)
+                format!("\n\n{}\n", self.sql)
             } else {
                 String::new()
             };
@@ -105,9 +105,9 @@ impl<'q, O: Debug + Hash + Eq, R: Debug, P: Debug> QueryPlanLogger<'q, O, R, P> 
             .to_level()
             .filter(|lvl| log::log_enabled!(target: "sqlx::explain", *lvl))
         {
-            return true;
+            true
         } else {
-            return false;
+            false
         }
     }
 
@@ -126,11 +126,11 @@ impl<'q, O: Debug + Hash + Eq, R: Debug, P: Debug> QueryPlanLogger<'q, O, R, P> 
             .to_level()
             .filter(|lvl| log::log_enabled!(target: "sqlx::explain", *lvl))
         {
-            let mut summary = parse_query_summary(&self.sql);
+            let mut summary = parse_query_summary(self.sql);
 
             let sql = if summary != self.sql {
                 summary.push_str(" …");
-                format!("\n\n{}\n", &self.sql)
+                format!("\n\n{}\n", self.sql)
             } else {
                 String::new()
             };

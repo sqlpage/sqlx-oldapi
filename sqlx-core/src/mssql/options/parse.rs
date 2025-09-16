@@ -60,7 +60,7 @@ impl FromStr for MssqlConnectOptions {
         let username = url.username();
         if !username.is_empty() {
             options = options.username(
-                &*percent_decode_str(username)
+                &percent_decode_str(username)
                     .decode_utf8()
                     .map_err(Error::config)?,
             );
@@ -68,7 +68,7 @@ impl FromStr for MssqlConnectOptions {
 
         if let Some(password) = url.password() {
             options = options.password(
-                &*percent_decode_str(password)
+                &percent_decode_str(password)
                     .decode_utf8()
                     .map_err(Error::config)?,
             );
@@ -82,7 +82,7 @@ impl FromStr for MssqlConnectOptions {
         for (key, value) in url.query_pairs() {
             match key.as_ref() {
                 "instance" => {
-                    options = options.instance(&*value);
+                    options = options.instance(&value);
                 }
                 "encrypt" => {
                     match value.to_lowercase().as_str() {
@@ -104,7 +104,7 @@ impl FromStr for MssqlConnectOptions {
                     options = options.trust_server_certificate(trust);
                 }
                 "hostname_in_certificate" => {
-                    options = options.hostname_in_certificate(&*value);
+                    options = options.hostname_in_certificate(&value);
                 }
                 "packet_size" => {
                     let size = value.parse().map_err(Error::config)?;
@@ -116,11 +116,11 @@ impl FromStr for MssqlConnectOptions {
                     options = options.client_program_version(value.parse().map_err(Error::config)?)
                 }
                 "client_pid" => options = options.client_pid(value.parse().map_err(Error::config)?),
-                "hostname" => options = options.hostname(&*value),
-                "app_name" => options = options.app_name(&*value),
-                "server_name" => options = options.server_name(&*value),
-                "client_interface_name" => options = options.client_interface_name(&*value),
-                "language" => options = options.language(&*value),
+                "hostname" => options = options.hostname(&value),
+                "app_name" => options = options.app_name(&value),
+                "server_name" => options = options.server_name(&value),
+                "client_interface_name" => options = options.client_interface_name(&value),
+                "language" => options = options.language(&value),
                 _ => {
                     return Err(Error::config(MssqlInvalidOption(key.into())));
                 }
