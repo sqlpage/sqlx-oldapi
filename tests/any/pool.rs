@@ -1,6 +1,8 @@
 #[allow(unused_imports)]
 use sqlx_oldapi::any::{AnyConnectOptions, AnyPoolOptions};
 #[allow(unused_imports)]
+use sqlx_oldapi::Executor;
+#[allow(unused_imports)]
 use std::sync::atomic::AtomicI32;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},

@@ -4,6 +4,8 @@ extern crate time_ as time;
 #[allow(unused_imports)]
 use sqlx_oldapi::sqlite::{Sqlite, SqliteRow};
 #[allow(unused_imports)]
+use sqlx_oldapi::Row;
+#[allow(unused_imports)]
 use sqlx_test::new;
 use sqlx_test::test_type;
 
