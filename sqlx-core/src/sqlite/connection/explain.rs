@@ -364,14 +364,14 @@ pub(super) fn explain(
                 OP_INIT => {
                     // start at <p2>
                     state.visited[state.program_i] = true;
-                    state.program_i = p2 as usize;
+                    state.program_i = usize::try_from(p2).unwrap_or(0);
                     continue;
                 }
 
                 OP_GOTO => {
                     // goto <p2>
                     state.visited[state.program_i] = true;
-                    state.program_i = p2 as usize;
+                    state.program_i = usize::try_from(p2).unwrap_or(0);
                     continue;
                 }
 
@@ -388,7 +388,7 @@ pub(super) fn explain(
                     state.visited[state.program_i] = true;
 
                     let mut branch_state = state.clone();
-                    branch_state.program_i = p2 as usize;
+                    branch_state.program_i = usize::try_from(p2).unwrap_or(0);
                     states.push(branch_state);
 
                     state.program_i += 1;
@@ -401,7 +401,7 @@ pub(super) fn explain(
                     state.r.insert(p1, RegDataType::Int(p3));
 
                     if p2 != 0 {
-                        state.program_i = p2 as usize;
+                        state.program_i = usize::try_from(p2).unwrap_or(0);
                     } else {
                         state.program_i += 1;
                     }
@@ -413,10 +413,10 @@ pub(super) fn explain(
                     state.visited[state.program_i] = true;
                     if let Some(RegDataType::Int(yield_i)) = state.r.get(&p1) {
                         if let Some((_, yield_op, _, yield_p2, _, _)) =
-                            program.get(*yield_i as usize)
+                            program.get(usize::try_from(*yield_i).unwrap_or(0))
                         {
                             if OP_YIELD == yield_op.as_str() {
-                                state.program_i = (*yield_p2) as usize;
+                                state.program_i = usize::try_from(*yield_p2).unwrap_or(0);
                                 state.r.remove(&p1);
                                 continue;
                             } else {
@@ -434,7 +434,7 @@ pub(super) fn explain(
                     // jump to the instruction after the instruction pointed at by register p1
                     state.visited[state.program_i] = true;
                     if let Some(RegDataType::Int(return_i)) = state.r.get(&p1) {
-                        state.program_i = (*return_i + 1) as usize;
+                        state.program_i = usize::try_from(*return_i + 1).unwrap_or(0);
                         state.r.remove(&p1);
                         continue;
                     } else {
@@ -450,15 +450,15 @@ pub(super) fn explain(
 
                         //if yielding to a yield operation, go to the NEXT instruction after that instruction
                         if program
-                            .get(*yield_i as usize)
+                            .get(usize::try_from(*yield_i).unwrap_or(0))
                             .map(|(_, yield_op, _, _, _, _)| yield_op.as_str())
                             == Some(OP_YIELD)
                         {
-                            state.program_i = (*yield_i + 1) as usize;
+                            state.program_i = usize::try_from(*yield_i + 1).unwrap_or(0);
                             *yield_i = program_i as i64;
                             continue;
                         } else {
-                            state.program_i = *yield_i as usize;
+                            state.program_i = usize::try_from(*yield_i).unwrap_or(0);
                             *yield_i = program_i as i64;
                             continue;
                         }
@@ -472,15 +472,15 @@ pub(super) fn explain(
                     state.visited[state.program_i] = true;
 
                     let mut branch_state = state.clone();
-                    branch_state.program_i = p1 as usize;
+                    branch_state.program_i = usize::try_from(p1).unwrap_or(0);
                     states.push(branch_state);
 
                     let mut branch_state = state.clone();
-                    branch_state.program_i = p2 as usize;
+                    branch_state.program_i = usize::try_from(p2).unwrap_or(0);
                     states.push(branch_state);
 
                     let mut branch_state = state.clone();
-                    branch_state.program_i = p3 as usize;
+                    branch_state.program_i = usize::try_from(p3).unwrap_or(0);
                     states.push(branch_state);
                 }
 
@@ -515,7 +515,7 @@ pub(super) fn explain(
 
                 OP_MAKE_RECORD => {
                     // p3 = Record([p1 .. p1 + p2])
-                    let mut record = Vec::with_capacity(p2 as usize);
+                    let mut record = Vec::with_capacity(usize::try_from(p2).unwrap_or(0));
                     for reg in p1..p1 + p2 {
                         record.push(
                             state
@@ -565,7 +565,7 @@ pub(super) fn explain(
                     //Create a new pointer which is referenced by p1
                     state.p.insert(
                         p1,
-                        CursorDataType::from_dense_record(&vec![ColumnType::null(); p2 as usize]),
+                        CursorDataType::from_dense_record(&vec![ColumnType::null(); usize::try_from(p2).unwrap_or(0)]),
                     );
                 }
 
@@ -666,7 +666,7 @@ pub(super) fn explain(
                     state.r.insert(
                         p2,
                         RegDataType::Single(ColumnType {
-                            datatype: opcode_to_type(&opcode),
+                            datatype: opcode_to_type(opcode),
                             nullable: Some(false),
                         }),
                     );

@@ -21,7 +21,13 @@ impl<'q> Encode<'q, Sqlite> for f32 {
 
 impl<'r> Decode<'r, Sqlite> for f32 {
     fn decode(value: SqliteValueRef<'r>) -> Result<f32, BoxDynError> {
-        Ok(value.double() as f32)
+        let dbl = value.double();
+        let clamped = if dbl.is_finite() {
+            dbl.clamp(f32::MIN as f64, f32::MAX as f64)
+        } else {
+            dbl
+        };
+        Ok(clamped as f32)
     }
 }
 

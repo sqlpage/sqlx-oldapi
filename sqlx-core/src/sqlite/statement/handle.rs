@@ -243,7 +243,7 @@ impl StatementHandle {
 
     #[inline]
     pub(crate) fn bind_null(&self, index: usize) -> c_int {
-        unsafe { sqlite3_bind_null(self.0.as_ptr(), index as c_int) }
+        unsafe { sqlite3_bind_null(self.0.as_ptr(), c_int::try_from(index).unwrap_or(c_int::MAX)) }
     }
 
     // result values from the query

@@ -142,7 +142,8 @@ impl<DB: Database> PoolInner<DB> {
 
                 if parent_close_event.as_mut().poll(cx).is_ready() {
                     // Propagate the parent's close event to the child.
-                    let _ = self.close();
+                    let pool = Arc::clone(self);
+                    sqlx_rt::spawn(async move { let _ = pool.close().await; });
                     return Poll::Ready(Err(Error::PoolClosed));
                 }
 
@@ -197,7 +198,7 @@ impl<DB: Database> PoolInner<DB> {
 
         let Floating { inner: idle, guard } = floating.into_idle();
 
-        if !self.idle_conns.push(idle).is_ok() {
+        if self.idle_conns.push(idle).is_err() {
             panic!("BUG: connection queue overflow in release()");
         }
 
@@ -458,7 +459,7 @@ async fn check_idle_conn<DB: Database>(
 }
 
 fn spawn_maintenance_tasks<DB: Database>(pool: &Arc<PoolInner<DB>>) {
-    let pool = Arc::clone(&pool);
+    let pool = Arc::clone(pool);
 
     let period = match (pool.options.max_lifetime, pool.options.idle_timeout) {
         (Some(it), None) | (None, Some(it)) => it,
