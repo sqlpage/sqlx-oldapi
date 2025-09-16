@@ -88,7 +88,7 @@ mod chrono {
 
     test_type!(chrono_timestamp<DateTime::<Utc>>(MySql,
         "TIMESTAMP '2019-01-02 05:10:20.115100'"
-            == DateTime::<Utc>::from_utc(
+            == DateTime::from_naive_utc_and_offset(
                 NaiveDateTime::parse_from_str("2019-01-02 05:10:20.115100", "%Y-%m-%d %H:%M:%S%.f").unwrap(),
                 Utc,
             )
@@ -96,7 +96,7 @@ mod chrono {
 
     test_type!(chrono_fixed_offset<DateTime::<FixedOffset>>(MySql,
         "TIMESTAMP '2019-01-02 05:10:20.115100'"
-            == DateTime::<Utc>::from_utc(
+            == DateTime::from_naive_utc_and_offset(
                 NaiveDateTime::parse_from_str("2019-01-02 05:10:20.115100", "%Y-%m-%d %H:%M:%S%.f").unwrap(),
                 Utc,
             )

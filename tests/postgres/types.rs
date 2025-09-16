@@ -286,7 +286,7 @@ mod chrono {
 
     test_type!(chrono_date_time_tz_utc<DateTime::<Utc>>(Postgres,
         "TIMESTAMPTZ '2019-01-02 05:10:20.115100'"
-            == DateTime::<Utc>::from_utc(
+            == DateTime::from_naive_utc_and_offset(
                 NaiveDate::from_ymd_opt(2019, 1, 2).unwrap().and_hms_micro_opt(5, 10, 20, 115100).unwrap(),
                 Utc,
             )
@@ -300,7 +300,7 @@ mod chrono {
     test_type!(chrono_date_time_tz_vec<Vec<DateTime::<Utc>>>(Postgres,
         "array['2019-01-02 05:10:20.115100']::timestamptz[]"
             == vec![
-                DateTime::<Utc>::from_utc(
+                DateTime::from_naive_utc_and_offset(
                     NaiveDate::from_ymd_opt(2019, 1, 2).unwrap().and_hms_micro_opt(5, 10, 20, 115100).unwrap(),
                     Utc,
                 )

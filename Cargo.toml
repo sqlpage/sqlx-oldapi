@@ -18,6 +18,9 @@ members = [
     "examples/sqlite/todos",
 ]
 
+[workspace.lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(postgres_14)'] }
+
 [package]
 name = "sqlx-oldapi"
 version = "0.6.48"

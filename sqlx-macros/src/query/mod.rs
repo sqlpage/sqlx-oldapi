@@ -49,7 +49,7 @@ impl Metadata {
             let cargo = env("CARGO").expect("`CARGO` must be set");
 
             let output = Command::new(&cargo)
-                .args(&["metadata", "--format-version=1", "--no-deps"])
+                .args(["metadata", "--format-version=1", "--no-deps"])
                 .current_dir(&self.manifest_dir)
                 .env_remove("__CARGO_FIX_PLZ")
                 .output()
@@ -78,8 +78,7 @@ static METADATA: Lazy<Metadata> = Lazy::new(|| {
 
     #[cfg(feature = "offline")]
     let package_name: String = env("CARGO_PKG_NAME")
-        .expect("`CARGO_PKG_NAME` must be set")
-        .into();
+        .expect("`CARGO_PKG_NAME` must be set");
 
     #[cfg(feature = "offline")]
     let target_dir = env("CARGO_TARGET_DIR").map_or_else(|_| "target".into(), |dir| dir.into());

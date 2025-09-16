@@ -530,7 +530,7 @@ CREATE TABLE #qb_test (
         name: String,
     }
 
-    let items_to_insert = vec![
+    let items_to_insert = [
         TestItem {
             id: 1,
             name: "Alice".to_string(),
