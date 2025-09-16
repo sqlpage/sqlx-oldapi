@@ -1,11 +1,14 @@
 use futures::TryStreamExt;
 use sqlx_core::mssql::MssqlRow;
+#[allow(unused_imports)]
 use sqlx_oldapi::mssql::{Mssql, MssqlPoolOptions};
 use sqlx_oldapi::{
-    Column, Connection, Execute, Executor, MssqlConnection, Row, Statement, TypeInfo,
+    Column, Connection, Executor, MssqlConnection, Row, Statement, TypeInfo,
 };
 use sqlx_test::new;
+#[allow(unused_imports)]
 use std::sync::atomic::{AtomicI32, Ordering};
+#[allow(unused_imports)]
 use std::time::Duration;
 
 #[sqlx_macros::test]

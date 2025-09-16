@@ -1,3 +1,5 @@
+#![allow(clippy::approx_constant)]
+
 extern crate time_ as time;
 
 #[cfg(feature = "decimal")]
@@ -331,7 +333,7 @@ CREATE TEMPORARY TABLE with_bits (
     // as bool
     let row = conn.fetch_one("SELECT value_1 FROM with_bits").await?;
     let v1: bool = row.try_get(0)?;
-    assert_eq!(v1, true);
+    assert!(v1);
 
     // switch the bit
     sqlx_oldapi::query("UPDATE with_bits SET value_1 = NOT value_1")
@@ -340,7 +342,7 @@ CREATE TEMPORARY TABLE with_bits (
 
     let row = conn.fetch_one("SELECT value_1 FROM with_bits").await?;
     let v1: bool = row.try_get(0)?;
-    assert_eq!(v1, false);
+    assert!(!v1);
 
     Ok(())
 }

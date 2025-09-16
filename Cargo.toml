@@ -19,7 +19,7 @@ members = [
 ]
 
 [workspace.lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(postgres_14)'] }
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(postgres_14)', 'cfg(postgres_9_6)'] }
 
 [package]
 name = "sqlx-oldapi"

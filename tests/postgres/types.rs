@@ -1,3 +1,4 @@
+#![allow(unexpected_cfgs)]
 extern crate time_ as time;
 
 use std::ops::Bound;
