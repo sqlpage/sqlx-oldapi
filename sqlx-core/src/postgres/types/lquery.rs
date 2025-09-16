@@ -75,7 +75,7 @@ impl PgLQuery {
     }
 
     /// creates lquery from an iterator with checking labels
-    pub fn from_iter<I, S>(levels: I) -> Result<Self, PgLQueryParseError>
+    pub fn from_level_iter<I, S>(levels: I) -> Result<Self, PgLQueryParseError>
     where
         S: Into<String>,
         I: IntoIterator<Item = S>,
