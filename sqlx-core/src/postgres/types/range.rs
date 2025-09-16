@@ -447,7 +447,7 @@ where
                     }
 
                     count += 1;
-                    if !(element.is_empty() && !quoted) {
+                    if !element.is_empty() || quoted {
                         let value = Some(T::decode(PgValueRef {
                             type_info: T::type_info(),
                             format: PgValueFormat::Text,

@@ -53,7 +53,8 @@ impl ColumnIndex<PgStatement<'_>> for &'_ str {
             .metadata
             .column_names
             .get(*self)
-            .ok_or_else(|| Error::ColumnNotFound((*self).into())).copied()
+            .ok_or_else(|| Error::ColumnNotFound((*self).into()))
+            .copied()
     }
 }
 

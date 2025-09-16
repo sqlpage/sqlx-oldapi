@@ -263,7 +263,7 @@ impl FromStr for PgLQueryVariant {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut label_length = s.len();
-        let mut rev_iter = s.bytes().rev();
+        let rev_iter = s.bytes().rev();
         let mut modifiers = PgLQueryVariantFlag::default();
 
         for b in rev_iter {
