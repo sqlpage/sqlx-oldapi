@@ -23,9 +23,7 @@ impl Column for MySqlColumn {
         self.ordinal
     }
 
-    fn name(&self) -> &str {
-        &*self.name
-    }
+    fn name(&self) -> &str { &self.name }
 
     fn type_info(&self) -> &MySqlTypeInfo {
         &self.type_info

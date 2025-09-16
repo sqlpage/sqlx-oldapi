@@ -32,9 +32,7 @@ impl Column for MssqlColumn {
         self.ordinal
     }
 
-    fn name(&self) -> &str {
-        &*self.name
-    }
+    fn name(&self) -> &str { &self.name }
 
     fn type_info(&self) -> &MssqlTypeInfo {
         &self.type_info

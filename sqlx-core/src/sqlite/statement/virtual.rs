@@ -14,7 +14,7 @@ use smallvec::SmallVec;
 use std::os::raw::c_char;
 use std::ptr::{null, null_mut, NonNull};
 use std::sync::Arc;
-use std::{cmp, i32};
+use std::cmp;
 
 // A virtual statement consists of *zero* or more raw SQLite3 statements. We chop up a SQL statement
 // on `;` to support multiple statements in one query.
@@ -72,7 +72,7 @@ impl VirtualStatement {
             }
         }
 
-        if query.len() > i32::max_value() as usize {
+        if query.len() > i32::MAX as usize {
             return Err(err_protocol!(
                 "query string must be smaller than {} bytes",
                 i32::MAX
@@ -183,7 +183,7 @@ fn prepare(
         let mut tail: *const c_char = null();
 
         let query_ptr = query.as_ptr() as *const c_char;
-        let query_len = query.len() as i32;
+        let query_len: i32 = query.len().try_into().unwrap_or(i32::MAX);
 
         // <https://www.sqlite.org/c3ref/prepare.html>
         let status = unsafe {
@@ -191,7 +191,7 @@ fn prepare(
                 conn,
                 query_ptr,
                 query_len,
-                flags as u32,
+                flags,
                 &mut statement_handle,
                 &mut tail,
             )
@@ -210,7 +210,7 @@ fn prepare(
         // statement in zSql. these routines only compile the first statement,
         // so tail is left pointing to what remains un-compiled.
 
-        let n = (tail as usize) - (query_ptr as usize);
+        let n = (tail as usize).saturating_sub(query_ptr as usize);
         query.advance(n);
 
         if let Some(handle) = NonNull::new(statement_handle) {

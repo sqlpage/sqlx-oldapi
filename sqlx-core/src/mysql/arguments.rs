@@ -23,13 +23,18 @@ impl MySqlArguments {
         self.null_bitmap.resize((index / 8) + 1, 0);
 
         if let IsNull::Yes = value.encode(&mut self.values) {
-            self.null_bitmap[index / 8] |= (1 << (index % 8)) as u8;
+            self.null_bitmap[index / 8] |= u8::try_from(1 << (index % 8)).unwrap_or(0);
         }
     }
 
     #[doc(hidden)]
     pub fn len(&self) -> usize {
         self.types.len()
+    }
+
+    #[doc(hidden)]
+    pub fn is_empty(&self) -> bool {
+        self.types.is_empty()
     }
 }
 

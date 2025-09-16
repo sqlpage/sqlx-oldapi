@@ -1,0 +1,86 @@
+name: Clippy
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+  checks: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  clippy-rt:
+    name: clippy (sqlx-rt-oldapi) • ${{ matrix.rt }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        rt:
+          - runtime-tokio-native-tls
+          - runtime-tokio-rustls
+          - runtime-async-std-native-tls
+          - runtime-async-std-rustls
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install system deps
+        run: sudo apt-get update -y && sudo apt-get install -y pkg-config libssl-dev
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-all-crates: true
+      - name: Run clippy (rt)
+        run: |
+          cargo clippy -p sqlx-rt-oldapi --no-default-features --features "${{ matrix.rt }}" --all-targets -- -D warnings
+
+  clippy-core:
+    name: clippy (sqlx-core-oldapi) • ${{ matrix.db }} • ${{ matrix.rt }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        db: [postgres, mysql, sqlite, mssql, any]
+        rt: [runtime-tokio-rustls]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install system deps
+        run: sudo apt-get update -y && sudo apt-get install -y pkg-config libssl-dev
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-all-crates: true
+      - name: Run clippy (core)
+        run: |
+          cargo clippy -p sqlx-core-oldapi --no-default-features --features "${{ matrix.rt }},${{ matrix.db }}" --all-targets -- -D warnings
+
+  clippy-root:
+    name: clippy (sqlx-oldapi) • ${{ matrix.combo }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        combo:
+          - "runtime-tokio-rustls,postgres,macros"
+          - "runtime-tokio-rustls,sqlite,macros"
+          - "runtime-tokio-rustls,mysql,macros"
+          - "runtime-async-std-rustls,postgres,macros"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install system deps
+        run: sudo apt-get update -y && sudo apt-get install -y pkg-config libssl-dev
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-all-crates: true
+      - name: Run clippy (root)
+        run: |
+          cargo clippy -p sqlx-oldapi --no-default-features --features "${{ matrix.combo }}" --all-targets -- -D warnings
+

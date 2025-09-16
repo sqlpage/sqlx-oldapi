@@ -33,7 +33,7 @@ impl<'q> Statement<'q> for AnyStatement<'q> {
 
     fn parameters(&self) -> Option<Either<&[AnyTypeInfo], usize>> {
         match &self.parameters {
-            Some(Either::Left(types)) => Some(Either::Left(&types)),
+            Some(Either::Left(types)) => Some(Either::Left(types)),
             Some(Either::Right(count)) => Some(Either::Right(*count)),
             None => None,
         }
@@ -55,6 +55,6 @@ where
             .column_names
             .get(*self)
             .ok_or_else(|| Error::ColumnNotFound((*self).into()))
-            .map(|v| *v)
+            .copied()
     }
 }

@@ -28,7 +28,7 @@ enum SqliteLoadExtensionMode {
 }
 
 impl SqliteLoadExtensionMode {
-    fn as_int(self) -> c_int {
+    fn into_int(self) -> c_int {
         match self {
             SqliteLoadExtensionMode::Enable => 1,
             SqliteLoadExtensionMode::DisableAll => 0,
@@ -160,7 +160,7 @@ impl EstablishParams {
         let status = sqlite3_db_config(
             db,
             SQLITE_DBCONFIG_ENABLE_LOAD_EXTENSION,
-            mode.as_int(),
+            mode.into_int(),
             null::<i32>(),
         );
 

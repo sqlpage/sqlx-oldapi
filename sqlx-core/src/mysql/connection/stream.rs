@@ -138,7 +138,10 @@ impl MySqlStream {
 
         let mut header: Bytes = self.stream.read(4).await?;
 
-        let packet_size = header.get_uint_le(3) as usize;
+        let packet_size: usize = header
+            .get_uint_le(3)
+            .try_into()
+            .expect("packet length should fit in usize");
         let sequence_id = header.get_u8();
 
         self.sequence_id = sequence_id.wrapping_add(1);
@@ -149,7 +152,7 @@ impl MySqlStream {
         // TODO: packet joining
 
         if payload
-            .get(0)
+            .first()
             .ok_or(err_protocol!("Packet empty"))?
             .eq(&0xff)
         {
