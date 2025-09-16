@@ -265,7 +265,10 @@ impl<DB: Database> Pool<DB> {
     /// For production applications, you'll likely want to make at least few tweaks.
     ///
     /// See [`PoolOptions::new()`] for details.
-    pub async fn connect(url: &str) -> Result<Self, Error> {
+    pub async fn connect(url: &str) -> Result<Self, Error>
+    where
+        <DB::Connection as Connection>::Options: std::str::FromStr<Err = Error>,
+    {
         PoolOptions::<DB>::new().connect(url).await
     }
 
@@ -298,7 +301,10 @@ impl<DB: Database> Pool<DB> {
     /// For production applications, you'll likely want to make at least few tweaks.
     ///
     /// See [`PoolOptions::new()`] for details.
-    pub fn connect_lazy(url: &str) -> Result<Self, Error> {
+    pub fn connect_lazy(url: &str) -> Result<Self, Error>
+    where
+        <DB::Connection as Connection>::Options: std::str::FromStr<Err = Error>,
+    {
         PoolOptions::<DB>::new().connect_lazy(url)
     }
 

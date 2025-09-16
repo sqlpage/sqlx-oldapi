@@ -116,6 +116,7 @@ pub trait Connection: Send {
     fn connect(url: &str) -> BoxFuture<'static, Result<Self, Error>>
     where
         Self: Sized,
+        Self::Options: FromStr<Err = Error>,
     {
         let options = url.parse();
 
@@ -161,19 +162,28 @@ impl LogSettings {
 pub trait ConnectOptions: Sized + Send + Sync + 'static {
     type Connection: Connection;
 
-    fn from_url(url: &str) -> Result<Self, Error>;
+    fn from_url(url: &str) -> Result<Self, Error>
+    where
+        Self: std::str::FromStr<Err = Error>,
+    {
+        Self::from_str(url)
+    }
 
     fn connect(&self) -> BoxFuture<'_, Result<Self::Connection, Error>>;
 
-    fn connect_with(options: &Self) -> BoxFuture<'_, Result<Self::Connection, Error>>;
-
-    fn from_env() -> Result<Self, Error> {
-        let options = Self::from_url(&std::env::var("DATABASE_URL")?)?;
-        Box::pin(async move { Self::connect_with(&options?).await })
+    fn connect_with(options: &Self) -> BoxFuture<'_, Result<Self::Connection, Error>> {
+        options.connect()
     }
 
-    fn create_pool(
-        &self,
-        options: crate::pool::PoolOptions<Self::Connection>,
-    ) -> Result<crate::pool::Pool<Self::Connection>, Error>;
+    fn from_env() -> Result<Self, Error>
+    where
+        Self: std::str::FromStr<Err = Error>,
+    {
+        let url = std::env::var("DATABASE_URL").map_err(Error::config)?;
+        Self::from_str(&url)
+    }
+
+    fn log_statements(&mut self, level: LevelFilter) -> &mut Self;
+
+    fn log_slow_statements(&mut self, level: LevelFilter, duration: Duration) -> &mut Self;
 }

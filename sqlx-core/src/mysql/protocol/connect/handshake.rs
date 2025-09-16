@@ -133,10 +133,7 @@ fn test_decode_handshake_mysql_8_0_18() {
     assert_eq!(p.server_default_collation, 255);
     assert!(p.status.contains(Status::SERVER_STATUS_AUTOCOMMIT));
 
-    assert!(matches!(
-        p.auth_plugin,
-        Some(AuthPlugin::CachingSha2Password)
-    ));
+    assert!(matches!(p.auth_plugin, Some(AuthPlugin::CachingSha2)));
 
     assert_eq!(
         &*p.auth_plugin_data.into_iter().collect::<Vec<_>>(),
@@ -186,10 +183,7 @@ fn test_decode_handshake_mariadb_10_4_7() {
 
     assert_eq!(p.server_default_collation, 8);
     assert!(p.status.contains(Status::SERVER_STATUS_AUTOCOMMIT));
-    assert!(matches!(
-        p.auth_plugin,
-        Some(AuthPlugin::MySqlNativePassword)
-    ));
+    assert!(matches!(p.auth_plugin, Some(AuthPlugin::MySqlNative)));
 
     assert_eq!(
         &*p.auth_plugin_data.into_iter().collect::<Vec<_>>(),

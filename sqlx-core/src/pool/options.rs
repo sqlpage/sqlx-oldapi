@@ -428,7 +428,10 @@ impl<DB: Database> PoolOptions<DB> {
     /// * MySQL: [`MySqlConnectOptions`][crate::mysql::MySqlConnectOptions]
     /// * SQLite: [`SqliteConnectOptions`][crate::sqlite::SqliteConnectOptions]
     /// * MSSQL: [`MssqlConnectOptions`][crate::mssql::MssqlConnectOptions]
-    pub async fn connect(self, url: &str) -> Result<Pool<DB>, Error> {
+    pub async fn connect(self, url: &str) -> Result<Pool<DB>, Error>
+    where
+        <DB::Connection as Connection>::Options: std::str::FromStr<Err = Error>,
+    {
         self.connect_with(url.parse()?).await
     }
 
@@ -471,7 +474,10 @@ impl<DB: Database> PoolOptions<DB> {
     /// * MySQL: [`MySqlConnectOptions`][crate::mysql::MySqlConnectOptions]
     /// * SQLite: [`SqliteConnectOptions`][crate::sqlite::SqliteConnectOptions]
     /// * MSSQL: [`MssqlConnectOptions`][crate::mssql::MssqlConnectOptions]
-    pub fn connect_lazy(self, url: &str) -> Result<Pool<DB>, Error> {
+    pub fn connect_lazy(self, url: &str) -> Result<Pool<DB>, Error>
+    where
+        <DB::Connection as Connection>::Options: std::str::FromStr<Err = Error>,
+    {
         Ok(self.connect_lazy_with(url.parse()?))
     }
 
