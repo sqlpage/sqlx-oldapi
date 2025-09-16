@@ -48,7 +48,7 @@ async fn prepare(
 
     // next we send the PARSE command to the server
     conn.stream.write(Parse {
-        param_types: &*param_types,
+        param_types: &param_types,
         query: sql,
         statement: id,
     });
@@ -228,7 +228,7 @@ impl PgConnection {
                 formats: &[PgValueFormat::Binary],
                 #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
                 num_params: arguments.types.len() as i16,
-                params: &*arguments.buffer,
+                params: &arguments.buffer,
                 result_formats: &[PgValueFormat::Binary],
             });
 

@@ -162,9 +162,7 @@ where
                 Ok(())
             }
 
-            MaybeTlsStream::Upgrading => {
-                Err(Error::Io(io::ErrorKind::ConnectionAborted.into()))
-            }
+            MaybeTlsStream::Upgrading => Err(Error::Io(io::ErrorKind::ConnectionAborted.into())),
         }
     }
 }
