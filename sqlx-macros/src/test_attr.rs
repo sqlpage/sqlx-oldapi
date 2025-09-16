@@ -1,13 +1,16 @@
+#![allow(unused_imports)]
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::punctuated::Punctuated;
 use syn::{LitStr, Token};
 
+#[allow(dead_code)]
 struct Args {
     fixtures: Vec<LitStr>,
     migrations: MigrationsOpt,
 }
 
+#[allow(dead_code)]
 enum MigrationsOpt {
     InferredPath,
     ExplicitPath(LitStr),

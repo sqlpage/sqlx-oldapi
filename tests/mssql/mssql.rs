@@ -2,6 +2,8 @@ use futures::TryStreamExt;
 use sqlx_core::mssql::MssqlRow;
 #[allow(unused_imports)]
 use sqlx_oldapi::mssql::{Mssql, MssqlPoolOptions};
+#[allow(unused_imports)]
+use sqlx_oldapi::Execute;
 use sqlx_oldapi::{Column, Connection, Executor, MssqlConnection, Row, Statement, TypeInfo};
 use sqlx_test::new;
 #[allow(unused_imports)]
