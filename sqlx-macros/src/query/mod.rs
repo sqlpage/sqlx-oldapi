@@ -77,8 +77,7 @@ static METADATA: Lazy<Metadata> = Lazy::new(|| {
         .into();
 
     #[cfg(feature = "offline")]
-    let package_name: String = env("CARGO_PKG_NAME")
-        .expect("`CARGO_PKG_NAME` must be set");
+    let package_name: String = env("CARGO_PKG_NAME").expect("`CARGO_PKG_NAME` must be set");
 
     #[cfg(feature = "offline")]
     let target_dir = env("CARGO_TARGET_DIR").map_or_else(|_| "target".into(), |dir| dir.into());
