@@ -100,14 +100,14 @@ impl<S: AsyncRead + AsyncWrite + Unpin + Send> AsyncRead for TlsPreloginWrapper<
 
                 let read = header_buf.filled().len();
                 if read == 0 {
-                    return Poll::Ready(Ok(Default::default()));
+                    return Poll::Ready(Ok(()));
                 }
 
                 inner.header_pos += read;
             }
 
             let header: PacketHeader = Decode::decode(Bytes::copy_from_slice(&inner.header_buf))
-                .map_err(|err| io::Error::other(err))?;
+                .map_err(io::Error::other)?;
 
             inner.read_remaining = usize::from(header.length) - HEADER_BYTES;
 
@@ -153,14 +153,14 @@ impl<S: AsyncRead + AsyncWrite + Unpin + Send> AsyncRead for TlsPreloginWrapper<
                 let read = ready!(Pin::new(&mut inner.stream).poll_read(cx, header_buf))?;
 
                 if read == 0 {
-                    return Poll::Ready(Ok(Default::default()));
+                    return Poll::Ready(Ok(()));
                 }
 
                 inner.header_pos += read;
             }
 
             let header: PacketHeader = Decode::decode(Bytes::copy_from_slice(&inner.header_buf))
-                .map_err(|err| io::Error::other(err))?;
+                .map_err(io::Error::other)?;
 
             inner.read_remaining = usize::from(header.length) - HEADER_BYTES;
 

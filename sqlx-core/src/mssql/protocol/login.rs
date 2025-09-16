@@ -97,9 +97,8 @@ impl Encode<'_> for Login7<'_> {
         // password buffer starting with the position pointed to by ibPassword or
         // ibChangePassword, the client SHOULD first swap the four high bits with
         // the four low bits and then do a bit-XOR with 0xA5 (10100101).
-        for i in password_start..buf.len() {
-            let b = buf[i];
-            buf[i] = ((b << 4) & 0xf0 | (b >> 4) & 0x0f) ^ 0xa5;
+        for b in &mut buf[password_start..] {
+            *b = ((*b << 4) & 0xf0 | (*b >> 4) & 0x0f) ^ 0xa5;
         }
 
         // [AppName] The client application name
@@ -143,6 +142,7 @@ impl Encode<'_> for Login7<'_> {
     }
 }
 
+#[allow(clippy::ptr_arg)]
 fn write_offset(buf: &mut Vec<u8>, offsets: &mut usize, beg: usize) {
     // The offset must be relative to the beginning of the packet payload, after
     // the packet header
