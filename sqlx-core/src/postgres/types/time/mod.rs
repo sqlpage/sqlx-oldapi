@@ -1,6 +1,6 @@
 mod date;
 mod datetime;
-mod time;
+mod time_impl;
 
 #[rustfmt::skip]
 const PG_EPOCH: ::time::Date = ::time::macros::date!(2000-1-1);

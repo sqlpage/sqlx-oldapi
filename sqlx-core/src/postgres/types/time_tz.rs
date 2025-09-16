@@ -99,23 +99,8 @@ mod chrono {
                     tmp.push_str("2001-07-08 ");
                     tmp.push_str(s);
 
-                    let dt = 'out: loop {
-                        let mut err = None;
-
-                        for fmt in &["%Y-%m-%d %H:%M:%S%.f%#z", "%Y-%m-%d %H:%M:%S%.f"] {
-                            match DateTime::parse_from_str(&tmp, fmt) {
-                                Ok(dt) => {
-                                    break 'out dt;
-                                }
-
-                                Err(error) => {
-                                    err = Some(error);
-                                }
-                            }
-                        }
-
-                        return Err(err.unwrap().into());
-                    };
+                    let dt = DateTime::parse_from_str(&tmp, "%Y-%m-%d %H:%M:%S%.f%#z")
+                        .or_else(|_| DateTime::parse_from_str(&tmp, "%Y-%m-%d %H:%M:%S%.f"))?;
 
                     let time = dt.time();
                     let offset = *dt.offset();
