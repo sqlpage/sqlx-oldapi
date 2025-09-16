@@ -5,6 +5,8 @@ use std::ops::Bound;
 use sqlx_oldapi::postgres::types::{Oid, PgInterval, PgMoney, PgRange};
 use sqlx_oldapi::postgres::Postgres;
 use sqlx_test::{test_decode_type, test_prepared_type, test_type};
+
+#[allow(unused_imports)]
 use std::str::FromStr;
 
 test_type!(null<Option<i16>>(Postgres,
@@ -286,7 +288,7 @@ mod chrono {
 
     test_type!(chrono_date_time_tz_utc<DateTime::<Utc>>(Postgres,
         "TIMESTAMPTZ '2019-01-02 05:10:20.115100'"
-            == DateTime::from_naive_utc_and_offset(
+            == DateTime::<Utc>::from_naive_utc_and_offset(
                 NaiveDate::from_ymd_opt(2019, 1, 2).unwrap().and_hms_micro_opt(5, 10, 20, 115100).unwrap(),
                 Utc,
             )
@@ -300,7 +302,7 @@ mod chrono {
     test_type!(chrono_date_time_tz_vec<Vec<DateTime::<Utc>>>(Postgres,
         "array['2019-01-02 05:10:20.115100']::timestamptz[]"
             == vec![
-                DateTime::from_naive_utc_and_offset(
+                DateTime::<Utc>::from_naive_utc_and_offset(
                     NaiveDate::from_ymd_opt(2019, 1, 2).unwrap().and_hms_micro_opt(5, 10, 20, 115100).unwrap(),
                     Utc,
                 )
