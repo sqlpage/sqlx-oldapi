@@ -12,6 +12,7 @@ pub fn setup_if_needed() {
 pub async fn new<DB>() -> anyhow::Result<DB::Connection>
 where
     DB: Database,
+    <DB::Connection as Connection>::Options: std::str::FromStr<Err = sqlx::error::Error>,
 {
     setup_if_needed();
 
@@ -23,6 +24,7 @@ where
 pub async fn pool<DB>() -> anyhow::Result<Pool<DB>>
 where
     DB: Database,
+    <DB::Connection as Connection>::Options: std::str::FromStr<Err = sqlx::error::Error>,
 {
     setup_if_needed();
 
