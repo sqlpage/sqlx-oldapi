@@ -60,6 +60,19 @@ impl PgStream {
         self.flush().await
     }
 
+    #[inline]
+    pub(crate) fn write<'en, T>(&mut self, message: T)
+    where
+        T: Encode<'en>,
+    {
+        self.inner.write(message)
+    }
+
+    #[inline]
+    pub(crate) fn flush(&mut self) -> impl core::future::Future<Output = Result<(), Error>> + '_ {
+        self.inner.flush()
+    }
+
     // Expect a specific type and format
     pub(crate) async fn recv_expect<'de, T: Decode<'de>>(
         &mut self,

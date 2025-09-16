@@ -35,7 +35,13 @@ where
         }
     }
 
-    // Note: simple `write` is unused in current code paths; keep `write_with`.
+    #[allow(dead_code)]
+    pub fn write<'en, T>(&mut self, value: T)
+    where
+        T: Encode<'en, ()>,
+    {
+        self.write_with(value, ())
+    }
 
     pub fn write_with<'en, T, C>(&mut self, value: T, context: C)
     where
