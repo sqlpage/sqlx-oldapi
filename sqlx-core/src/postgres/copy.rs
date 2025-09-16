@@ -304,7 +304,7 @@ impl<C: DerefMut<Target = PgConnection>> PgCopyIn<C> {
 impl<C: DerefMut<Target = PgConnection>> Drop for PgCopyIn<C> {
     fn drop(&mut self) {
         if let Some(mut conn) = self.conn.take() {
-            conn.stream.write(message::CopyFail::new(
+            conn.stream.write(CopyFail::new(
                 "PgCopyIn dropped without calling finish() or fail()",
             ));
         }
