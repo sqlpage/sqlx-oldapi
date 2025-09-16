@@ -16,7 +16,7 @@ impl FromStr for PgConnectOptions {
         if let Some(host) = url.host_str() {
             let host_decoded = percent_decode_str(host);
             options = match host_decoded.clone().next() {
-                Some(b'/') => options.socket(&host_decoded.decode_utf8().map_err(Error::config)?),
+                Some(b'/') => options.socket(&*host_decoded.decode_utf8().map_err(Error::config)?),
                 _ => options.host(host),
             }
         }
