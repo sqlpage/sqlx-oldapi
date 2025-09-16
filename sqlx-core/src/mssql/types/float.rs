@@ -29,6 +29,7 @@ impl Encode<'_, Mssql> for f32 {
 impl Decode<'_, Mssql> for f32 {
     fn decode(value: MssqlValueRef<'_>) -> Result<Self, BoxDynError> {
         let as_f64 = <f64 as Decode<'_, Mssql>>::decode(value)?;
+        #[allow(clippy::cast_possible_truncation)]
         Ok(as_f64 as f32)
     }
 }
@@ -81,7 +82,9 @@ impl Decode<'_, Mssql> for f64 {
             DataType::MoneyN | DataType::Money | DataType::SmallMoney => {
                 let numerator = decode_money_bytes(value.as_bytes()?)?;
                 let denominator = 10_000;
+                #[allow(clippy::cast_precision_loss)]
                 let integer_part = (numerator / denominator) as f64;
+                #[allow(clippy::cast_precision_loss)]
                 let fractional_part = (numerator % denominator) as f64 / denominator as f64;
                 Ok(integer_part + fractional_part)
             }

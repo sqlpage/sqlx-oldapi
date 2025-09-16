@@ -26,25 +26,25 @@ pub trait Executor<'c>: Send + Debug + Sized {
     type Database: Database;
 
     /// Execute the query and return the total number of rows affected.
-    fn execute<'e, 'q: 'e, E: 'q>(
+    fn execute<'e, 'q: 'e, E>(
         self,
         query: E,
     ) -> BoxFuture<'e, Result<<Self::Database as Database>::QueryResult, Error>>
     where
         'c: 'e,
-        E: Execute<'q, Self::Database>,
+        E: Execute<'q, Self::Database> + 'q,
     {
         self.execute_many(query).try_collect().boxed()
     }
 
     /// Execute multiple queries and return the rows affected from each query, in a stream.
-    fn execute_many<'e, 'q: 'e, E: 'q>(
+    fn execute_many<'e, 'q: 'e, E>(
         self,
         query: E,
     ) -> BoxStream<'e, Result<<Self::Database as Database>::QueryResult, Error>>
     where
         'c: 'e,
-        E: Execute<'q, Self::Database>,
+        E: Execute<'q, Self::Database> + 'q,
     {
         self.fetch_many(query)
             .try_filter_map(|step| async move {
@@ -63,7 +63,7 @@ pub trait Executor<'c>: Send + Debug + Sized {
     ) -> BoxStream<'e, Result<<Self::Database as Database>::Row, Error>>
     where
         'c: 'e,
-        E: Execute<'q, Self::Database>,
+        E: Execute<'q, Self::Database> + 'q,
     {
         self.fetch_many(query)
             .try_filter_map(|step| async move {
@@ -77,7 +77,7 @@ pub trait Executor<'c>: Send + Debug + Sized {
 
     /// Execute multiple queries and return the generated results as a stream
     /// from each query, in a stream.
-    fn fetch_many<'e, 'q: 'e, E: 'q>(
+    fn fetch_many<'e, 'q: 'e, E>(
         self,
         query: E,
     ) -> BoxStream<
@@ -92,25 +92,25 @@ pub trait Executor<'c>: Send + Debug + Sized {
         E: Execute<'q, Self::Database>;
 
     /// Execute the query and return all the generated results, collected into a [`Vec`].
-    fn fetch_all<'e, 'q: 'e, E: 'q>(
+    fn fetch_all<'e, 'q: 'e, E>(
         self,
         query: E,
     ) -> BoxFuture<'e, Result<Vec<<Self::Database as Database>::Row>, Error>>
     where
         'c: 'e,
-        E: Execute<'q, Self::Database>,
+        E: Execute<'q, Self::Database> + 'q,
     {
         self.fetch(query).try_collect().boxed()
     }
 
     /// Execute the query and returns exactly one row.
-    fn fetch_one<'e, 'q: 'e, E: 'q>(
+    fn fetch_one<'e, 'q: 'e, E>(
         self,
         query: E,
     ) -> BoxFuture<'e, Result<<Self::Database as Database>::Row, Error>>
     where
         'c: 'e,
-        E: Execute<'q, Self::Database>,
+        E: Execute<'q, Self::Database> + 'q,
     {
         self.fetch_optional(query)
             .and_then(|row| match row {
@@ -121,7 +121,7 @@ pub trait Executor<'c>: Send + Debug + Sized {
     }
 
     /// Execute the query and returns at most one row.
-    fn fetch_optional<'e, 'q: 'e, E: 'q>(
+    fn fetch_optional<'e, 'q: 'e, E>(
         self,
         query: E,
     ) -> BoxFuture<'e, Result<Option<<Self::Database as Database>::Row>, Error>>

@@ -103,7 +103,7 @@ macro_rules! impl_executor_for_transaction {
         {
             type Database = $DB;
 
-            fn fetch_many<'e, 'q: 'e, E: 'q>(
+            fn fetch_many<'e, 'q: 'e, E>(
                 self,
                 query: E,
             ) -> futures_core::stream::BoxStream<
@@ -115,18 +115,18 @@ macro_rules! impl_executor_for_transaction {
             >
             where
                 't: 'e,
-                E: crate::executor::Execute<'q, Self::Database>,
+                E: crate::executor::Execute<'q, Self::Database> + 'q,
             {
                 (&mut **self).fetch_many(query)
             }
 
-            fn fetch_optional<'e, 'q: 'e, E: 'q>(
+            fn fetch_optional<'e, 'q: 'e, E>(
                 self,
                 query: E,
             ) -> futures_core::future::BoxFuture<'e, Result<Option<$Row>, crate::error::Error>>
             where
                 't: 'e,
-                E: crate::executor::Execute<'q, Self::Database>,
+                E: crate::executor::Execute<'q, Self::Database> + 'q,
             {
                 (&mut **self).fetch_optional(query)
             }

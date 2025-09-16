@@ -204,9 +204,9 @@ impl TypeInfo {
                 let scale = buf.get_u8();
 
                 let mut size = match scale {
-                    0 | 1 | 2 => 3,
-                    3 | 4 => 4,
-                    5 | 6 | 7 => 5,
+                    0..=2 => 3,
+                    3..=4 => 4,
+                    5..=7 => 5,
 
                     scale => {
                         return Err(err_protocol!("invalid scale {} for type {:?}", scale, ty));

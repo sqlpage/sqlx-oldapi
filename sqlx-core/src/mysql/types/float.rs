@@ -51,6 +51,7 @@ impl Encode<'_, MySql> for f64 {
 impl Decode<'_, MySql> for f32 {
     fn decode(value: MySqlValueRef<'_>) -> Result<Self, BoxDynError> {
         let as_f64 = <f64 as Decode<'_, MySql>>::decode(value)?;
+        #[allow(clippy::cast_possible_truncation)]
         Ok(as_f64 as f32)
     }
 }
