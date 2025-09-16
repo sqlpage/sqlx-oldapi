@@ -153,7 +153,7 @@ where
                 #[cfg(feature = "_tls-native-tls")]
                 {
                     let _ = boxed_stream; // Use the variable to avoid warning
-                    return Err(Error::tls("No way to downgrade a native-tls stream, use rustls instead, or never disable tls"));
+                    Err(Error::tls("No way to downgrade a native-tls stream, use rustls instead, or never disable tls"))
                 }
             }
 
