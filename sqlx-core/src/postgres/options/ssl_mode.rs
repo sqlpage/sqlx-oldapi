@@ -5,6 +5,7 @@ use std::str::FromStr;
 ///
 /// It is used by the [`ssl_mode`](super::PgConnectOptions::ssl_mode) method.
 #[derive(Debug, Clone, Copy)]
+#[derive(Default)]
 pub enum PgSslMode {
     /// Only try a non-SSL connection.
     Disable,
@@ -13,6 +14,7 @@ pub enum PgSslMode {
     Allow,
 
     /// First try an SSL connection; if that fails, try a non-SSL connection.
+    #[default]
     Prefer,
 
     /// Only try an SSL connection. If a root CA file is present, verify the connection
@@ -28,11 +30,6 @@ pub enum PgSslMode {
     VerifyFull,
 }
 
-impl Default for PgSslMode {
-    fn default() -> Self {
-        PgSslMode::Prefer
-    }
-}
 
 impl FromStr for PgSslMode {
     type Err = Error;

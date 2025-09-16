@@ -518,7 +518,7 @@ fn range_compatible<E: Type<Postgres>>(ty: &PgTypeInfo) -> bool {
     // we require the declared type to be a _range_ with an
     // element type that is acceptable
     if let PgTypeKind::Range(element) = &ty.kind() {
-        return E::compatible(&element);
+        return E::compatible(element);
     }
 
     false

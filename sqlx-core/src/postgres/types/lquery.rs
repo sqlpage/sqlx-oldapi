@@ -266,7 +266,7 @@ impl FromStr for PgLQueryVariant {
         let mut rev_iter = s.bytes().rev();
         let mut modifiers = PgLQueryVariantFlag::default();
 
-        while let Some(b) = rev_iter.next() {
+        for b in rev_iter {
             match b {
                 b'@' => modifiers.insert(PgLQueryVariantFlag::IN_CASE),
                 b'*' => modifiers.insert(PgLQueryVariantFlag::ANY_END),
@@ -307,8 +307,8 @@ impl Display for PgLQueryLevel {
             PgLQueryLevel::Star(Some(at_least), _) => write!(f, "*{{{},}}", at_least),
             PgLQueryLevel::Star(_, Some(at_most)) => write!(f, "*{{,{}}}", at_most),
             PgLQueryLevel::Star(_, _) => write!(f, "*"),
-            PgLQueryLevel::NonStar(variants) => write_variants(f, &variants, false),
-            PgLQueryLevel::NotNonStar(variants) => write_variants(f, &variants, true),
+            PgLQueryLevel::NonStar(variants) => write_variants(f, variants, false),
+            PgLQueryLevel::NotNonStar(variants) => write_variants(f, variants, true),
         }
     }
 }

@@ -293,7 +293,7 @@ where
         let mut f = self.mapper;
         Map {
             inner: self.inner,
-            mapper: move |row| f(row).and_then(|o| g(o)),
+            mapper: move |row| f(row).and_then(&mut g),
         }
     }
 

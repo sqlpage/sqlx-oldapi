@@ -206,7 +206,7 @@ impl<C: DerefMut<Target = PgConnection>> PgCopyIn<C> {
             let stream = &mut buf_stream.stream;
 
             // ensures the buffer isn't left in an inconsistent state
-            let mut guard = BufGuard(&mut buf_stream.wbuf);
+            let guard = BufGuard(&mut buf_stream.wbuf);
 
             let buf: &mut Vec<u8> = guard.0;
             buf.push(b'd'); // CopyData format code
