@@ -72,14 +72,14 @@ pub async fn configure_tls_connector(
             .with_custom_certificate_verifier(Arc::new(DummyTlsVerifier))
     } else {
         let mut cert_store = RootCertStore {
-            roots: webpki_roots::TLS_SERVER_ROOTS.iter().cloned().collect(),
+            roots: webpki_roots::TLS_SERVER_ROOTS.to_vec(),
         };
 
         if let Some(ca) = tls_config.root_cert_path {
             let path_description = ca.to_string();
             let data = ca.data().await.map_err(|e| RustlsError::ParsePemCert {
                 file_description: path_description.clone(),
-                source: std::io::Error::new(std::io::ErrorKind::Other, e),
+                source: std::io::Error::other(e),
             })?;
             let mut cursor = Cursor::new(data);
 
@@ -116,13 +116,13 @@ pub async fn configure_tls_connector(
             let cert_chain = certs_from_pem(cert_path.data().await.map_err(|e| {
                 RustlsError::ParseClientCert {
                     file_description: cert_file_desc.clone(),
-                    source: std::io::Error::new(std::io::ErrorKind::Other, e),
+                    source: std::io::Error::other(e),
                 }
             })?)?;
             let key_der = private_key_from_pem(key_path.data().await.map_err(|e| {
                 RustlsError::ParseClientKey {
                     file_description: key_file_desc.clone(),
-                    source: std::io::Error::new(std::io::ErrorKind::Other, e),
+                    source: std::io::Error::other(e),
                 }
             })?)?;
             config

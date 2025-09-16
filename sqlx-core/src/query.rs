@@ -51,7 +51,7 @@ where
 
     fn statement(&self) -> Option<&<DB as HasStatement<'q>>::Statement> {
         match self.statement {
-            Either::Right(ref statement) => Some(&statement),
+            Either::Right(ref statement) => Some(statement),
             Either::Left(_) => None,
         }
     }
@@ -293,7 +293,7 @@ where
         let mut f = self.mapper;
         Map {
             inner: self.inner,
-            mapper: move |row| f(row).and_then(|o| g(o)),
+            mapper: move |row| f(row).and_then(g),
         }
     }
 
