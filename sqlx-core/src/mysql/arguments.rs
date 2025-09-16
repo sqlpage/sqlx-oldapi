@@ -31,6 +31,11 @@ impl MySqlArguments {
     pub fn len(&self) -> usize {
         self.types.len()
     }
+
+    #[doc(hidden)]
+    pub fn is_empty(&self) -> bool {
+        self.types.is_empty()
+    }
 }
 
 impl<'q> Arguments<'q> for MySqlArguments {

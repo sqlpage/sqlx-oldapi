@@ -191,7 +191,7 @@ fn prepare(
                 conn,
                 query_ptr,
                 query_len,
-                flags as u32,
+                flags,
                 &mut statement_handle,
                 &mut tail,
             )
