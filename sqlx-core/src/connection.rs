@@ -119,7 +119,7 @@ pub trait Connection: Send {
     {
         let options = url.parse();
 
-        Box::pin(async move { Ok(Self::connect_with(&options?).await?) })
+        Box::pin(async move { Self::connect_with(&options?).await })
     }
 
     /// Establish a new database connection with the provided options.
@@ -158,24 +158,22 @@ impl LogSettings {
     }
 }
 
-pub trait ConnectOptions: 'static + Send + Sync + FromStr<Err = Error> + Debug + Clone {
-    type Connection: Connection + ?Sized;
+pub trait ConnectOptions: Sized + Send + Sync + 'static {
+    type Connection: Connection;
 
-    /// Establish a new database connection with the options specified by `self`.
-    fn connect(&self) -> BoxFuture<'_, Result<Self::Connection, Error>>
-    where
-        Self::Connection: Sized;
+    fn from_url(url: &str) -> Result<Self, Error>;
 
-    /// Log executed statements with the specified `level`
-    fn log_statements(&mut self, level: LevelFilter) -> &mut Self;
+    fn connect(&self) -> BoxFuture<'_, Result<Self::Connection, Error>>;
 
-    /// Log executed statements with a duration above the specified `duration`
-    /// at the specified `level`.
-    fn log_slow_statements(&mut self, level: LevelFilter, duration: Duration) -> &mut Self;
+    fn connect_with(options: &Self) -> BoxFuture<'_, Result<Self::Connection, Error>>;
 
-    /// Entirely disables statement logging (both slow and regular).
-    fn disable_statement_logging(&mut self) -> &mut Self {
-        self.log_statements(LevelFilter::Off)
-            .log_slow_statements(LevelFilter::Off, Duration::default())
+    fn from_env() -> Result<Self, Error> {
+        let options = Self::from_url(&std::env::var("DATABASE_URL")?)?;
+        Box::pin(async move { Self::connect_with(&options?).await })
     }
+
+    fn create_pool(
+        &self,
+        options: crate::pool::PoolOptions<Self::Connection>,
+    ) -> Result<crate::pool::Pool<Self::Connection>, Error>;
 }
