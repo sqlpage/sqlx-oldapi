@@ -343,7 +343,7 @@ impl<'c> Executor<'c> for &'c mut PgListener {
     where
         'c: 'e,
         'q: 'e,
-        E: Execute<'q, Self::Database>,
+        E: Execute<'q, Self::Database> + 'e,
     {
         futures_util::stream::once(async move {
             // need some basic type annotation to help the compiler a bit
@@ -358,7 +358,7 @@ impl<'c> Executor<'c> for &'c mut PgListener {
     where
         'c: 'e,
         'q: 'e,
-        E: Execute<'q, Self::Database>,
+        E: Execute<'q, Self::Database> + 'e,
     {
         async move { self.connection().await?.fetch_optional(query).await }.boxed()
     }

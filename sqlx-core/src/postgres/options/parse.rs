@@ -54,12 +54,12 @@ impl FromStr for PgConnectOptions {
                 }
 
                 "sslrootcert" | "ssl-root-cert" | "ssl-ca" => {
-                    options = options.ssl_root_cert(&value);
+                    options = options.ssl_root_cert(&*value);
                 }
 
-                "sslcert" | "ssl-cert" => options = options.ssl_client_cert(&value),
+                "sslcert" | "ssl-cert" => options = options.ssl_client_cert(&*value),
 
-                "sslkey" | "ssl-key" => options = options.ssl_client_key(&value),
+                "sslkey" | "ssl-key" => options = options.ssl_client_key(&*value),
 
                 "statement-cache-capacity" => {
                     options =
@@ -68,7 +68,7 @@ impl FromStr for PgConnectOptions {
 
                 "host" => {
                     if value.starts_with("/") {
-                        options = options.socket(&value);
+                        options = options.socket(&*value);
                     } else {
                         options = options.host(&value);
                     }

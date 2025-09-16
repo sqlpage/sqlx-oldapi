@@ -360,12 +360,13 @@ impl PgConnection {
 impl<'c> Executor<'c> for &'c mut PgConnection {
     type Database = Postgres;
 
-    fn fetch_many<'e, 'q: 'e, E: 'q>(
+    fn fetch_many<'e, 'q, E>(
         self,
         mut query: E,
     ) -> BoxStream<'e, Result<Either<PgQueryResult, PgRow>, Error>>
     where
         'c: 'e,
+        'q: 'e,
         E: Execute<'q, Self::Database>,
     {
         let sql = query.sql();
@@ -385,12 +386,10 @@ impl<'c> Executor<'c> for &'c mut PgConnection {
         })
     }
 
-    fn fetch_optional<'e, 'q: 'e, E: 'q>(
-        self,
-        mut query: E,
-    ) -> BoxFuture<'e, Result<Option<PgRow>, Error>>
+    fn fetch_optional<'e, 'q, E>(self, mut query: E) -> BoxFuture<'e, Result<Option<PgRow>, Error>>
     where
         'c: 'e,
+        'q: 'e,
         E: Execute<'q, Self::Database>,
     {
         let sql = query.sql();
@@ -412,13 +411,14 @@ impl<'c> Executor<'c> for &'c mut PgConnection {
         })
     }
 
-    fn prepare_with<'e, 'q: 'e>(
+    fn prepare_with<'e, 'q>(
         self,
         sql: &'q str,
         parameters: &'e [PgTypeInfo],
     ) -> BoxFuture<'e, Result<PgStatement<'q>, Error>>
     where
         'c: 'e,
+        'q: 'e,
     {
         Box::pin(async move {
             self.wait_until_ready().await?;
@@ -432,12 +432,13 @@ impl<'c> Executor<'c> for &'c mut PgConnection {
         })
     }
 
-    fn describe<'e, 'q: 'e>(
+    fn describe<'e, 'q>(
         self,
         sql: &'q str,
     ) -> BoxFuture<'e, Result<Describe<Self::Database>, Error>>
     where
         'c: 'e,
+        'q: 'e,
     {
         Box::pin(async move {
             self.wait_until_ready().await?;

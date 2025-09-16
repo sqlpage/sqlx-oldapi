@@ -71,12 +71,13 @@ impl MssqlConnection {
 impl<'c> Executor<'c> for &'c mut MssqlConnection {
     type Database = Mssql;
 
-    fn fetch_many<'e, 'q: 'e, E: 'q>(
+    fn fetch_many<'e, 'q, E>(
         self,
         mut query: E,
     ) -> BoxStream<'e, Result<Either<MssqlQueryResult, MssqlRow>, Error>>
     where
         'c: 'e,
+        'q: 'e,
         E: Execute<'q, Self::Database>,
     {
         let sql = query.sql();
@@ -135,12 +136,10 @@ impl<'c> Executor<'c> for &'c mut MssqlConnection {
         })
     }
 
-    fn fetch_optional<'e, 'q: 'e, E: 'q>(
-        self,
-        query: E,
-    ) -> BoxFuture<'e, Result<Option<MssqlRow>, Error>>
+    fn fetch_optional<'e, 'q, E>(self, query: E) -> BoxFuture<'e, Result<Option<MssqlRow>, Error>>
     where
         'c: 'e,
+        'q: 'e,
         E: Execute<'q, Self::Database>,
     {
         let mut s = self.fetch_many(query);
@@ -156,13 +155,14 @@ impl<'c> Executor<'c> for &'c mut MssqlConnection {
         })
     }
 
-    fn prepare_with<'e, 'q: 'e>(
+    fn prepare_with<'e, 'q>(
         self,
         sql: &'q str,
         _parameters: &[MssqlTypeInfo],
     ) -> BoxFuture<'e, Result<MssqlStatement<'q>, Error>>
     where
         'c: 'e,
+        'q: 'e,
     {
         Box::pin(async move {
             let metadata = prepare(self, sql).await?;
@@ -174,12 +174,13 @@ impl<'c> Executor<'c> for &'c mut MssqlConnection {
         })
     }
 
-    fn describe<'e, 'q: 'e>(
+    fn describe<'e, 'q>(
         self,
         sql: &'q str,
     ) -> BoxFuture<'e, Result<Describe<Self::Database>, Error>>
     where
         'c: 'e,
+        'q: 'e,
     {
         Box::pin(async move {
             let metadata = prepare(self, sql).await?;

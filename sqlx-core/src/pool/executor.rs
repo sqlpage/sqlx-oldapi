@@ -21,7 +21,7 @@ where
     ) -> BoxStream<'e, Result<Either<DB::QueryResult, DB::Row>, Error>>
     where
         'q: 'e,
-        E: Execute<'q, Self::Database>,
+        E: Execute<'q, Self::Database> + 'e,
     {
         let pool = self.clone();
 
@@ -40,7 +40,7 @@ where
     fn fetch_optional<'e, 'q, E>(self, query: E) -> BoxFuture<'e, Result<Option<DB::Row>, Error>>
     where
         'q: 'e,
-        E: Execute<'q, Self::Database>,
+        E: Execute<'q, Self::Database> + 'e,
     {
         let pool = self.clone();
 

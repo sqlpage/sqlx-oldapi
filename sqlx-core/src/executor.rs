@@ -33,7 +33,7 @@ pub trait Executor<'c>: Send + Debug + Sized {
     where
         'c: 'e,
         'q: 'e,
-        E: Execute<'q, Self::Database>,
+        E: Execute<'q, Self::Database> + 'e,
     {
         self.execute_many(query).try_collect().boxed()
     }
@@ -46,7 +46,7 @@ pub trait Executor<'c>: Send + Debug + Sized {
     where
         'c: 'e,
         'q: 'e,
-        E: Execute<'q, Self::Database>,
+        E: Execute<'q, Self::Database> + 'e,
     {
         self.fetch_many(query)
             .try_filter_map(|step| async move {
@@ -66,7 +66,7 @@ pub trait Executor<'c>: Send + Debug + Sized {
     where
         'c: 'e,
         'q: 'e,
-        E: Execute<'q, Self::Database>,
+        E: Execute<'q, Self::Database> + 'e,
     {
         self.fetch_many(query)
             .try_filter_map(|step| async move {
@@ -93,7 +93,7 @@ pub trait Executor<'c>: Send + Debug + Sized {
     where
         'c: 'e,
         'q: 'e,
-        E: Execute<'q, Self::Database>;
+        E: Execute<'q, Self::Database> + 'e;
 
     /// Execute the query and return all the generated results, collected into a [`Vec`].
     fn fetch_all<'e, 'q, E>(
@@ -103,7 +103,7 @@ pub trait Executor<'c>: Send + Debug + Sized {
     where
         'c: 'e,
         'q: 'e,
-        E: Execute<'q, Self::Database>,
+        E: Execute<'q, Self::Database> + 'e,
     {
         self.fetch(query).try_collect().boxed()
     }
@@ -116,7 +116,7 @@ pub trait Executor<'c>: Send + Debug + Sized {
     where
         'c: 'e,
         'q: 'e,
-        E: Execute<'q, Self::Database>,
+        E: Execute<'q, Self::Database> + 'e,
     {
         self.fetch_optional(query)
             .and_then(|row| match row {
@@ -134,7 +134,7 @@ pub trait Executor<'c>: Send + Debug + Sized {
     where
         'c: 'e,
         'q: 'e,
-        E: Execute<'q, Self::Database>;
+        E: Execute<'q, Self::Database> + 'e;
 
     /// Prepare the SQL query to inspect the type information of its parameters
     /// and results.
