@@ -20,7 +20,7 @@ impl Row {
         let mut column_types = Vec::with_capacity(columns.len());
 
         let nulls = if nullable {
-            buf.get_bytes((columns.len() + 7) / 8)
+            buf.get_bytes(columns.len().div_ceil(8))
         } else {
             Bytes::from_static(b"")
         };

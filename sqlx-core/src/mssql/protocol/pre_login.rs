@@ -90,8 +90,7 @@ impl<'de> Decode<'de> for PreLogin {
                     return Err(err_protocol!(
                         "PRELOGIN: unexpected login option token: 0x{:02?}",
                         token
-                    )
-                    .into());
+                    ));
                 }
             }
         }
