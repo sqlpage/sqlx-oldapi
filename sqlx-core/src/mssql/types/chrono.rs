@@ -162,7 +162,7 @@ where
         let mut encoded_offset: [u8; 2] = [0, 0];
         LittleEndian::write_i16(
             &mut encoded_offset,
-            i16::try_from(seconds_from_utc / 60).unwrap_or(i16::MAX),
+            i16::try_from(seconds_from_utc / 60).expect("timezone minutes offset out of range"),
         );
         buf.extend_from_slice(&encoded_offset);
         IsNull::No

@@ -40,7 +40,7 @@ impl Encode<'_, Mssql> for BigDecimal {
     fn produces(&self) -> Option<MssqlTypeInfo> {
         let mut info = <Self as Type<Mssql>>::type_info();
         let (_biging, exponent) = self.as_bigint_and_exponent();
-        info.0.scale = u8::try_from(exponent).unwrap_or(0);
+        info.0.scale = u8::try_from(exponent).expect("exponent should fit in u8");
         Some(info)
     }
 

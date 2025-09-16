@@ -72,7 +72,7 @@ impl StatementHandle {
     pub(crate) fn column_count(&self) -> usize {
         // https://sqlite.org/c3ref/column_count.html
         let count: i32 = unsafe { sqlite3_column_count(self.0.as_ptr()) };
-        usize::try_from(count).unwrap_or(0)
+        usize::try_from(count).expect("sqlite3_column_count returned a negative value")
     }
 
     #[inline]
@@ -81,14 +81,17 @@ impl StatementHandle {
         // necessarily this statement.
         // https://sqlite.org/c3ref/changes.html
         let changes: i32 = unsafe { sqlite3_changes(self.db_handle()) };
-        u64::try_from(changes).unwrap_or(0)
+        u64::try_from(changes).expect("sqlite3_changes returned a negative value")
     }
 
     #[inline]
     pub(crate) fn column_name(&self, index: usize) -> &str {
         // https://sqlite.org/c3ref/column_name.html
         unsafe {
-            let name = sqlite3_column_name(self.0.as_ptr(), c_int::try_from(index).unwrap_or(c_int::MAX));
+            let name = sqlite3_column_name(
+                self.0.as_ptr(),
+                c_int::try_from(index).expect("column_name index exceeds c_int")
+            );
             debug_assert!(!name.is_null());
 
             from_utf8_unchecked(CStr::from_ptr(name).to_bytes())
@@ -109,7 +112,10 @@ impl StatementHandle {
     #[inline]
     pub(crate) fn column_decltype(&self, index: usize) -> Option<SqliteTypeInfo> {
         unsafe {
-            let decl = sqlite3_column_decltype(self.0.as_ptr(), c_int::try_from(index).unwrap_or(c_int::MAX));
+            let decl = sqlite3_column_decltype(
+                self.0.as_ptr(),
+                c_int::try_from(index).expect("column_decltype index exceeds c_int")
+            );
             if decl.is_null() {
                 // If the Nth column of the result set is an expression or subquery,
                 // then a NULL pointer is returned.
@@ -132,7 +138,7 @@ impl StatementHandle {
             // sqlite3_finalize() or until the statement is automatically reprepared by the
             // first call to sqlite3_step() for a particular run or until the same information
             // is requested again in a different encoding.
-            let idx_cint = c_int::try_from(index).unwrap_or(c_int::MAX);
+            let idx_cint = c_int::try_from(index).expect("index exceeds c_int");
             let db_name = sqlite3_column_database_name(self.0.as_ptr(), idx_cint);
             let table_name = sqlite3_column_table_name(self.0.as_ptr(), idx_cint);
             let origin_name = sqlite3_column_origin_name(self.0.as_ptr(), idx_cint);
@@ -178,7 +184,7 @@ impl StatementHandle {
     pub(crate) fn bind_parameter_count(&self) -> usize {
         // https://www.sqlite.org/c3ref/bind_parameter_count.html
         let count: i32 = unsafe { sqlite3_bind_parameter_count(self.0.as_ptr()) };
-        usize::try_from(count).unwrap_or(0)
+        usize::try_from(count).expect("sqlite3_bind_parameter_count returned negative")
     }
 
     // Name Of A Host Parameter
@@ -187,7 +193,10 @@ impl StatementHandle {
     pub(crate) fn bind_parameter_name(&self, index: usize) -> Option<&str> {
         unsafe {
             // https://www.sqlite.org/c3ref/bind_parameter_name.html
-            let name = sqlite3_bind_parameter_name(self.0.as_ptr(), c_int::try_from(index).unwrap_or(c_int::MAX));
+            let name = sqlite3_bind_parameter_name(
+                self.0.as_ptr(),
+                c_int::try_from(index).expect("bind_parameter_name index exceeds c_int")
+            );
             if name.is_null() {
                 return None;
             }
@@ -243,7 +252,12 @@ impl StatementHandle {
 
     #[inline]
     pub(crate) fn bind_null(&self, index: usize) -> c_int {
-        unsafe { sqlite3_bind_null(self.0.as_ptr(), c_int::try_from(index).unwrap_or(c_int::MAX)) }
+        unsafe {
+            sqlite3_bind_null(
+                self.0.as_ptr(),
+                c_int::try_from(index).expect("bind_null index exceeds c_int"),
+            )
+        }
     }
 
     // result values from the query
