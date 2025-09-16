@@ -48,18 +48,18 @@ impl FromStr for PgConnectOptions {
         }
 
         for (key, value) in url.query_pairs().into_iter() {
-            match &*key {
+            match &key as &str {
                 "sslmode" | "ssl-mode" => {
                     options = options.ssl_mode(value.parse().map_err(Error::config)?);
                 }
 
                 "sslrootcert" | "ssl-root-cert" | "ssl-ca" => {
-                    options = options.ssl_root_cert(&*value);
+                    options = options.ssl_root_cert(&value);
                 }
 
-                "sslcert" | "ssl-cert" => options = options.ssl_client_cert(&*value),
+                "sslcert" | "ssl-cert" => options = options.ssl_client_cert(&value),
 
-                "sslkey" | "ssl-key" => options = options.ssl_client_key(&*value),
+                "sslkey" | "ssl-key" => options = options.ssl_client_key(&value),
 
                 "statement-cache-capacity" => {
                     options =
@@ -68,31 +68,31 @@ impl FromStr for PgConnectOptions {
 
                 "host" => {
                     if value.starts_with("/") {
-                        options = options.socket(&*value);
+                        options = options.socket(&value);
                     } else {
-                        options = options.host(&*value);
+                        options = options.host(&value);
                     }
                 }
 
                 "hostaddr" => {
                     value.parse::<IpAddr>().map_err(Error::config)?;
-                    options = options.host(&*value)
+                    options = options.host(&value)
                 }
 
                 "port" => options = options.port(value.parse().map_err(Error::config)?),
 
-                "dbname" => options = options.database(&*value),
+                "dbname" => options = options.database(&value),
 
-                "user" => options = options.username(&*value),
+                "user" => options = options.username(&value),
 
-                "password" => options = options.password(&*value),
+                "password" => options = options.password(&value),
 
-                "application_name" => options = options.application_name(&*value),
+                "application_name" => options = options.application_name(&value),
 
                 "options" => {
                     if let Some(options) = options.options.as_mut() {
                         options.push(' ');
-                        options.push_str(&*value);
+                        options.push_str(&value);
                     } else {
                         options.options = Some(value.to_string());
                     }
@@ -100,7 +100,7 @@ impl FromStr for PgConnectOptions {
 
                 k if k.starts_with("options[") => {
                     if let Some(key) = k.strip_prefix("options[").unwrap().strip_suffix(']') {
-                        options = options.options([(key, &*value)]);
+                        options = options.options([(key, &value)]);
                     }
                 }
 

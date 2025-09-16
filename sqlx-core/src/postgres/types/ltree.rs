@@ -142,7 +142,7 @@ impl FromStr for PgLTree {
         Ok(Self {
             labels: s
                 .split('.')
-                .map(|s| PgLTreeLabel::new(s))
+                .map(PgLTreeLabel::new)
                 .collect::<Result<Vec<_>, Self::Err>>()?,
         })
     }

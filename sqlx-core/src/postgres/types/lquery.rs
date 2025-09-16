@@ -104,7 +104,7 @@ impl FromStr for PgLQuery {
         Ok(Self {
             levels: s
                 .split('.')
-                .map(|s| PgLQueryLevel::from_str(s))
+                .map(PgLQueryLevel::from_str)
                 .collect::<Result<_, Self::Err>>()?,
         })
     }
@@ -245,12 +245,12 @@ impl FromStr for PgLQueryLevel {
                 b'!' => Ok(PgLQueryLevel::NotNonStar(
                     s[1..]
                         .split('|')
-                        .map(|s| PgLQueryVariant::from_str(s))
+                        .map(PgLQueryVariant::from_str)
                         .collect::<Result<Vec<_>, PgLQueryParseError>>()?,
                 )),
                 _ => Ok(PgLQueryLevel::NonStar(
                     s.split('|')
-                        .map(|s| PgLQueryVariant::from_str(s))
+                        .map(PgLQueryVariant::from_str)
                         .collect::<Result<Vec<_>, PgLQueryParseError>>()?,
                 )),
             }
