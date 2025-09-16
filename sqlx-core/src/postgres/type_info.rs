@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use std::borrow::Cow;
 use std::fmt::{self, Display, Formatter};
 use std::ops::Deref;

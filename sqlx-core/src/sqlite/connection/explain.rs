@@ -228,7 +228,6 @@ impl CursorDataType {
     }
 }
 
-#[allow(clippy::wildcard_in_or_patterns)]
 fn affinity_to_type(affinity: u8) -> DataType {
     match affinity {
         SQLITE_AFF_BLOB => DataType::Blob,
@@ -237,11 +236,10 @@ fn affinity_to_type(affinity: u8) -> DataType {
         SQLITE_AFF_REAL => DataType::Float,
         SQLITE_AFF_TEXT => DataType::Text,
 
-        SQLITE_AFF_NONE | _ => DataType::Null,
+        _ => DataType::Null,
     }
 }
 
-#[allow(clippy::wildcard_in_or_patterns)]
 fn opcode_to_type(op: &str) -> DataType {
     match op {
         OP_REAL => DataType::Float,
@@ -249,7 +247,7 @@ fn opcode_to_type(op: &str) -> DataType {
         OP_AND | OP_OR => DataType::Bool,
         OP_ROWID | OP_COUNT | OP_INT64 | OP_INTEGER => DataType::Int64,
         OP_STRING8 => DataType::Text,
-        OP_COLUMN | _ => DataType::Null,
+        _ => DataType::Null,
     }
 }
 

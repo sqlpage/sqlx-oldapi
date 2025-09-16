@@ -1,5 +1,3 @@
-#![allow(clippy::rc_buffer)]
-
 use crate::error::Error;
 use crate::ext::ustr::UStr;
 use crate::sqlite::connection::ConnectionHandle;
@@ -41,7 +39,7 @@ pub struct VirtualStatement {
     pub(crate) handles: SmallVec<[StatementHandle; 1]>,
 
     // each set of columns
-    pub(crate) columns: SmallVec<[Arc<Vec<SqliteColumn>>; 1]>,
+    pub(crate) columns: SmallVec<[Arc<[SqliteColumn]>; 1]>,
 
     // each set of column names
     pub(crate) column_names: SmallVec<[Arc<HashMap<UStr, usize>>; 1]>,
@@ -49,7 +47,7 @@ pub struct VirtualStatement {
 
 pub struct PreparedStatement<'a> {
     pub(crate) handle: &'a mut StatementHandle,
-    pub(crate) columns: &'a Arc<Vec<SqliteColumn>>,
+    pub(crate) columns: &'a Arc<[SqliteColumn]>,
     pub(crate) column_names: &'a Arc<HashMap<UStr, usize>>,
 }
 
@@ -132,7 +130,7 @@ impl VirtualStatement {
                 }
 
                 self.handles.push(statement);
-                self.columns.push(Arc::new(columns));
+                self.columns.push(Arc::<[SqliteColumn]>::from(columns));
                 self.column_names.push(Arc::new(column_names));
             }
         }

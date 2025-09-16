@@ -1,4 +1,3 @@
-#![allow(clippy::large_enum_variant)]
 #![cfg_attr(
     not(any(
         feature = "postgres",

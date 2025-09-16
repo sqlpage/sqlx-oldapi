@@ -1,4 +1,3 @@
-#![allow(unused_imports)]
 mod buf;
 mod buf_mut;
 mod buf_stream;

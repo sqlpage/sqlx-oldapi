@@ -1,5 +1,4 @@
 // This is imported by different tests that use different functions.
-#![allow(dead_code)]
 
 use axum::body::{Body, BoxBody, HttpBody};
 use axum::http::header::CONTENT_TYPE;

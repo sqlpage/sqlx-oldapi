@@ -1,5 +1,3 @@
-#![allow(clippy::rc_buffer)]
-
 use std::sync::Arc;
 
 use crate::HashMap;
@@ -14,7 +12,7 @@ use crate::sqlite::{Sqlite, SqliteColumn, SqliteValue, SqliteValueRef};
 /// Implementation of [`Row`] for SQLite.
 pub struct SqliteRow {
     pub(crate) values: Box<[SqliteValue]>,
-    pub(crate) columns: Arc<Vec<SqliteColumn>>,
+    pub(crate) columns: Arc<[SqliteColumn]>,
     pub(crate) column_names: Arc<HashMap<UStr, usize>>,
 }
 
@@ -32,7 +30,7 @@ unsafe impl Sync for SqliteRow {}
 impl SqliteRow {
     pub(crate) fn current(
         statement: &StatementHandle,
-        columns: &Arc<Vec<SqliteColumn>>,
+        columns: &Arc<[SqliteColumn]>,
         column_names: &Arc<HashMap<UStr, usize>>,
     ) -> Self {
         let size = statement.column_count();

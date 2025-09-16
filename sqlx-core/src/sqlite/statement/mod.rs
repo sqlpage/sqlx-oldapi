@@ -16,11 +16,10 @@ pub(crate) use handle::StatementHandle;
 pub(crate) use r#virtual::VirtualStatement;
 
 #[derive(Debug, Clone)]
-#[allow(clippy::rc_buffer)]
 pub struct SqliteStatement<'q> {
     pub(crate) sql: Cow<'q, str>,
     pub(crate) parameters: usize,
-    pub(crate) columns: Arc<Vec<SqliteColumn>>,
+    pub(crate) columns: Arc<[SqliteColumn]>,
     pub(crate) column_names: Arc<HashMap<UStr, usize>>,
 }
 
