@@ -147,7 +147,7 @@ where
                 {
                     let raw = stream.into_inner().0;
                     *self = MaybeTlsStream::Raw(raw);
-                    return Ok(());
+                    Ok(())
                 }
 
                 #[cfg(feature = "_tls-native-tls")]
@@ -159,11 +159,11 @@ where
 
             MaybeTlsStream::Raw(stream) => {
                 *self = MaybeTlsStream::Raw(stream);
-                return Ok(());
+                Ok(())
             }
 
             MaybeTlsStream::Upgrading => {
-                return Err(Error::Io(io::ErrorKind::ConnectionAborted.into()));
+                Err(Error::Io(io::ErrorKind::ConnectionAborted.into()))
             }
         }
     }

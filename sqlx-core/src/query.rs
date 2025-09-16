@@ -44,14 +44,14 @@ where
     #[inline]
     fn sql(&self) -> &'q str {
         match self.statement {
-            Either::Right(ref statement) => statement.sql(),
+            Either::Right(statement) => statement.sql(),
             Either::Left(sql) => sql,
         }
     }
 
     fn statement(&self) -> Option<&<DB as HasStatement<'q>>::Statement> {
         match self.statement {
-            Either::Right(ref statement) => Some(statement),
+            Either::Right(statement) => Some(statement),
             Either::Left(_) => None,
         }
     }
@@ -293,7 +293,7 @@ where
         let mut f = self.mapper;
         Map {
             inner: self.inner,
-            mapper: move |row| f(row).and_then(g),
+            mapper: move |row| f(row).and_then(|o| g(o)),
         }
     }
 
