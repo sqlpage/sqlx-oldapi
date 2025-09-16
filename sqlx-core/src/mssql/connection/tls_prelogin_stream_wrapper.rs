@@ -100,6 +100,9 @@ impl<S: AsyncRead + AsyncWrite + Unpin + Send> AsyncRead for TlsPreloginWrapper<
 
                 let read = header_buf.filled().len();
                 if read == 0 {
+                    #[cfg(feature = "_rt-async-std")]
+                    return Poll::Ready(Ok(0));
+                    #[cfg(feature = "_rt-tokio")]
                     return Poll::Ready(Ok(()));
                 }
 
@@ -153,6 +156,9 @@ impl<S: AsyncRead + AsyncWrite + Unpin + Send> AsyncRead for TlsPreloginWrapper<
                 let read = ready!(Pin::new(&mut inner.stream).poll_read(cx, header_buf))?;
 
                 if read == 0 {
+                    #[cfg(feature = "_rt-async-std")]
+                    return Poll::Ready(Ok(0));
+                    #[cfg(feature = "_rt-tokio")]
                     return Poll::Ready(Ok(()));
                 }
 
