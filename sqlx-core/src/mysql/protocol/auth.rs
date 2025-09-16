@@ -3,6 +3,7 @@ use std::str::FromStr;
 use crate::error::Error;
 
 #[derive(Debug, Copy, Clone)]
+#[allow(clippy::enum_variant_names)]
 pub enum AuthPlugin {
     MySqlNativePassword,
     CachingSha2Password,

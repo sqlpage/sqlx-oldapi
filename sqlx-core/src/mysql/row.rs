@@ -45,8 +45,8 @@ impl ColumnIndex<MySqlRow> for &'_ str {
     fn index(&self, row: &MySqlRow) -> Result<usize, Error> {
         row.column_names
             .get(*self)
+            .copied()
             .ok_or_else(|| Error::ColumnNotFound((*self).into()))
-            .map(|v| *v)
     }
 }
 
