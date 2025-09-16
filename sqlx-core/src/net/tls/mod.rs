@@ -113,17 +113,19 @@ where
         let host = config.hostname;
         let connector = configure_tls_connector(config).await?;
 
-        let stream = match replace(self, MaybeTlsStream::Upgrading) {
+        let stream: S = match replace(self, MaybeTlsStream::Upgrading) {
             MaybeTlsStream::Raw(stream) => stream,
 
             MaybeTlsStream::Tls(_) => {
                 // ignore upgrade, we are already a TLS connection
+                *self = MaybeTlsStream::Upgrading;
                 return Ok(());
             }
 
             MaybeTlsStream::Upgrading => {
                 // we previously failed to upgrade and now hold no connection
                 // this should only happen from an internal misuse of this method
+                *self = MaybeTlsStream::Upgrading;
                 return Err(Error::Io(io::ErrorKind::ConnectionAborted.into()));
             }
         };
@@ -134,10 +136,10 @@ where
             .to_owned();
 
         *self = MaybeTlsStream::Tls(Box::new(connector.connect(host, stream).await?));
-
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn downgrade(&mut self) -> Result<(), Error> {
         match replace(self, MaybeTlsStream::Upgrading) {
             MaybeTlsStream::Tls(stream) => {
@@ -145,24 +147,22 @@ where
                 {
                     let raw = stream.into_inner().0;
                     *self = MaybeTlsStream::Raw(raw);
-                    return Ok(());
+                    Ok(())
                 }
 
                 #[cfg(feature = "_tls-native-tls")]
                 {
                     let _ = stream; // Use the variable to avoid warning
-                    return Err(Error::tls("No way to downgrade a native-tls stream, use rustls instead, or never disable tls"));
+                    Err(Error::tls("No way to downgrade a native-tls stream, use rustls instead, or never disable tls"))
                 }
             }
 
             MaybeTlsStream::Raw(stream) => {
                 *self = MaybeTlsStream::Raw(stream);
-                return Ok(());
+                Ok(())
             }
 
-            MaybeTlsStream::Upgrading => {
-                return Err(Error::Io(io::ErrorKind::ConnectionAborted.into()));
-            }
+            MaybeTlsStream::Upgrading => Err(Error::Io(io::ErrorKind::ConnectionAborted.into())),
         }
     }
 }

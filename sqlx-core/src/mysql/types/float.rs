@@ -51,7 +51,12 @@ impl Encode<'_, MySql> for f64 {
 impl Decode<'_, MySql> for f32 {
     fn decode(value: MySqlValueRef<'_>) -> Result<Self, BoxDynError> {
         let as_f64 = <f64 as Decode<'_, MySql>>::decode(value)?;
-        Ok(as_f64 as f32)
+        // Clamp to f32 range, then cast; failing to parse into range is a bug upstream.
+        let clamped = as_f64.clamp(f32::MIN as f64, f32::MAX as f64);
+        #[allow(clippy::cast_possible_truncation)]
+        {
+            Ok(clamped as f32)
+        }
     }
 }
 

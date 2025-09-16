@@ -28,7 +28,7 @@ enum QuerySrc {
 }
 
 pub enum RecordType {
-    Given(Type),
+    Given(Box<Type>),
     Scalar,
     Generated,
 }
@@ -69,7 +69,7 @@ impl Parse for QueryMacroInput {
                     return Err(input.error("colliding `scalar` or `record` key"));
                 }
 
-                record_type = RecordType::Given(input.parse()?);
+                record_type = RecordType::Given(Box::new(input.parse()?));
             } else if key == "scalar" {
                 if !matches!(record_type, RecordType::Generated) {
                     return Err(input.error("colliding `scalar` or `record` key"));

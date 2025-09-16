@@ -35,12 +35,7 @@ where
         }
     }
 
-    pub fn write<'en, T>(&mut self, value: T)
-    where
-        T: Encode<'en, ()>,
-    {
-        self.write_with(value, ())
-    }
+    // Note: simple `write` is unused in current code paths; keep `write_with`.
 
     pub fn write_with<'en, T, C>(&mut self, value: T, context: C)
     where
@@ -60,9 +55,11 @@ where
     where
         T: Decode<'de, ()>,
     {
-        self.read_with(cnt, ()).await
+        let buf = self.read_raw(cnt).await?.freeze();
+        T::decode(buf)
     }
 
+    #[allow(dead_code)]
     pub async fn read_with<'de, T, C>(&mut self, cnt: usize, context: C) -> Result<T, Error>
     where
         T: Decode<'de, C>,
@@ -77,6 +74,7 @@ where
         Ok(buf)
     }
 
+    #[allow(dead_code)]
     pub async fn read_raw_into(&mut self, buf: &mut BytesMut, cnt: usize) -> Result<(), Error> {
         read_raw_into(&mut self.stream, buf, cnt).await
     }

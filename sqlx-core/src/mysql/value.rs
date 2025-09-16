@@ -93,7 +93,7 @@ impl<'r> ValueRef<'r> for MySqlValueRef<'r> {
 
     #[inline]
     fn is_null(&self) -> bool {
-        is_null(self.value.as_deref(), &self.type_info)
+        is_null(self.value, &self.type_info)
     }
 }
 

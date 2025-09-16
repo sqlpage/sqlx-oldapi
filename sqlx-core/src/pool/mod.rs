@@ -604,7 +604,7 @@ impl FusedFuture for CloseEvent {
 /// get the time between the deadline and now and use that as our timeout
 ///
 /// returns `Error::PoolTimedOut` if the deadline is in the past
-fn deadline_as_timeout<DB: Database>(deadline: Instant) -> Result<Duration, Error> {
+fn deadline_as_timeout(deadline: Instant) -> Result<Duration, Error> {
     deadline
         .checked_duration_since(Instant::now())
         .ok_or(Error::PoolTimedOut)

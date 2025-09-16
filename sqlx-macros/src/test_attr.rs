@@ -1,13 +1,15 @@
-use proc_macro2::{Span, TokenStream};
+use proc_macro2::TokenStream;
 use quote::quote;
 use syn::punctuated::Punctuated;
 use syn::{LitStr, Token};
 
+#[allow(dead_code)]
 struct Args {
     fixtures: Vec<LitStr>,
     migrations: MigrationsOpt,
 }
 
+#[allow(dead_code)]
 enum MigrationsOpt {
     InferredPath,
     ExplicitPath(LitStr),
@@ -112,7 +114,7 @@ fn expand_advanced(
             quote! { args.migrator(&#migrator); }
         }
         MigrationsOpt::InferredPath if !inputs.is_empty() => {
-            let migrations_path = crate::common::resolve_path("./migrations", Span::call_site())?;
+            let migrations_path = crate::common::resolve_path("./migrations", input.sig.span())?;
 
             if migrations_path.is_dir() {
                 let migrator = crate::migrate::expand_migrator(&migrations_path)?;

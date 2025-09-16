@@ -29,6 +29,7 @@ impl Socket {
             .map(Socket::Unix)
     }
 
+    #[allow(dead_code)]
     pub fn local_addr(&self) -> Option<SocketAddr> {
         match self {
             Self::Tcp(tcp) => tcp.local_addr().ok(),
