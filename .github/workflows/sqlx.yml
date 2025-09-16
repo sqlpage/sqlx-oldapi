@@ -14,6 +14,42 @@ jobs:
       - uses: actions/checkout@v4
       - run: cargo fmt --all -- --check
 
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        runtime: [async-std, tokio]
+        tls: [native-tls, rustls]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - name: Run clippy for core with all features
+        run: |
+          cargo clippy --manifest-path sqlx-core/Cargo.toml \
+            --no-default-features \
+            --features offline,all-databases,all-types,migrate,runtime-${{ matrix.runtime }}-${{ matrix.tls }} \
+            -- -D warnings
+        env:
+          RUSTFLAGS: -D warnings
+      - name: Run clippy for root with all features
+        run: |
+          cargo clippy \
+            --no-default-features \
+            --features offline,all-databases,all-types,migrate,runtime-${{ matrix.runtime }}-${{ matrix.tls }},macros \
+            -- -D warnings
+        env:
+          RUSTFLAGS: -D warnings
+      - name: Run clippy for all targets
+        run: |
+          cargo clippy \
+            --no-default-features \
+            --all-targets \
+            --features offline,all-databases,migrate,runtime-${{ matrix.runtime }}-${{ matrix.tls }} \
+            -- -D warnings
+        env:
+          RUSTFLAGS: -D warnings
+
   check:
     name: Check
     runs-on: ubuntu-22.04
@@ -97,6 +133,27 @@ jobs:
         with:
           name: cargo-sqlx-${{ matrix.target }}
           path: ${{ matrix.bin }}
+
+  clippy-per-db:
+    name: Clippy per Database
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        db: [postgres, mysql, sqlite, mssql]
+        runtime: [tokio]
+        tls: [rustls]
+    needs: clippy
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - name: Run clippy for ${{ matrix.db }}
+        run: |
+          cargo clippy \
+            --no-default-features \
+            --features ${{ matrix.db }},all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }},macros,migrate \
+            -- -D warnings
+        env:
+          RUSTFLAGS: -D warnings
 
   sqlite:
     name: SQLite
