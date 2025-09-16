@@ -246,9 +246,7 @@ fn expand_from_db(input: QueryMacroInput, db_url: &str) -> crate::Result<TokenSt
             }
             // Variants depend on feature flags
             #[allow(unreachable_patterns)]
-            item => {
-                Err(format!("Missing expansion needed for: {:?}", item).into())
-            }
+            item => Err(format!("Missing expansion needed for: {:?}", item).into()),
         }
     })
 }

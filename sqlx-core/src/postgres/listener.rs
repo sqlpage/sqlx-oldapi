@@ -353,10 +353,7 @@ impl<'c> Executor<'c> for &'c mut PgListener {
         .boxed()
     }
 
-    fn fetch_optional<'e, 'q: 'e, E>(
-        self,
-        query: E,
-    ) -> BoxFuture<'e, Result<Option<PgRow>, Error>>
+    fn fetch_optional<'e, 'q: 'e, E>(self, query: E) -> BoxFuture<'e, Result<Option<PgRow>, Error>>
     where
         'c: 'e,
         E: Execute<'q, Self::Database> + 'q,

@@ -142,11 +142,9 @@ impl<DB: Database> PoolInner<DB> {
 
                 if parent_close_event.as_mut().poll(cx).is_ready() {
                     // Propagate the parent's close event to the child.
-                    // We can't await here, so we spawn the close future
-                    let close_future = self.close();
-                    sqlx_rt::spawn(async move {
-                        close_future.await;
-                    });
+                    // Note: We can't await the close future here, but it's fine
+                    // because close() is designed to be fire-and-forget
+                    drop(self.close());
                     return Poll::Ready(Err(Error::PoolClosed));
                 }
 
@@ -291,10 +289,10 @@ impl<DB: Database> PoolInner<DB> {
         }
 
         let mut backoff = Duration::from_millis(10);
-        let max_backoff = deadline_as_timeout::<DB>(deadline)? / 5;
+        let max_backoff = deadline_as_timeout(deadline)? / 5;
 
         loop {
-            let timeout = deadline_as_timeout::<DB>(deadline)?;
+            let timeout = deadline_as_timeout(deadline)?;
 
             // result here is `Result<Result<C, Error>, TimeoutError>`
             // if this block does not return, sleep for the backoff timeout and try again
