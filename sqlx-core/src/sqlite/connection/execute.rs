@@ -83,7 +83,7 @@ impl Iterator for ExecuteIter<'_> {
 
             statement.handle.clear_bindings();
 
-            match bind(&mut statement.handle, self.args, self.args_used) {
+            match bind(statement.handle, &self.args, self.args_used) {
                 Ok(args_used) => self.args_used += args_used,
                 Err(e) => return Some(Err(e)),
             }
@@ -98,8 +98,8 @@ impl Iterator for ExecuteIter<'_> {
                 self.logger.increment_rows_returned();
 
                 Some(Ok(Either::Right(SqliteRow::current(
-                    &statement.handle,
-                    &statement.columns,
+                    statement.handle,
+                    statement.columns,
                     statement.column_names,
                 ))))
             }

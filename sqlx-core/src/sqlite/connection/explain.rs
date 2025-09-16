@@ -194,7 +194,7 @@ impl CursorDataType {
         )
     }
 
-    fn from_dense_record(record: &Vec<ColumnType>) -> Self {
+    fn from_dense_record(record: &[ColumnType]) -> Self {
         Self::Normal((0..).zip(record.iter().copied()).collect())
     }
 
@@ -203,7 +203,7 @@ impl CursorDataType {
             Self::Normal(record) => {
                 let mut rowdata = vec![ColumnType::default(); record.len()];
                 for (idx, col) in record.iter() {
-                    rowdata[*idx as usize] = col.clone();
+                    rowdata[*idx as usize] = *col;
                 }
                 rowdata
             }
@@ -306,7 +306,7 @@ fn root_block_columns(
         );
     }
 
-    return Ok(row_info);
+    Ok(row_info)
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -666,7 +666,7 @@ pub(super) fn explain(
                     state.r.insert(
                         p2,
                         RegDataType::Single(ColumnType {
-                            datatype: opcode_to_type(&opcode),
+                                datatype: opcode_to_type(opcode),
                             nullable: Some(false),
                         }),
                     );
@@ -784,8 +784,7 @@ pub(super) fn explain(
     while let Some(state) = result_states.pop() {
         // find the datatype info from each ResultRow execution
         if let Some(result) = state.result {
-            let mut idx = 0;
-            for (this_type, this_nullable) in result {
+            for (idx, (this_type, this_nullable)) in result.into_iter().enumerate() {
                 if output.len() == idx {
                     output.push(this_type);
                 } else if output[idx].is_none()
@@ -804,7 +803,6 @@ pub(super) fn explain(
                 } else {
                     nullable[idx] = this_nullable;
                 }
-                idx += 1;
             }
         }
     }
