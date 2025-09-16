@@ -1,4 +1,4 @@
-use std::i16;
+// remove legacy numeric constants import
 
 use crate::io::{BufMutExt, Encode};
 use crate::postgres::io::PgBufMutExt;

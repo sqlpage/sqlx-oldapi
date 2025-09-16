@@ -25,7 +25,7 @@ impl PgBufMutExt for Vec<u8> {
         f(self);
 
         // now calculate the size of what we wrote and set the length value
-        let size = (self.len() - offset) as i32;
+        let size = i32::try_from(self.len() - offset).expect("message size should fit in i32");
         self[offset..(offset + 4)].copy_from_slice(&size.to_be_bytes());
     }
 

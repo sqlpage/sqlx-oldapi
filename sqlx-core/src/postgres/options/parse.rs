@@ -16,7 +16,7 @@ impl FromStr for PgConnectOptions {
         if let Some(host) = url.host_str() {
             let host_decoded = percent_decode_str(host);
             options = match host_decoded.clone().next() {
-                Some(b'/') => options.socket(&*host_decoded.decode_utf8().map_err(Error::config)?),
+                Some(b'/') => options.socket(&host_decoded.decode_utf8().map_err(Error::config)?),
                 _ => options.host(host),
             }
         }
@@ -28,7 +28,7 @@ impl FromStr for PgConnectOptions {
         let username = url.username();
         if !username.is_empty() {
             options = options.username(
-                &*percent_decode_str(username)
+                &percent_decode_str(username)
                     .decode_utf8()
                     .map_err(Error::config)?,
             );
@@ -36,7 +36,7 @@ impl FromStr for PgConnectOptions {
 
         if let Some(password) = url.password() {
             options = options.password(
-                &*percent_decode_str(password)
+                &percent_decode_str(password)
                     .decode_utf8()
                     .map_err(Error::config)?,
             );
@@ -54,12 +54,12 @@ impl FromStr for PgConnectOptions {
                 }
 
                 "sslrootcert" | "ssl-root-cert" | "ssl-ca" => {
-                    options = options.ssl_root_cert(&*value);
+                    options = options.ssl_root_cert(&value);
                 }
 
-                "sslcert" | "ssl-cert" => options = options.ssl_client_cert(&*value),
+                "sslcert" | "ssl-cert" => options = options.ssl_client_cert(&value),
 
-                "sslkey" | "ssl-key" => options = options.ssl_client_key(&*value),
+                "sslkey" | "ssl-key" => options = options.ssl_client_key(&value),
 
                 "statement-cache-capacity" => {
                     options =
@@ -68,31 +68,31 @@ impl FromStr for PgConnectOptions {
 
                 "host" => {
                     if value.starts_with("/") {
-                        options = options.socket(&*value);
+                        options = options.socket(&value);
                     } else {
-                        options = options.host(&*value);
+                        options = options.host(&value);
                     }
                 }
 
                 "hostaddr" => {
                     value.parse::<IpAddr>().map_err(Error::config)?;
-                    options = options.host(&*value)
+                    options = options.host(&value)
                 }
 
                 "port" => options = options.port(value.parse().map_err(Error::config)?),
 
-                "dbname" => options = options.database(&*value),
+                "dbname" => options = options.database(&value),
 
-                "user" => options = options.username(&*value),
+                "user" => options = options.username(&value),
 
-                "password" => options = options.password(&*value),
+                "password" => options = options.password(&value),
 
-                "application_name" => options = options.application_name(&*value),
+                "application_name" => options = options.application_name(&value),
 
                 "options" => {
                     if let Some(options) = options.options.as_mut() {
                         options.push(' ');
-                        options.push_str(&*value);
+                        options.push_str(&value);
                     } else {
                         options.options = Some(value.to_string());
                     }
@@ -100,7 +100,7 @@ impl FromStr for PgConnectOptions {
 
                 k if k.starts_with("options[") => {
                     if let Some(key) = k.strip_prefix("options[").unwrap().strip_suffix(']') {
-                        options = options.options([(key, &*value)]);
+                        options = options.options([(key, &value)]);
                     }
                 }
 

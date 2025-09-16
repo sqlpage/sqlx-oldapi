@@ -66,7 +66,7 @@ impl Decode<'_, Postgres> for f64 {
         Ok(match value.format() {
             PgValueFormat::Binary => {
                 if value.type_info == PgTypeInfo::NUMERIC {
-                    return Ok(PgNumeric::decode(value.as_bytes()?)?.try_into()?);
+                    return PgNumeric::decode(value.as_bytes()?)?.try_into();
                 }
                 let buf = value.as_bytes()?;
                 match buf.len() {

@@ -84,7 +84,7 @@ impl PgStream {
         let mut header: Bytes = self.inner.read(5).await?;
 
         let format = MessageFormat::try_from_u8(header.get_u8())?;
-        let size = (header.get_u32() - 4) as usize;
+        let size = usize::try_from(header.get_u32() - 4).expect("message size should fit in usize");
 
         let contents = self.inner.read(size).await?;
 

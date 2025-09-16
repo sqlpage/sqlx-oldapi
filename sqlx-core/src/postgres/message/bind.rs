@@ -42,7 +42,11 @@ impl Encode<'_> for Bind<'_> {
 
             buf.put_statement_name(self.statement);
 
-            buf.extend(&(self.formats.len() as i16).to_be_bytes());
+            buf.extend(
+                &i16::try_from(self.formats.len())
+                    .expect("formats length should fit in i16")
+                    .to_be_bytes(),
+            );
 
             for &format in self.formats {
                 buf.extend(&(format as i16).to_be_bytes());

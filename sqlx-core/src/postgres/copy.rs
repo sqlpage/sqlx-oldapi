@@ -42,7 +42,7 @@ impl PgConnection {
     ///
     /// 1. by closing the connection, or:
     /// 2. by using another connection to kill the server process that is sending the data as shown
-    /// [in this StackOverflow answer](https://stackoverflow.com/a/35319598).
+    ///   [in this StackOverflow answer](https://stackoverflow.com/a/35319598).
     ///
     /// If you don't read the stream to completion, the next time the connection is used it will
     /// need to read and discard all the remaining queued data, which could take some time.
@@ -149,7 +149,7 @@ impl<C: DerefMut<Target = PgConnection>> PgCopyIn<C> {
     /// Returns the number of columns expected in the input.
     pub fn num_columns(&self) -> usize {
         assert_eq!(
-            self.response.num_columns as usize,
+            usize::try_from(self.response.num_columns).expect("num_columns should be non-negative"),
             self.response.format_codes.len(),
             "num_columns does not match format_codes.len()"
         );

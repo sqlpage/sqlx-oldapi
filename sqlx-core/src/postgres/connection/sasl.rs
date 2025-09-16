@@ -126,7 +126,7 @@ pub(crate) async fn authenticate(
 
     // ClientSignature := HMAC(StoredKey, AuthMessage)
     let mut mac = Hmac::<Sha256>::new_from_slice(&stored_key).map_err(Error::protocol)?;
-    mac.update(&auth_message.as_bytes());
+    mac.update(auth_message.as_bytes());
 
     let client_signature = mac.finalize().into_bytes();
 
@@ -145,7 +145,7 @@ pub(crate) async fn authenticate(
 
     // ServerSignature := HMAC(ServerKey, AuthMessage)
     let mut mac = Hmac::<Sha256>::new_from_slice(&server_key).map_err(Error::protocol)?;
-    mac.update(&auth_message.as_bytes());
+    mac.update(auth_message.as_bytes());
 
     // client-final-message = client-final-message-without-proof "," proof
     let client_final_message = format!(
@@ -183,10 +183,10 @@ fn gen_nonce() -> String {
     // ;; a valid "value".
     let nonce: String = std::iter::repeat(())
         .map(|()| {
-            let mut c = rng.gen_range(0x21..0x7F) as u8;
+            let mut c: u8 = rng.gen_range(0x21u8..0x7Fu8);
 
             while c == 0x2C {
-                c = rng.gen_range(0x21..0x7F) as u8;
+                c = rng.gen_range(0x21u8..0x7Fu8);
             }
 
             c
