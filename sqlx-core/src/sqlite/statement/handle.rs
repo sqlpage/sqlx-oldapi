@@ -90,7 +90,7 @@ impl StatementHandle {
         unsafe {
             let name = sqlite3_column_name(
                 self.0.as_ptr(),
-                c_int::try_from(index).expect("column_name index exceeds c_int")
+                c_int::try_from(index).expect("column_name index exceeds c_int"),
             );
             debug_assert!(!name.is_null());
 
@@ -114,7 +114,7 @@ impl StatementHandle {
         unsafe {
             let decl = sqlite3_column_decltype(
                 self.0.as_ptr(),
-                c_int::try_from(index).expect("column_decltype index exceeds c_int")
+                c_int::try_from(index).expect("column_decltype index exceeds c_int"),
             );
             if decl.is_null() {
                 // If the Nth column of the result set is an expression or subquery,
@@ -195,7 +195,7 @@ impl StatementHandle {
             // https://www.sqlite.org/c3ref/bind_parameter_name.html
             let name = sqlite3_bind_parameter_name(
                 self.0.as_ptr(),
-                c_int::try_from(index).expect("bind_parameter_name index exceeds c_int")
+                c_int::try_from(index).expect("bind_parameter_name index exceeds c_int"),
             );
             if name.is_null() {
                 return None;
@@ -270,12 +270,16 @@ impl StatementHandle {
 
     #[inline]
     pub(crate) fn column_int(&self, index: usize) -> i32 {
-        unsafe { sqlite3_column_int(self.0.as_ptr(), index.try_into().unwrap_or(c_int::MAX)) as i32 }
+        unsafe {
+            sqlite3_column_int(self.0.as_ptr(), index.try_into().unwrap_or(c_int::MAX)) as i32
+        }
     }
 
     #[inline]
     pub(crate) fn column_int64(&self, index: usize) -> i64 {
-        unsafe { sqlite3_column_int64(self.0.as_ptr(), index.try_into().unwrap_or(c_int::MAX)) as i64 }
+        unsafe {
+            sqlite3_column_int64(self.0.as_ptr(), index.try_into().unwrap_or(c_int::MAX)) as i64
+        }
     }
 
     #[inline]

@@ -143,7 +143,9 @@ impl<DB: Database> PoolInner<DB> {
                 if parent_close_event.as_mut().poll(cx).is_ready() {
                     // Propagate the parent's close event to the child.
                     let pool = Arc::clone(self);
-                    sqlx_rt::spawn(async move { let _ = pool.close().await; });
+                    sqlx_rt::spawn(async move {
+                        let _ = pool.close().await;
+                    });
                     return Poll::Ready(Err(Error::PoolClosed));
                 }
 

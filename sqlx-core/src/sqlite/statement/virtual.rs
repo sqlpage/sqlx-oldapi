@@ -11,10 +11,10 @@ use libsqlite3_sys::{
     sqlite3, sqlite3_prepare_v3, sqlite3_stmt, SQLITE_OK, SQLITE_PREPARE_PERSISTENT,
 };
 use smallvec::SmallVec;
+use std::cmp;
 use std::os::raw::c_char;
 use std::ptr::{null, null_mut, NonNull};
 use std::sync::Arc;
-use std::cmp;
 
 // A virtual statement consists of *zero* or more raw SQLite3 statements. We chop up a SQL statement
 // on `;` to support multiple statements in one query.

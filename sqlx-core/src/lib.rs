@@ -9,10 +9,6 @@
     clippy::cast_precision_loss,
     clippy::cast_sign_loss
 )]
-#![allow(
-    clippy::multiple_bound_locations,
-    clippy::empty_line_after_doc_comments
-)]
 // See `clippy.toml` at the workspace root
 #![deny(clippy::disallowed_methods)]
 //

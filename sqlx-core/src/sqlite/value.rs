@@ -126,10 +126,11 @@ impl SqliteValue {
     }
 
     fn blob(&self) -> &[u8] {
-        let len: usize = match usize::try_from(unsafe { sqlite3_value_bytes(self.handle.0.as_ptr()) }) {
-            Ok(v) => v,
-            Err(_) => return &[],
-        };
+        let len: usize =
+            match usize::try_from(unsafe { sqlite3_value_bytes(self.handle.0.as_ptr()) }) {
+                Ok(v) => v,
+                Err(_) => return &[],
+            };
 
         if len == 0 {
             // empty blobs are NULL so just return an empty slice

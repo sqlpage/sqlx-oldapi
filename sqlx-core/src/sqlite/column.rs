@@ -19,7 +19,9 @@ impl Column for SqliteColumn {
         self.ordinal
     }
 
-    fn name(&self) -> &str { &self.name }
+    fn name(&self) -> &str {
+        &self.name
+    }
 
     fn type_info(&self) -> &SqliteTypeInfo {
         &self.type_info
