@@ -35,7 +35,6 @@ use std::task::{self, ready, Poll};
 ///
 /// This allows us to use standard TLS libraries while still conforming to the TDS protocol
 /// requirements for the PRELOGIN phase.
-
 const HEADER_BYTES: usize = 8;
 
 pub(crate) struct TlsPreloginWrapper<S> {

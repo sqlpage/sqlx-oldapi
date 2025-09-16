@@ -105,9 +105,9 @@ impl<'q, O: Debug + Hash + Eq, R: Debug, P: Debug> QueryPlanLogger<'q, O, R, P> 
             .to_level()
             .filter(|lvl| log::log_enabled!(target: "sqlx::explain", *lvl))
         {
-            return true;
+            true
         } else {
-            return false;
+            false
         }
     }
 
