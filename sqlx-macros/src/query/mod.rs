@@ -154,7 +154,7 @@ pub fn expand_input(input: QueryMacroInput) -> crate::Result<TokenStream> {
             offline: false,
             database_url: Some(db_url),
             ..
-        } => expand_from_db(input, &db_url),
+        } => expand_from_db(input, db_url),
 
         #[cfg(feature = "offline")]
         _ => {
@@ -247,7 +247,7 @@ fn expand_from_db(input: QueryMacroInput, db_url: &str) -> crate::Result<TokenSt
             // Variants depend on feature flags
             #[allow(unreachable_patterns)]
             item => {
-                return Err(format!("Missing expansion needed for: {:?}", item).into());
+                Err(format!("Missing expansion needed for: {:?}", item).into())
             }
         }
     })

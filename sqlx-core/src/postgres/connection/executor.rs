@@ -226,6 +226,7 @@ impl PgConnection {
                 portal: None,
                 statement,
                 formats: &[PgValueFormat::Binary],
+                #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
                 num_params: arguments.types.len() as i16,
                 params: &*arguments.buffer,
                 result_formats: &[PgValueFormat::Binary],

@@ -183,10 +183,10 @@ fn gen_nonce() -> String {
     // ;; a valid "value".
     let nonce: String = std::iter::repeat(())
         .map(|()| {
-            let mut c = rng.gen_range(0x21..0x7F) as u8;
+            let mut c = rng.gen_range(0x21u8..0x7Fu8);
 
             while c == 0x2C {
-                c = rng.gen_range(0x21..0x7F) as u8;
+                c = rng.gen_range(0x21u8..0x7Fu8);
             }
 
             c

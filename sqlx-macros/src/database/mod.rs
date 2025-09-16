@@ -10,8 +10,10 @@ pub enum ParamChecking {
 pub trait DatabaseExt: Database {
     const DATABASE_PATH: &'static str;
     const ROW_PATH: &'static str;
+    #[allow(dead_code)]
     const NAME: &'static str;
 
+    #[allow(dead_code)]
     const PARAM_CHECKING: ParamChecking;
 
     fn db_path() -> syn::Path {

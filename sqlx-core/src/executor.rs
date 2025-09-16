@@ -57,7 +57,7 @@ pub trait Executor<'c>: Send + Debug + Sized {
     }
 
     /// Execute the query and return the generated results as a stream.
-    fn fetch<'e, 'q: 'e, E: 'q>(
+    fn fetch<'e, 'q: 'e, E>(
         self,
         query: E,
     ) -> BoxStream<'e, Result<<Self::Database as Database>::Row, Error>>
@@ -89,7 +89,7 @@ pub trait Executor<'c>: Send + Debug + Sized {
     >
     where
         'c: 'e,
-        E: Execute<'q, Self::Database>;
+        E: Execute<'q, Self::Database> + 'q;
 
     /// Execute the query and return all the generated results, collected into a [`Vec`].
     fn fetch_all<'e, 'q: 'e, E>(
@@ -127,7 +127,7 @@ pub trait Executor<'c>: Send + Debug + Sized {
     ) -> BoxFuture<'e, Result<Option<<Self::Database as Database>::Row>, Error>>
     where
         'c: 'e,
-        E: Execute<'q, Self::Database>;
+        E: Execute<'q, Self::Database> + 'q;
 
     /// Prepare the SQL query to inspect the type information of its parameters
     /// and results.

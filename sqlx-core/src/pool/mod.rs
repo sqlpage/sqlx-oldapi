@@ -353,7 +353,7 @@ impl<DB: Database> Pool<DB> {
 
     /// Retrieves a connection and immediately begins a new transaction.
     pub async fn begin(&self) -> Result<Transaction<'static, DB>, Error> {
-        Ok(Transaction::begin(MaybePoolConnection::PoolConnection(self.acquire().await?)).await?)
+        Transaction::begin(MaybePoolConnection::PoolConnection(self.acquire().await?)).await
     }
 
     /// Attempts to retrieve a connection and immediately begins a new transaction if successful.

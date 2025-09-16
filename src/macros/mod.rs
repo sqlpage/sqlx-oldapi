@@ -42,8 +42,8 @@
 /// † Only callable if the query returns no columns; otherwise it's assumed the query *may* return at least one row.
 /// ## Requirements
 /// * The `DATABASE_URL` environment variable must be set at build-time to point to a database
-/// server with the schema that the query string will be checked against. All variants of `query!()`
-/// use [dotenv]<sup>1</sup> so this can be in a `.env` file instead.
+///   server with the schema that the query string will be checked against. All variants of `query!()`
+///   use [dotenv]<sup>1</sup> so this can be in a `.env` file instead.
 ///
 ///     * Or, `sqlx-data.json` must exist at the workspace root. See [Offline Mode](#offline-mode-requires-the-offline-feature)
 ///       below.

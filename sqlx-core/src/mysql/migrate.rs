@@ -320,7 +320,7 @@ CREATE TABLE IF NOT EXISTS _sqlx_migrations (
 
 async fn current_database(conn: &mut MySqlConnection) -> Result<String> {
     // language=MySQL
-    Ok(query_scalar("SELECT DATABASE()").fetch_one(conn).await?)
+    query_scalar("SELECT DATABASE()").fetch_one(conn).await
 }
 
 // inspired from rails: https://github.com/rails/rails/blob/6e49cc77ab3d16c06e12f93158eaf3e507d4120e/activerecord/lib/active_record/migration.rb#L1308

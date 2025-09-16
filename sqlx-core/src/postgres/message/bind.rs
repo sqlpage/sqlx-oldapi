@@ -42,6 +42,7 @@ impl Encode<'_> for Bind<'_> {
 
             buf.put_statement_name(self.statement);
 
+            #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
             buf.extend(&(self.formats.len() as i16).to_be_bytes());
 
             for &format in self.formats {

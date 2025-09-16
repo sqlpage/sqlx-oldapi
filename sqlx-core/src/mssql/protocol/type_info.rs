@@ -143,7 +143,7 @@ impl TypeInfo {
                     }
 
                     // Baltic locales
-                    0x0425 | 0x0427 | 0x0426 => encoding_rs::WINDOWS_1257,
+                    0x0425..=0x0427 => encoding_rs::WINDOWS_1257,
 
                     // Greek
                     0x0408 => encoding_rs::WINDOWS_1253,

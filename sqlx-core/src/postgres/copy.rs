@@ -148,8 +148,10 @@ impl<C: DerefMut<Target = PgConnection>> PgCopyIn<C> {
 
     /// Returns the number of columns expected in the input.
     pub fn num_columns(&self) -> usize {
+        #[allow(clippy::cast_sign_loss)]
+        let num_columns = self.response.num_columns as usize;
         assert_eq!(
-            self.response.num_columns as usize,
+            num_columns,
             self.response.format_codes.len(),
             "num_columns does not match format_codes.len()"
         );
