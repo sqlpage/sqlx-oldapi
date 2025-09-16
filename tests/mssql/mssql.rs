@@ -2,9 +2,7 @@ use futures::TryStreamExt;
 use sqlx_core::mssql::MssqlRow;
 #[allow(unused_imports)]
 use sqlx_oldapi::mssql::{Mssql, MssqlPoolOptions};
-use sqlx_oldapi::{
-    Column, Connection, Executor, MssqlConnection, Row, Statement, TypeInfo,
-};
+use sqlx_oldapi::{Column, Connection, Executor, MssqlConnection, Row, Statement, TypeInfo};
 use sqlx_test::new;
 #[allow(unused_imports)]
 use std::sync::atomic::{AtomicI32, Ordering};
