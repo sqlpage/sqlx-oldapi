@@ -142,7 +142,7 @@ where
 
     pub fn downgrade(&mut self) -> Result<(), Error> {
         match replace(self, MaybeTlsStream::Upgrading) {
-            MaybeTlsStream::Tls(mut boxed_stream) => {
+            MaybeTlsStream::Tls(boxed_stream) => {
                 #[cfg(feature = "_tls-rustls")]
                 {
                     let raw = boxed_stream.into_inner().0;
