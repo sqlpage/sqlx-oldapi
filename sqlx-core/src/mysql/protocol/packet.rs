@@ -34,7 +34,11 @@ where
         // FIXME: Support larger packets
         assert!(len < 0xFF_FF_FF);
 
-        header[..4].copy_from_slice(&(len as u32).to_le_bytes());
+        header[..4].copy_from_slice(
+            &u32::try_from(len)
+                .expect("packet length should fit in u32")
+                .to_le_bytes(),
+        );
         header[3] = *sequence_id;
 
         *sequence_id = sequence_id.wrapping_add(1);

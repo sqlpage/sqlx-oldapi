@@ -198,7 +198,8 @@ fn prepare(
         if status != SQLITE_OK {
             // SAFETY: query is derived from original_query by successive calls to `advance()`
             let index_in_original_query =
-                unsafe { query.as_ptr().offset_from(original_query.as_ptr()) } as usize;
+                usize::try_from(unsafe { query.as_ptr().offset_from(original_query.as_ptr()) })
+                    .expect("query pointer offset should be non-negative");
             return Err(SqliteError::new(conn)
                 .with_statement_start_index(index_in_original_query)
                 .into());

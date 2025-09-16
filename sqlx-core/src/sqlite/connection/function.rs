@@ -92,7 +92,7 @@ impl SqliteFunctionCtx {
                         sqlite3_result_text(
                             self.ctx,
                             text.as_ptr() as *const c_char,
-                            text.len() as c_int,
+                            c_int::try_from(text.len()).expect("text length should fit in c_int"),
                             SQLITE_TRANSIENT(),
                         );
                     }
@@ -100,7 +100,7 @@ impl SqliteFunctionCtx {
                         sqlite3_result_blob(
                             self.ctx,
                             blob.as_ptr() as *const c_void,
-                            blob.len() as c_int,
+                            c_int::try_from(blob.len()).expect("blob length should fit in c_int"),
                             SQLITE_TRANSIENT(),
                         );
                     }
@@ -124,7 +124,8 @@ impl SqliteFunctionCtx {
             sqlite3_result_error(
                 self.ctx,
                 error_str.as_ptr(),
-                error_str.as_bytes().len() as c_int,
+                c_int::try_from(error_str.as_bytes().len())
+                    .expect("error string length should fit in c_int"),
             );
         }
     }

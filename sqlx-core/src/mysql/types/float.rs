@@ -72,8 +72,7 @@ impl Decode<'_, MySql> for f64 {
             }
             _ => {
                 let str_val = value.as_str()?;
-                let parsed = str_val.parse()?;
-                parsed
+                str_val.parse()?
             }
         })
     }

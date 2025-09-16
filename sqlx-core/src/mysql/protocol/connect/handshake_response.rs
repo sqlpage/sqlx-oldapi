@@ -48,7 +48,7 @@ impl Encode<'_, Capabilities> for HandshakeResponse<'_> {
         } else if capabilities.contains(Capabilities::SECURE_CONNECTION) {
             let response = self.auth_response.unwrap_or_default();
 
-            buf.push(response.len() as u8);
+            buf.push(u8::try_from(response.len()).expect("auth response length should fit in u8"));
             buf.extend(response);
         } else {
             buf.push(0);

@@ -31,11 +31,11 @@ impl MySqlBufExt for Bytes {
 
     fn get_str_lenenc(&mut self) -> Result<String, Error> {
         let size = self.get_uint_lenenc();
-        self.get_str(size as usize)
+        self.get_str(usize::try_from(size).expect("string length should fit in usize"))
     }
 
     fn get_bytes_lenenc(&mut self) -> Bytes {
         let size = self.get_uint_lenenc();
-        self.split_to(size as usize)
+        self.split_to(usize::try_from(size).expect("split size should fit in usize"))
     }
 }

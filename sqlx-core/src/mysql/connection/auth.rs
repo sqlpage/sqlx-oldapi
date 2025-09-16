@@ -76,7 +76,7 @@ fn scramble_sha1(password: &str, nonce: &Chain<Bytes, Bytes>) -> Vec<u8> {
 
     let mut pw_hash = ctx.finalize_reset();
 
-    ctx.update(&pw_hash);
+    ctx.update(pw_hash);
 
     let pw_hash_hash = ctx.finalize_reset();
 
@@ -100,7 +100,7 @@ fn scramble_sha256(password: &str, nonce: &Chain<Bytes, Bytes>) -> Vec<u8> {
 
     let mut pw_hash = ctx.finalize_reset();
 
-    ctx.update(&pw_hash);
+    ctx.update(pw_hash);
 
     let pw_hash_hash = ctx.finalize_reset();
 

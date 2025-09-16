@@ -22,7 +22,8 @@ impl<'de> Decode<'de, &'de [MySqlColumn]> for TextRow {
                 values.push(None);
                 buf.advance(1);
             } else {
-                let size = buf.get_uint_lenenc() as usize;
+                let size = usize::try_from(buf.get_uint_lenenc())
+                    .expect("length-encoded size should fit in usize");
                 let offset = offset - buf.len();
 
                 values.push(Some(offset..(offset + size)));

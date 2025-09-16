@@ -61,7 +61,8 @@ impl Decode<'_> for Handshake {
         }
 
         let auth_plugin_data_2 = if capabilities.contains(Capabilities::SECURE_CONNECTION) {
-            let len = core::cmp::max((auth_plugin_data_len as isize) - 9, 12) as usize;
+            let len = usize::try_from(core::cmp::max((auth_plugin_data_len as isize) - 9, 12))
+                .expect("auth plugin data length should be non-negative");
             let v = buf.get_bytes(len);
             buf.advance(1); // NUL-terminator
 

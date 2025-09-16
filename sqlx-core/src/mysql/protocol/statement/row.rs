@@ -34,8 +34,9 @@ impl<'de> Decode<'de, &'de [MySqlColumn]> for BinaryRow {
         for (column_idx, column) in columns.iter().enumerate() {
             // NOTE: the column index starts at the 3rd bit
             let column_null_idx = column_idx + 2;
-            let is_null =
-                null_bitmap[column_null_idx / 8] & (1 << (column_null_idx % 8) as u8) != 0;
+            let is_null = null_bitmap[column_null_idx / 8]
+                & (1 << u8::try_from(column_null_idx % 8).expect("bit index < 8"))
+                != 0;
 
             if is_null {
                 values.push(None);
@@ -59,7 +60,8 @@ impl<'de> Decode<'de, &'de [MySqlColumn]> for BinaryRow {
                 | ColumnType::Bit
                 | ColumnType::Decimal
                 | ColumnType::Json
-                | ColumnType::NewDecimal => buf.get_uint_lenenc() as usize,
+                | ColumnType::NewDecimal => usize::try_from(buf.get_uint_lenenc())
+                    .expect("length-encoded size should fit in usize"),
 
                 ColumnType::LongLong => 8,
                 ColumnType::Long | ColumnType::Int24 => 4,

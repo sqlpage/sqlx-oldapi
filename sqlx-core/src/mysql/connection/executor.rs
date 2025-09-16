@@ -25,7 +25,7 @@ use futures_util::{pin_mut, TryStreamExt};
 use std::{borrow::Cow, sync::Arc};
 
 impl MySqlConnection {
-    async fn get_or_prepare<'c>(
+    async fn get_or_prepare(
         &mut self,
         sql: &str,
         persistent: bool,
@@ -155,7 +155,7 @@ impl MySqlConnection {
                 // otherwise, this first packet is the start of the result-set metadata,
                 *self.stream.waiting.front_mut().unwrap() = Waiting::Row;
 
-                let num_columns = packet.get_uint_lenenc() as usize; // column count
+                let num_columns = usize::try_from(packet.get_uint_lenenc()).expect("column count should fit in usize"); // column count
 
                 if needs_metadata {
                     column_names = Arc::new(recv_result_metadata(&mut self.stream, num_columns, Arc::make_mut(&mut columns)).await?);
@@ -289,7 +289,7 @@ impl<'c> Executor<'c> for &'c mut MySqlConnection {
 
             let (_, metadata) = self.get_or_prepare(sql, false).await?;
 
-            let columns = (&*metadata.columns).clone();
+            let columns = (*metadata.columns).clone();
 
             let nullable = columns
                 .iter()
@@ -335,7 +335,7 @@ fn recv_next_result_column(def: &ColumnDefinition, ordinal: usize) -> Result<MyS
         (name, _) => UStr::new(name),
     };
 
-    let type_info = MySqlTypeInfo::from_column(&def);
+    let type_info = MySqlTypeInfo::from_column(def);
 
     Ok(MySqlColumn {
         name,

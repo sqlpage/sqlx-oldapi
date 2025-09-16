@@ -99,8 +99,8 @@ impl Iterator for ExecuteIter<'_> {
 
                 Some(Ok(Either::Right(SqliteRow::current(
                     &statement.handle,
-                    &statement.columns,
-                    &statement.column_names,
+                    statement.columns,
+                    statement.column_names,
                 ))))
             }
             Ok(false) => {

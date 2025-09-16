@@ -194,7 +194,7 @@ impl CursorDataType {
         )
     }
 
-    fn from_dense_record(record: &Vec<ColumnType>) -> Self {
+    fn from_dense_record(record: &[ColumnType]) -> Self {
         Self::Normal((0..).zip(record.iter().copied()).collect())
     }
 
@@ -203,7 +203,8 @@ impl CursorDataType {
             Self::Normal(record) => {
                 let mut rowdata = vec![ColumnType::default(); record.len()];
                 for (idx, col) in record.iter() {
-                    rowdata[*idx as usize] = col.clone();
+                    let pos = usize::try_from(*idx).expect("column index should be non-negative");
+                    rowdata[pos] = *col;
                 }
                 rowdata
             }
@@ -304,7 +305,7 @@ fn root_block_columns(
         );
     }
 
-    return Ok(row_info);
+    Ok(row_info)
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -463,12 +464,14 @@ pub(super) fn explain(
                         {
                             state.program_i = usize::try_from(*yield_i + 1)
                                 .expect("yield+1 should be non-negative");
-                            *yield_i = program_i as i64;
+                            *yield_i =
+                                i64::try_from(program_i).expect("program index should fit in i64");
                             continue;
                         } else {
                             state.program_i = usize::try_from(*yield_i)
                                 .expect("yield index should be non-negative");
-                            *yield_i = program_i as i64;
+                            *yield_i =
+                                i64::try_from(program_i).expect("program index should fit in i64");
                             continue;
                         }
                     } else {
@@ -803,8 +806,7 @@ pub(super) fn explain(
     while let Some(state) = result_states.pop() {
         // find the datatype info from each ResultRow execution
         if let Some(result) = state.result {
-            let mut idx = 0;
-            for (this_type, this_nullable) in result {
+            for (idx, (this_type, this_nullable)) in result.into_iter().enumerate() {
                 if output.len() == idx {
                     output.push(this_type);
                 } else if output[idx].is_none()
@@ -823,7 +825,6 @@ pub(super) fn explain(
                 } else {
                     nullable[idx] = this_nullable;
                 }
-                idx += 1;
             }
         }
     }

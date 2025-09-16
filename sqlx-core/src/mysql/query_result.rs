@@ -30,7 +30,7 @@ impl From<MySqlQueryResult> for crate::any::AnyQueryResult {
     fn from(done: MySqlQueryResult) -> Self {
         crate::any::AnyQueryResult {
             rows_affected: done.rows_affected,
-            last_insert_id: Some(done.last_insert_id as i64),
+            last_insert_id: i64::try_from(done.last_insert_id).ok(),
         }
     }
 }

@@ -192,11 +192,11 @@ CREATE TABLE IF NOT EXISTS _sqlx_migrations (
                     .map_err(MigrateError::AccessMigrationMetadata)?;
 
             if let Some(checksum) = checksum {
-                return if checksum == &*migration.checksum {
+                if checksum == &*migration.checksum {
                     Ok(())
                 } else {
                     Err(MigrateError::VersionMismatch(migration.version))
-                };
+                }
             } else {
                 Err(MigrateError::VersionMissing(migration.version))
             }
@@ -264,7 +264,7 @@ CREATE TABLE IF NOT EXISTS _sqlx_migrations (
     WHERE version = ?
                 "#,
             )
-            .bind(elapsed.as_nanos() as i64)
+            .bind(i64::try_from(elapsed.as_nanos()).expect("elapsed nanos should fit in i64"))
             .bind(migration.version)
             .execute(self)
             .await?;
