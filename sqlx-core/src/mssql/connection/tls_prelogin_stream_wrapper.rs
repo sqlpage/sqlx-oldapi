@@ -100,14 +100,14 @@ impl<S: AsyncRead + AsyncWrite + Unpin + Send> AsyncRead for TlsPreloginWrapper<
 
                 let read = header_buf.filled().len();
                 if read == 0 {
-                    return Poll::Ready(Ok(PollReadOut::default()));
+                    return Poll::Ready(Ok(Default::default()));
                 }
 
                 inner.header_pos += read;
             }
 
             let header: PacketHeader = Decode::decode(Bytes::copy_from_slice(&inner.header_buf))
-                .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
+                .map_err(|err| io::Error::other(err))?;
 
             inner.read_remaining = usize::from(header.length) - HEADER_BYTES;
 
@@ -121,6 +121,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin + Send> AsyncRead for TlsPreloginWrapper<
         let max_read = std::cmp::min(inner.read_remaining, buf.remaining());
         let mut limited_buf = buf.take(max_read);
 
+        #[allow(clippy::let_unit_value)]
         let res = ready!(Pin::new(&mut inner.stream).poll_read(cx, &mut limited_buf))?;
 
         let read = limited_buf.filled().len();
@@ -152,14 +153,14 @@ impl<S: AsyncRead + AsyncWrite + Unpin + Send> AsyncRead for TlsPreloginWrapper<
                 let read = ready!(Pin::new(&mut inner.stream).poll_read(cx, header_buf))?;
 
                 if read == 0 {
-                    return Poll::Ready(Ok(PollReadOut::default()));
+                    return Poll::Ready(Ok(Default::default()));
                 }
 
                 inner.header_pos += read;
             }
 
             let header: PacketHeader = Decode::decode(Bytes::copy_from_slice(&inner.header_buf))
-                .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
+                .map_err(|err| io::Error::other(err))?;
 
             inner.read_remaining = usize::from(header.length) - HEADER_BYTES;
 

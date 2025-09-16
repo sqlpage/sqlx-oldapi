@@ -33,7 +33,7 @@ impl Column for MssqlColumn {
     }
 
     fn name(&self) -> &str {
-        &*self.name
+        &self.name
     }
 
     fn type_info(&self) -> &MssqlTypeInfo {

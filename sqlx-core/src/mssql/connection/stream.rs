@@ -142,7 +142,7 @@ impl MssqlStream {
     // TDS communicates in streams of packets that are themselves streams of messages
     pub(super) async fn recv_message(&mut self) -> Result<Message, Error> {
         loop {
-            while self.response.as_ref().map_or(false, |r| !r.1.is_empty()) {
+            while self.response.as_ref().is_some_and(|r| !r.1.is_empty()) {
                 let buf = if let Some((_, buf)) = self.response.as_mut() {
                     buf
                 } else {
