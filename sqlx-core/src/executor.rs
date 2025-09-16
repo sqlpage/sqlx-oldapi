@@ -26,24 +26,26 @@ pub trait Executor<'c>: Send + Debug + Sized {
     type Database: Database;
 
     /// Execute the query and return the total number of rows affected.
-    fn execute<'e, 'q: 'e, E: 'q>(
+    fn execute<'e, 'q, E>(
         self,
         query: E,
     ) -> BoxFuture<'e, Result<<Self::Database as Database>::QueryResult, Error>>
     where
         'c: 'e,
+        'q: 'e,
         E: Execute<'q, Self::Database>,
     {
         self.execute_many(query).try_collect().boxed()
     }
 
     /// Execute multiple queries and return the rows affected from each query, in a stream.
-    fn execute_many<'e, 'q: 'e, E: 'q>(
+    fn execute_many<'e, 'q, E>(
         self,
         query: E,
     ) -> BoxStream<'e, Result<<Self::Database as Database>::QueryResult, Error>>
     where
         'c: 'e,
+        'q: 'e,
         E: Execute<'q, Self::Database>,
     {
         self.fetch_many(query)
@@ -57,12 +59,13 @@ pub trait Executor<'c>: Send + Debug + Sized {
     }
 
     /// Execute the query and return the generated results as a stream.
-    fn fetch<'e, 'q: 'e, E: 'q>(
+    fn fetch<'e, 'q, E>(
         self,
         query: E,
     ) -> BoxStream<'e, Result<<Self::Database as Database>::Row, Error>>
     where
         'c: 'e,
+        'q: 'e,
         E: Execute<'q, Self::Database>,
     {
         self.fetch_many(query)
@@ -77,7 +80,7 @@ pub trait Executor<'c>: Send + Debug + Sized {
 
     /// Execute multiple queries and return the generated results as a stream
     /// from each query, in a stream.
-    fn fetch_many<'e, 'q: 'e, E: 'q>(
+    fn fetch_many<'e, 'q, E>(
         self,
         query: E,
     ) -> BoxStream<
@@ -89,27 +92,30 @@ pub trait Executor<'c>: Send + Debug + Sized {
     >
     where
         'c: 'e,
+        'q: 'e,
         E: Execute<'q, Self::Database>;
 
     /// Execute the query and return all the generated results, collected into a [`Vec`].
-    fn fetch_all<'e, 'q: 'e, E: 'q>(
+    fn fetch_all<'e, 'q, E>(
         self,
         query: E,
     ) -> BoxFuture<'e, Result<Vec<<Self::Database as Database>::Row>, Error>>
     where
         'c: 'e,
+        'q: 'e,
         E: Execute<'q, Self::Database>,
     {
         self.fetch(query).try_collect().boxed()
     }
 
     /// Execute the query and returns exactly one row.
-    fn fetch_one<'e, 'q: 'e, E: 'q>(
+    fn fetch_one<'e, 'q, E>(
         self,
         query: E,
     ) -> BoxFuture<'e, Result<<Self::Database as Database>::Row, Error>>
     where
         'c: 'e,
+        'q: 'e,
         E: Execute<'q, Self::Database>,
     {
         self.fetch_optional(query)
@@ -121,12 +127,13 @@ pub trait Executor<'c>: Send + Debug + Sized {
     }
 
     /// Execute the query and returns at most one row.
-    fn fetch_optional<'e, 'q: 'e, E: 'q>(
+    fn fetch_optional<'e, 'q, E>(
         self,
         query: E,
     ) -> BoxFuture<'e, Result<Option<<Self::Database as Database>::Row>, Error>>
     where
         'c: 'e,
+        'q: 'e,
         E: Execute<'q, Self::Database>;
 
     /// Prepare the SQL query to inspect the type information of its parameters
@@ -138,12 +145,13 @@ pub trait Executor<'c>: Send + Debug + Sized {
     /// This explicit API is provided to allow access to the statement metadata available after
     /// it prepared but before the first row is returned.
     #[inline]
-    fn prepare<'e, 'q: 'e>(
+    fn prepare<'e, 'q>(
         self,
         query: &'q str,
     ) -> BoxFuture<'e, Result<<Self::Database as HasStatement<'q>>::Statement, Error>>
     where
         'c: 'e,
+        'q: 'e,
     {
         self.prepare_with(query, &[])
     }
@@ -153,13 +161,14 @@ pub trait Executor<'c>: Send + Debug + Sized {
     ///
     /// Only some database drivers (PostgreSQL, MSSQL) can take advantage of
     /// this extra information to influence parameter type inference.
-    fn prepare_with<'e, 'q: 'e>(
+    fn prepare_with<'e, 'q>(
         self,
         sql: &'q str,
         parameters: &'e [<Self::Database as Database>::TypeInfo],
     ) -> BoxFuture<'e, Result<<Self::Database as HasStatement<'q>>::Statement, Error>>
     where
-        'c: 'e;
+        'c: 'e,
+        'q: 'e;
 
     /// Describe the SQL query and return type information about its parameters
     /// and results.
@@ -167,12 +176,13 @@ pub trait Executor<'c>: Send + Debug + Sized {
     /// This is used by compile-time verification in the query macros to
     /// power their type inference.
     #[doc(hidden)]
-    fn describe<'e, 'q: 'e>(
+    fn describe<'e, 'q>(
         self,
         sql: &'q str,
     ) -> BoxFuture<'e, Result<Describe<Self::Database>, Error>>
     where
-        'c: 'e;
+        'c: 'e,
+        'q: 'e;
 }
 
 /// A type that may be executed against a database connection.

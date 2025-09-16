@@ -336,12 +336,13 @@ impl Drop for PgListener {
 impl<'c> Executor<'c> for &'c mut PgListener {
     type Database = Postgres;
 
-    fn fetch_many<'e, 'q: 'e, E: 'q>(
+    fn fetch_many<'e, 'q, E>(
         self,
         query: E,
     ) -> BoxStream<'e, Result<Either<PgQueryResult, PgRow>, Error>>
     where
         'c: 'e,
+        'q: 'e,
         E: Execute<'q, Self::Database>,
     {
         futures_util::stream::once(async move {
@@ -353,24 +354,23 @@ impl<'c> Executor<'c> for &'c mut PgListener {
         .boxed()
     }
 
-    fn fetch_optional<'e, 'q: 'e, E: 'q>(
-        self,
-        query: E,
-    ) -> BoxFuture<'e, Result<Option<PgRow>, Error>>
+    fn fetch_optional<'e, 'q, E>(self, query: E) -> BoxFuture<'e, Result<Option<PgRow>, Error>>
     where
         'c: 'e,
+        'q: 'e,
         E: Execute<'q, Self::Database>,
     {
         async move { self.connection().await?.fetch_optional(query).await }.boxed()
     }
 
-    fn prepare_with<'e, 'q: 'e>(
+    fn prepare_with<'e, 'q>(
         self,
         query: &'q str,
         parameters: &'e [PgTypeInfo],
     ) -> BoxFuture<'e, Result<PgStatement<'q>, Error>>
     where
         'c: 'e,
+        'q: 'e,
     {
         async move {
             self.connection()
@@ -382,12 +382,13 @@ impl<'c> Executor<'c> for &'c mut PgListener {
     }
 
     #[doc(hidden)]
-    fn describe<'e, 'q: 'e>(
+    fn describe<'e, 'q>(
         self,
         query: &'q str,
     ) -> BoxFuture<'e, Result<Describe<Self::Database>, Error>>
     where
         'c: 'e,
+        'q: 'e,
     {
         async move { self.connection().await?.describe(query).await }.boxed()
     }

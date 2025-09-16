@@ -12,12 +12,13 @@ use futures_util::{TryFutureExt, TryStreamExt};
 impl<'c> Executor<'c> for &'c mut SqliteConnection {
     type Database = Sqlite;
 
-    fn fetch_many<'e, 'q: 'e, E: 'q>(
+    fn fetch_many<'e, 'q, E>(
         self,
         mut query: E,
     ) -> BoxStream<'e, Result<Either<SqliteQueryResult, SqliteRow>, Error>>
     where
         'c: 'e,
+        'q: 'e,
         E: Execute<'q, Self::Database>,
     {
         let sql = query.sql();
@@ -32,12 +33,13 @@ impl<'c> Executor<'c> for &'c mut SqliteConnection {
         )
     }
 
-    fn fetch_optional<'e, 'q: 'e, E: 'q>(
+    fn fetch_optional<'e, 'q, E>(
         self,
         mut query: E,
     ) -> BoxFuture<'e, Result<Option<SqliteRow>, Error>>
     where
         'c: 'e,
+        'q: 'e,
         E: Execute<'q, Self::Database>,
     {
         let sql = query.sql();
@@ -63,13 +65,14 @@ impl<'c> Executor<'c> for &'c mut SqliteConnection {
         })
     }
 
-    fn prepare_with<'e, 'q: 'e>(
+    fn prepare_with<'e, 'q>(
         self,
         sql: &'q str,
         _parameters: &[SqliteTypeInfo],
     ) -> BoxFuture<'e, Result<SqliteStatement<'q>, Error>>
     where
         'c: 'e,
+        'q: 'e,
     {
         Box::pin(async move {
             let statement = self.worker.prepare(sql).await?;
@@ -82,9 +85,10 @@ impl<'c> Executor<'c> for &'c mut SqliteConnection {
     }
 
     #[doc(hidden)]
-    fn describe<'e, 'q: 'e>(self, sql: &'q str) -> BoxFuture<'e, Result<Describe<Sqlite>, Error>>
+    fn describe<'e, 'q>(self, sql: &'q str) -> BoxFuture<'e, Result<Describe<Sqlite>, Error>>
     where
         'c: 'e,
+        'q: 'e,
     {
         Box::pin(self.worker.describe(sql))
     }

@@ -15,11 +15,12 @@ where
 {
     type Database = DB;
 
-    fn fetch_many<'e, 'q: 'e, E: 'q>(
+    fn fetch_many<'e, 'q, E>(
         self,
         query: E,
     ) -> BoxStream<'e, Result<Either<DB::QueryResult, DB::Row>, Error>>
     where
+        'q: 'e,
         E: Execute<'q, Self::Database>,
     {
         let pool = self.clone();
@@ -36,11 +37,9 @@ where
         })
     }
 
-    fn fetch_optional<'e, 'q: 'e, E: 'q>(
-        self,
-        query: E,
-    ) -> BoxFuture<'e, Result<Option<DB::Row>, Error>>
+    fn fetch_optional<'e, 'q, E>(self, query: E) -> BoxFuture<'e, Result<Option<DB::Row>, Error>>
     where
+        'q: 'e,
         E: Execute<'q, Self::Database>,
     {
         let pool = self.clone();
@@ -77,7 +76,7 @@ macro_rules! impl_executor_for_pool_connection {
             type Database = $DB;
 
             #[inline]
-            fn fetch_many<'e, 'q: 'e, E: 'q>(
+            fn fetch_many<'e, 'q, E>(
                 self,
                 query: E,
             ) -> futures_core::stream::BoxStream<
@@ -89,25 +88,27 @@ macro_rules! impl_executor_for_pool_connection {
             >
             where
                 'c: 'e,
+                'q: 'e,
                 E: crate::executor::Execute<'q, $DB>,
             {
                 (**self).fetch_many(query)
             }
 
             #[inline]
-            fn fetch_optional<'e, 'q: 'e, E: 'q>(
+            fn fetch_optional<'e, 'q, E>(
                 self,
                 query: E,
             ) -> futures_core::future::BoxFuture<'e, Result<Option<$R>, crate::error::Error>>
             where
                 'c: 'e,
+                'q: 'e,
                 E: crate::executor::Execute<'q, $DB>,
             {
                 (**self).fetch_optional(query)
             }
 
             #[inline]
-            fn prepare_with<'e, 'q: 'e>(
+            fn prepare_with<'e, 'q>(
                 self,
                 sql: &'q str,
                 parameters: &'e [<$DB as crate::database::Database>::TypeInfo],
@@ -117,13 +118,14 @@ macro_rules! impl_executor_for_pool_connection {
             >
             where
                 'c: 'e,
+                'q: 'e,
             {
                 (**self).prepare_with(sql, parameters)
             }
 
             #[doc(hidden)]
             #[inline]
-            fn describe<'e, 'q: 'e>(
+            fn describe<'e, 'q>(
                 self,
                 sql: &'q str,
             ) -> futures_core::future::BoxFuture<
@@ -132,6 +134,7 @@ macro_rules! impl_executor_for_pool_connection {
             >
             where
                 'c: 'e,
+                'q: 'e,
             {
                 (**self).describe(sql)
             }

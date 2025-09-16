@@ -213,12 +213,13 @@ impl MySqlConnection {
 impl<'c> Executor<'c> for &'c mut MySqlConnection {
     type Database = MySql;
 
-    fn fetch_many<'e, 'q: 'e, E: 'q>(
+    fn fetch_many<'e, 'q, E>(
         self,
         mut query: E,
     ) -> BoxStream<'e, Result<Either<MySqlQueryResult, MySqlRow>, Error>>
     where
         'c: 'e,
+        'q: 'e,
         E: Execute<'q, Self::Database>,
     {
         let sql = query.sql();
@@ -237,12 +238,10 @@ impl<'c> Executor<'c> for &'c mut MySqlConnection {
         })
     }
 
-    fn fetch_optional<'e, 'q: 'e, E: 'q>(
-        self,
-        query: E,
-    ) -> BoxFuture<'e, Result<Option<MySqlRow>, Error>>
+    fn fetch_optional<'e, 'q, E>(self, query: E) -> BoxFuture<'e, Result<Option<MySqlRow>, Error>>
     where
         'c: 'e,
+        'q: 'e,
         E: Execute<'q, Self::Database>,
     {
         let mut s = self.fetch_many(query);
@@ -258,13 +257,14 @@ impl<'c> Executor<'c> for &'c mut MySqlConnection {
         })
     }
 
-    fn prepare_with<'e, 'q: 'e>(
+    fn prepare_with<'e, 'q>(
         self,
         sql: &'q str,
         _parameters: &'e [MySqlTypeInfo],
     ) -> BoxFuture<'e, Result<MySqlStatement<'q>, Error>>
     where
         'c: 'e,
+        'q: 'e,
     {
         Box::pin(async move {
             self.stream.wait_until_ready().await?;
@@ -280,9 +280,10 @@ impl<'c> Executor<'c> for &'c mut MySqlConnection {
     }
 
     #[doc(hidden)]
-    fn describe<'e, 'q: 'e>(self, sql: &'q str) -> BoxFuture<'e, Result<Describe<MySql>, Error>>
+    fn describe<'e, 'q>(self, sql: &'q str) -> BoxFuture<'e, Result<Describe<MySql>, Error>>
     where
         'c: 'e,
+        'q: 'e,
     {
         Box::pin(async move {
             self.stream.wait_until_ready().await?;
