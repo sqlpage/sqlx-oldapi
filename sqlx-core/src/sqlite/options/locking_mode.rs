@@ -20,7 +20,6 @@ impl SqliteLockingMode {
     }
 }
 
-
 impl FromStr for SqliteLockingMode {
     type Err = Error;
 

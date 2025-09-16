@@ -24,7 +24,6 @@ impl SqliteSynchronous {
     }
 }
 
-
 impl FromStr for SqliteSynchronous {
     type Err = Error;
 

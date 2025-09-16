@@ -666,7 +666,7 @@ pub(super) fn explain(
                     state.r.insert(
                         p2,
                         RegDataType::Single(ColumnType {
-                                datatype: opcode_to_type(opcode),
+                            datatype: opcode_to_type(opcode),
                             nullable: Some(false),
                         }),
                     );

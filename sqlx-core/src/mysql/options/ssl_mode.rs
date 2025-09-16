@@ -31,7 +31,6 @@ pub enum MySqlSslMode {
     VerifyIdentity,
 }
 
-
 impl FromStr for MySqlSslMode {
     type Err = Error;
 

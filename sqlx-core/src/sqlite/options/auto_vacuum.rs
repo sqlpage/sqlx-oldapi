@@ -19,7 +19,6 @@ impl SqliteAutoVacuum {
     }
 }
 
-
 impl FromStr for SqliteAutoVacuum {
     type Err = Error;
 

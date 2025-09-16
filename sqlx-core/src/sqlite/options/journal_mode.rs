@@ -28,7 +28,6 @@ impl SqliteJournalMode {
     }
 }
 
-
 impl FromStr for SqliteJournalMode {
     type Err = Error;
 
