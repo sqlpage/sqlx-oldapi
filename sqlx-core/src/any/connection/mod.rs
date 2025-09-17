@@ -35,6 +35,7 @@ pub struct AnyConnection(pub(super) AnyConnectionKind);
 #[derive(Debug)]
 // Used internally in `sqlx-macros`
 #[doc(hidden)]
+#[allow(clippy::large_enum_variant)]
 pub enum AnyConnectionKind {
     #[cfg(feature = "postgres")]
     Postgres(postgres::PgConnection),

@@ -86,7 +86,7 @@ impl MssqlArguments {
         //  @p1 int, @p2 nvarchar(10), ...
 
         if !declarations.is_empty() {
-            declarations.push_str(",");
+            declarations.push(',');
         }
 
         declarations.push_str(name);

@@ -90,8 +90,7 @@ impl<'de> Decode<'de> for PreLogin {
                     return Err(err_protocol!(
                         "PRELOGIN: unexpected login option token: 0x{:02?}",
                         token
-                    )
-                    .into());
+                    ));
                 }
             }
         }
@@ -195,6 +194,7 @@ enum PreLoginOptionToken {
 }
 
 impl PreLoginOptionToken {
+    #[allow(clippy::ptr_arg)]
     fn put(self, buf: &mut Vec<u8>, pos: &mut usize, offset: &mut u16, len: u16) {
         buf[*pos] = self as u8;
         *pos += 1;

@@ -14,6 +14,7 @@ jobs:
       - uses: actions/checkout@v4
       - run: cargo fmt --all -- --check
 
+
   check:
     name: Check
     runs-on: ubuntu-22.04
@@ -40,6 +41,25 @@ jobs:
             --no-default-features
             --lib --tests
             --features offline,all-databases,migrate,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
+      - name: Run clippy for core with all features
+        run: |
+          cargo clippy --manifest-path sqlx-core/Cargo.toml \
+            --no-default-features \
+            --features offline,all-databases,all-types,migrate,runtime-${{ matrix.runtime }}-${{ matrix.tls }} \
+            -- -D warnings
+      - name: Run clippy for root with all features
+        run: |
+          cargo clippy \
+            --no-default-features \
+            --features offline,all-databases,all-types,migrate,runtime-${{ matrix.runtime }}-${{ matrix.tls }},macros \
+            -- -D warnings
+      - name: Run clippy for all targets
+        run: |
+          cargo clippy \
+            --no-default-features \
+            --all-targets \
+            --features offline,all-databases,migrate,runtime-${{ matrix.runtime }}-${{ matrix.tls }} \
+            -- -D warnings
 
   test:
     name: Unit Test
@@ -98,6 +118,7 @@ jobs:
           name: cargo-sqlx-${{ matrix.target }}
           path: ${{ matrix.bin }}
 
+
   sqlite:
     name: SQLite
     runs-on: ubuntu-22.04
@@ -110,6 +131,12 @@ jobs:
       - uses: actions/checkout@v4
       - run: mkdir /tmp/sqlite3-lib && wget -O /tmp/sqlite3-lib/ipaddr.so https://github.com/nalgeon/sqlean/releases/download/0.15.2/ipaddr.so
       - uses: Swatinem/rust-cache@v2
+      - name: Run clippy for sqlite
+        run: |
+          cargo clippy \
+            --no-default-features \
+            --features sqlite,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }},macros,migrate \
+            -- -D warnings
       - run:
           cargo test
             --no-default-features
@@ -152,6 +179,15 @@ jobs:
           command: build
           args: >
             --features postgres,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
+
+      - name: Run clippy for postgres
+        run: |
+          cargo clippy \
+            --no-default-features \
+            --features postgres,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }},macros,migrate \
+            -- -D warnings
+        env:
+          RUSTFLAGS: --cfg postgres_${{ matrix.postgres }}
 
       - run: |
           docker compose -f tests/docker-compose.yml run -d -p 5432:5432 --name postgres_${{ matrix.postgres }} postgres_${{ matrix.postgres }}
@@ -224,6 +260,13 @@ jobs:
           args: >
             --features mysql,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
 
+      - name: Run clippy for mysql
+        run: |
+          cargo clippy \
+            --no-default-features \
+            --features mysql,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }},macros,migrate \
+            -- -D warnings
+
       - run: docker compose -f tests/docker-compose.yml run -d -p 3306:3306 mysql_${{ matrix.mysql }}
       - run: sleep 60
 
@@ -275,6 +318,13 @@ jobs:
           args: >
             --features mysql,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
 
+      - name: Run clippy for mariadb
+        run: |
+          cargo clippy \
+            --no-default-features \
+            --features mysql,runtime-${{ matrix.runtime }}-${{ matrix.tls }},macros,migrate \
+            -- -D warnings
+
       - run: docker compose -f tests/docker-compose.yml run -d -p 3306:3306 mariadb_${{ matrix.mariadb }}
       - run: sleep 30
 
@@ -314,6 +364,13 @@ jobs:
           command: build
           args: >
             --features mssql,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
+
+      - name: Run clippy for mssql
+        run: |
+          cargo clippy \
+            --no-default-features \
+            --features mssql,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }},macros,migrate \
+            -- -D warnings
 
       - run: docker compose -f tests/docker-compose.yml run -d -p 1433:1433 mssql_${{ matrix.mssql }}
       - run: sleep 80 # MSSQL takes a "bit" to startup

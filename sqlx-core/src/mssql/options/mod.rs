@@ -134,6 +134,7 @@ impl MssqlConnectOptions {
 
     /// Size in bytes of TDS packets to exchange with the server.
     /// Returns an error if the size is smaller than 512 bytes
+    #[allow(clippy::result_large_err)]
     pub fn requested_packet_size(mut self, size: u32) -> Result<Self, Self> {
         if size < 512 {
             Err(self)

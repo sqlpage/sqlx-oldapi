@@ -80,6 +80,7 @@ pub mod offline {
     }
 
     #[derive(serde::Deserialize)]
+    #[allow(dead_code)]
     pub struct DynQueryData {
         #[serde(skip)]
         pub db_name: String,
@@ -153,6 +154,7 @@ pub mod offline {
     where
         Describe<DB>: serde::Serialize + serde::de::DeserializeOwned,
     {
+        #[allow(dead_code)]
         pub fn from_dyn_data(dyn_data: DynQueryData) -> crate::Result<Self> {
             assert!(!dyn_data.db_name.is_empty());
             assert!(!dyn_data.hash.is_empty());

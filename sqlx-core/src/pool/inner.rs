@@ -142,7 +142,9 @@ impl<DB: Database> PoolInner<DB> {
 
                 if parent_close_event.as_mut().poll(cx).is_ready() {
                     // Propagate the parent's close event to the child.
-                    let _ = self.close();
+                    // Note: We can't await the close future here, but it's fine
+                    // because close() is designed to be fire-and-forget
+                    drop(self.close());
                     return Poll::Ready(Err(Error::PoolClosed));
                 }
 
@@ -197,7 +199,7 @@ impl<DB: Database> PoolInner<DB> {
 
         let Floating { inner: idle, guard } = floating.into_idle();
 
-        if !self.idle_conns.push(idle).is_ok() {
+        if self.idle_conns.push(idle).is_err() {
             panic!("BUG: connection queue overflow in release()");
         }
 
@@ -287,10 +289,10 @@ impl<DB: Database> PoolInner<DB> {
         }
 
         let mut backoff = Duration::from_millis(10);
-        let max_backoff = deadline_as_timeout::<DB>(deadline)? / 5;
+        let max_backoff = deadline_as_timeout(deadline)? / 5;
 
         loop {
-            let timeout = deadline_as_timeout::<DB>(deadline)?;
+            let timeout = deadline_as_timeout(deadline)?;
 
             // result here is `Result<Result<C, Error>, TimeoutError>`
             // if this block does not return, sleep for the backoff timeout and try again
@@ -403,14 +405,14 @@ impl<DB: Database> Drop for PoolInner<DB> {
 fn is_beyond_max_lifetime<DB: Database>(live: &Live<DB>, options: &PoolOptions<DB>) -> bool {
     options
         .max_lifetime
-        .map_or(false, |max| live.created_at.elapsed() > max)
+        .is_some_and(|max| live.created_at.elapsed() > max)
 }
 
 /// Returns `true` if the connection has exceeded `options.idle_timeout` if set, `false` otherwise.
 fn is_beyond_idle_timeout<DB: Database>(idle: &Idle<DB>, options: &PoolOptions<DB>) -> bool {
     options
         .idle_timeout
-        .map_or(false, |timeout| idle.idle_since.elapsed() > timeout)
+        .is_some_and(|timeout| idle.idle_since.elapsed() > timeout)
 }
 
 async fn check_idle_conn<DB: Database>(
@@ -458,7 +460,7 @@ async fn check_idle_conn<DB: Database>(
 }
 
 fn spawn_maintenance_tasks<DB: Database>(pool: &Arc<PoolInner<DB>>) {
-    let pool = Arc::clone(&pool);
+    let pool = Arc::clone(pool);
 
     let period = match (pool.options.max_lifetime, pool.options.idle_timeout) {
         (Some(it), None) | (None, Some(it)) => it,

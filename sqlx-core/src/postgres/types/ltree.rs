@@ -103,6 +103,7 @@ impl PgLTree {
     }
 
     /// creates ltree from an iterator with checking labels
+    #[allow(clippy::should_implement_trait)]
     pub fn from_iter<I, S>(labels: I) -> Result<Self, PgLTreeParseError>
     where
         String: From<S>,
@@ -142,7 +143,7 @@ impl FromStr for PgLTree {
         Ok(Self {
             labels: s
                 .split('.')
-                .map(|s| PgLTreeLabel::new(s))
+                .map(PgLTreeLabel::new)
                 .collect::<Result<Vec<_>, Self::Err>>()?,
         })
     }

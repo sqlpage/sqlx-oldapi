@@ -1,8 +1,11 @@
 #![allow(clippy::approx_constant)]
 extern crate time_ as time;
 
-use sqlx_core::row::Row;
+#[allow(unused_imports)]
 use sqlx_oldapi::sqlite::{Sqlite, SqliteRow};
+#[allow(unused_imports)]
+use sqlx_oldapi::Row;
+#[allow(unused_imports)]
 use sqlx_test::new;
 use sqlx_test::test_type;
 

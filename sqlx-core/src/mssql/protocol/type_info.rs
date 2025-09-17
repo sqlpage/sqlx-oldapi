@@ -143,7 +143,7 @@ impl TypeInfo {
                     }
 
                     // Baltic locales
-                    0x0425 | 0x0427 | 0x0426 => encoding_rs::WINDOWS_1257,
+                    0x0425..=0x0427 => encoding_rs::WINDOWS_1257,
 
                     // Greek
                     0x0408 => encoding_rs::WINDOWS_1253,
@@ -204,9 +204,9 @@ impl TypeInfo {
                 let scale = buf.get_u8();
 
                 let mut size = match scale {
-                    0 | 1 | 2 => 3,
-                    3 | 4 => 4,
-                    5 | 6 | 7 => 5,
+                    0..=2 => 3,
+                    3..=4 => 4,
+                    5..=7 => 5,
 
                     scale => {
                         return Err(err_protocol!("invalid scale {} for type {:?}", scale, ty));

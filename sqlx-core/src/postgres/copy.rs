@@ -42,7 +42,7 @@ impl PgConnection {
     ///
     /// 1. by closing the connection, or:
     /// 2. by using another connection to kill the server process that is sending the data as shown
-    /// [in this StackOverflow answer](https://stackoverflow.com/a/35319598).
+    ///    [in this StackOverflow answer](https://stackoverflow.com/a/35319598).
     ///
     /// If you don't read the stream to completion, the next time the connection is used it will
     /// need to read and discard all the remaining queued data, which could take some time.
@@ -90,7 +90,7 @@ impl Pool<Postgres> {
     ///
     /// 1. by closing the connection, or:
     /// 2. by using another connection to kill the server process that is sending the data as shown
-    /// [in this StackOverflow answer](https://stackoverflow.com/a/35319598).
+    ///    [in this StackOverflow answer](https://stackoverflow.com/a/35319598).
     ///
     /// If you don't read the stream to completion, the next time the connection is used it will
     /// need to read and discard all the remaining queued data, which could take some time.
@@ -148,8 +148,10 @@ impl<C: DerefMut<Target = PgConnection>> PgCopyIn<C> {
 
     /// Returns the number of columns expected in the input.
     pub fn num_columns(&self) -> usize {
+        #[allow(clippy::cast_sign_loss)]
+        let num_columns = self.response.num_columns as usize;
         assert_eq!(
-            self.response.num_columns as usize,
+            num_columns,
             self.response.format_codes.len(),
             "num_columns does not match format_codes.len()"
         );
@@ -204,9 +206,9 @@ impl<C: DerefMut<Target = PgConnection>> PgCopyIn<C> {
             let stream = &mut buf_stream.stream;
 
             // ensures the buffer isn't left in an inconsistent state
-            let mut guard = BufGuard(&mut buf_stream.wbuf);
+            let guard = BufGuard(&mut buf_stream.wbuf);
 
-            let buf: &mut Vec<u8> = &mut guard.0;
+            let buf: &mut Vec<u8> = guard.0;
             buf.push(b'd'); // CopyData format code
             buf.resize(5, 0); // reserve space for the length
 

@@ -28,7 +28,7 @@ enum SqliteLoadExtensionMode {
 }
 
 impl SqliteLoadExtensionMode {
-    fn as_int(self) -> c_int {
+    fn as_int(&self) -> c_int {
         match self {
             SqliteLoadExtensionMode::Enable => 1,
             SqliteLoadExtensionMode::DisableAll => 0,

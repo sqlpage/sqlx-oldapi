@@ -14,13 +14,13 @@ use futures_util::{StreamExt, TryStreamExt};
 impl<'c> Executor<'c> for &'c mut AnyConnection {
     type Database = Any;
 
-    fn fetch_many<'e, 'q: 'e, E: 'q>(
+    fn fetch_many<'e, 'q: 'e, E>(
         self,
         mut query: E,
     ) -> BoxStream<'e, Result<Either<AnyQueryResult, AnyRow>, Error>>
     where
         'c: 'e,
-        E: Execute<'q, Self::Database>,
+        E: Execute<'q, Self::Database> + 'q,
     {
         let arguments = query.take_arguments();
         let query = query.sql();
@@ -52,13 +52,13 @@ impl<'c> Executor<'c> for &'c mut AnyConnection {
         }
     }
 
-    fn fetch_optional<'e, 'q: 'e, E: 'q>(
+    fn fetch_optional<'e, 'q: 'e, E>(
         self,
         mut query: E,
     ) -> BoxFuture<'e, Result<Option<AnyRow>, Error>>
     where
         'c: 'e,
-        E: Execute<'q, Self::Database>,
+        E: Execute<'q, Self::Database> + 'q,
     {
         let arguments = query.take_arguments();
         let query = query.sql();

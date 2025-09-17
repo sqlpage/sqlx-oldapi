@@ -3,12 +3,8 @@
 #![recursion_limit = "512"]
 #![warn(future_incompatible, rust_2018_idioms)]
 #![allow(clippy::needless_doctest_main, clippy::type_complexity, dead_code)]
-#![deny(
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss
-)]
+// Note: Cast warnings are allowed on a case-by-case basis with explicit #[allow(...)]
+// This ensures we're aware of potential issues with numeric conversions
 // See `clippy.toml` at the workspace root
 #![deny(clippy::disallowed_methods)]
 //

@@ -49,7 +49,7 @@ impl Metadata {
             let cargo = env("CARGO").expect("`CARGO` must be set");
 
             let output = Command::new(&cargo)
-                .args(&["metadata", "--format-version=1", "--no-deps"])
+                .args(["metadata", "--format-version=1", "--no-deps"])
                 .current_dir(&self.manifest_dir)
                 .env_remove("__CARGO_FIX_PLZ")
                 .output()
@@ -77,9 +77,7 @@ static METADATA: Lazy<Metadata> = Lazy::new(|| {
         .into();
 
     #[cfg(feature = "offline")]
-    let package_name: String = env("CARGO_PKG_NAME")
-        .expect("`CARGO_PKG_NAME` must be set")
-        .into();
+    let package_name: String = env("CARGO_PKG_NAME").expect("`CARGO_PKG_NAME` must be set");
 
     #[cfg(feature = "offline")]
     let target_dir = env("CARGO_TARGET_DIR").map_or_else(|_| "target".into(), |dir| dir.into());
@@ -154,7 +152,7 @@ pub fn expand_input(input: QueryMacroInput) -> crate::Result<TokenStream> {
             offline: false,
             database_url: Some(db_url),
             ..
-        } => expand_from_db(input, &db_url),
+        } => expand_from_db(input, db_url),
 
         #[cfg(feature = "offline")]
         _ => {
@@ -246,9 +244,7 @@ fn expand_from_db(input: QueryMacroInput, db_url: &str) -> crate::Result<TokenSt
             }
             // Variants depend on feature flags
             #[allow(unreachable_patterns)]
-            item => {
-                return Err(format!("Missing expansion needed for: {:?}", item).into());
-            }
+            item => Err(format!("Missing expansion needed for: {:?}", item).into()),
         }
     })
 }

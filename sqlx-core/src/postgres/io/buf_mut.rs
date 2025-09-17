@@ -25,6 +25,7 @@ impl PgBufMutExt for Vec<u8> {
         f(self);
 
         // now calculate the size of what we wrote and set the length value
+        #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
         let size = (self.len() - offset) as i32;
         self[offset..(offset + 4)].copy_from_slice(&size.to_be_bytes());
     }

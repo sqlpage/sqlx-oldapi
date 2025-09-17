@@ -5,8 +5,8 @@ pub trait MssqlBufMutExt {
 
 impl MssqlBufMutExt for Vec<u8> {
     fn put_utf16_str(&mut self, s: &str) {
-        let mut enc = s.encode_utf16();
-        while let Some(ch) = enc.next() {
+        let enc = s.encode_utf16();
+        for ch in enc {
             self.extend_from_slice(&ch.to_le_bytes());
         }
     }

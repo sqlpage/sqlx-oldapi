@@ -53,8 +53,8 @@ impl ColumnIndex<MySqlStatement<'_>> for &'_ str {
             .metadata
             .column_names
             .get(*self)
+            .copied()
             .ok_or_else(|| Error::ColumnNotFound((*self).into()))
-            .map(|v| *v)
     }
 }
 

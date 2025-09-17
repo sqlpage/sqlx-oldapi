@@ -22,7 +22,7 @@ impl FromStr for MySqlConnectOptions {
         let username = url.username();
         if !username.is_empty() {
             options = options.username(
-                &*percent_decode_str(username)
+                &percent_decode_str(username)
                     .decode_utf8()
                     .map_err(Error::config)?,
             );
@@ -30,7 +30,7 @@ impl FromStr for MySqlConnectOptions {
 
         if let Some(password) = url.password() {
             options = options.password(
-                &*percent_decode_str(password)
+                &percent_decode_str(password)
                     .decode_utf8()
                     .map_err(Error::config)?,
             );
@@ -52,11 +52,11 @@ impl FromStr for MySqlConnectOptions {
                 }
 
                 "charset" => {
-                    options = options.charset(&*value);
+                    options = options.charset(&value);
                 }
 
                 "collation" => {
-                    options = options.collation(&*value);
+                    options = options.collation(&value);
                 }
 
                 "statement-cache-capacity" => {

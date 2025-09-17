@@ -25,7 +25,7 @@ impl<T: TimeZone> Type<MySql> for DateTime<T> {
 /// Note: assumes the connection's `time_zone` is set to `+00:00` (UTC).
 impl Encode<'_, MySql> for DateTime<Utc> {
     fn encode_by_ref(&self, buf: &mut Vec<u8>) -> IsNull {
-        Encode::<MySql>::encode(&self.naive_utc(), buf)
+        Encode::<MySql>::encode(self.naive_utc(), buf)
     }
 }
 
@@ -40,7 +40,7 @@ impl<'r> Decode<'r, MySql> for DateTime<Utc> {
 /// Note: assumes the connection's `time_zone` is set to `+00:00` (UTC).
 impl Encode<'_, MySql> for DateTime<Local> {
     fn encode_by_ref(&self, buf: &mut Vec<u8>) -> IsNull {
-        Encode::<MySql>::encode(&self.naive_utc(), buf)
+        Encode::<MySql>::encode(self.naive_utc(), buf)
     }
 }
 
@@ -242,7 +242,7 @@ fn encode_date(date: &NaiveDate, buf: &mut Vec<u8>) {
 }
 
 fn decode_date(mut buf: &[u8]) -> Option<NaiveDate> {
-    if buf.len() == 0 {
+    if buf.is_empty() {
         // MySQL specifies that if there are no bytes, this is all zeros
         None
     } else {
@@ -257,7 +257,7 @@ fn encode_time(time: &NaiveTime, include_micros: bool, buf: &mut Vec<u8>) {
     buf.push(time.second() as u8);
 
     if include_micros {
-        buf.extend(&((time.nanosecond() / 1000) as u32).to_le_bytes());
+        buf.extend(&(time.nanosecond() / 1000).to_le_bytes());
     }
 }
 
@@ -274,5 +274,5 @@ fn decode_time(len: u8, mut buf: &[u8]) -> NaiveTime {
     };
 
     NaiveTime::from_hms_micro_opt(hour as u32, minute as u32, seconds as u32, micros as u32)
-        .unwrap_or_else(NaiveTime::default)
+        .unwrap_or_default()
 }

@@ -103,6 +103,6 @@ impl serde::Serialize for UStr {
     where
         S: serde::Serializer,
     {
-        serializer.serialize_str(&self)
+        serializer.serialize_str(self)
     }
 }

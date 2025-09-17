@@ -129,11 +129,6 @@ struct InventoryItem {
 #[sqlx(type_name = "float_range")]
 struct FloatRange(PgRange<f64>);
 
-// Custom domain type
-#[derive(sqlx_oldapi::Type, Debug)]
-#[sqlx(type_name = "int4rangeL0pC")]
-struct RangeInclusive(PgRange<i32>);
-
 test_type!(transparent<Transparent>(Postgres,
     "0" == Transparent(0),
     "23523" == Transparent(23523)

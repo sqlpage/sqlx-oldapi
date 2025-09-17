@@ -20,7 +20,7 @@ impl Column for SqliteColumn {
     }
 
     fn name(&self) -> &str {
-        &*self.name
+        &self.name
     }
 
     fn type_info(&self) -> &SqliteTypeInfo {

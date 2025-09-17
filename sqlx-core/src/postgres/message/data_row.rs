@@ -42,7 +42,7 @@ impl Decode<'_> for DataRow {
 
             if let Ok(length) = u32::try_from(length) {
                 values.push(Some(offset..(offset + length)));
-                offset += length as u32;
+                offset += length;
             } else {
                 values.push(None);
             }

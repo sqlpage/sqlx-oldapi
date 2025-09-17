@@ -149,7 +149,7 @@ impl MySqlStream {
         // TODO: packet joining
 
         if payload
-            .get(0)
+            .first()
             .ok_or(err_protocol!("Packet empty"))?
             .eq(&0xff)
         {

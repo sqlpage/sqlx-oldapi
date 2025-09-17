@@ -93,7 +93,7 @@ impl<'r> ValueRef<'r> for MySqlValueRef<'r> {
 
     #[inline]
     fn is_null(&self) -> bool {
-        is_null(self.value.as_deref(), &self.type_info)
+        is_null(self.value, &self.type_info)
     }
 }
 
@@ -125,7 +125,7 @@ fn is_null(value: Option<&[u8]>, ty: &MySqlTypeInfo) -> bool {
         if matches!(
             ty.r#type,
             ColumnType::Date | ColumnType::Timestamp | ColumnType::Datetime
-        ) && (value.get(0) == Some(&0)
+        ) && (value.first() == Some(&0)
             || value == b"0000-00-00"
             || value == b"0000-00-00 00:00:00")
         {

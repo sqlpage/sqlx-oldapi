@@ -192,7 +192,9 @@ impl PgConnection {
             .fetch_one(&mut *self)
             .await?;
 
+            #[allow(clippy::cast_sign_loss)]
             let typ_type = TypType::try_from(typ_type as u8);
+            #[allow(clippy::cast_sign_loss)]
             let category = TypCategory::try_from(category as u8);
 
             match (typ_type, category) {
@@ -385,6 +387,7 @@ SELECT oid FROM pg_catalog.pg_type WHERE typname ILIKE $1
                 bind + 2
             );
 
+            #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
             args.add(i as i32);
             args.add(column.relation_id);
             args.add(column.relation_attribute_no);

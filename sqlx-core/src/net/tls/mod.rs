@@ -98,7 +98,7 @@ where
     S: AsyncRead + AsyncWrite + Unpin,
 {
     Raw(S),
-    Tls(TlsStream<S>),
+    Tls(Box<TlsStream<S>>),
     Upgrading,
 }
 
@@ -135,36 +135,34 @@ where
             .map_err(|err| Error::Tls(err.into()))?
             .to_owned();
 
-        *self = MaybeTlsStream::Tls(connector.connect(host, stream).await?);
+        *self = MaybeTlsStream::Tls(Box::new(connector.connect(host, stream).await?));
 
         Ok(())
     }
 
     pub fn downgrade(&mut self) -> Result<(), Error> {
         match replace(self, MaybeTlsStream::Upgrading) {
-            MaybeTlsStream::Tls(stream) => {
+            MaybeTlsStream::Tls(boxed_stream) => {
                 #[cfg(feature = "_tls-rustls")]
                 {
-                    let raw = stream.into_inner().0;
+                    let raw = boxed_stream.into_inner().0;
                     *self = MaybeTlsStream::Raw(raw);
-                    return Ok(());
+                    Ok(())
                 }
 
                 #[cfg(feature = "_tls-native-tls")]
                 {
-                    let _ = stream; // Use the variable to avoid warning
-                    return Err(Error::tls("No way to downgrade a native-tls stream, use rustls instead, or never disable tls"));
+                    let _ = boxed_stream; // Use the variable to avoid warning
+                    Err(Error::tls("No way to downgrade a native-tls stream, use rustls instead, or never disable tls"))
                 }
             }
 
             MaybeTlsStream::Raw(stream) => {
                 *self = MaybeTlsStream::Raw(stream);
-                return Ok(());
+                Ok(())
             }
 
-            MaybeTlsStream::Upgrading => {
-                return Err(Error::Io(io::ErrorKind::ConnectionAborted.into()));
-            }
+            MaybeTlsStream::Upgrading => Err(Error::Io(io::ErrorKind::ConnectionAborted.into())),
         }
     }
 }
@@ -218,7 +216,7 @@ where
     ) -> Poll<io::Result<super::PollReadOut>> {
         match &mut *self {
             MaybeTlsStream::Raw(s) => Pin::new(s).poll_read(cx, buf),
-            MaybeTlsStream::Tls(s) => Pin::new(s).poll_read(cx, buf),
+            MaybeTlsStream::Tls(s) => Pin::new(&mut **s).poll_read(cx, buf),
 
             MaybeTlsStream::Upgrading => Poll::Ready(Err(io::ErrorKind::ConnectionAborted.into())),
         }
@@ -236,7 +234,7 @@ where
     ) -> Poll<io::Result<usize>> {
         match &mut *self {
             MaybeTlsStream::Raw(s) => Pin::new(s).poll_write(cx, buf),
-            MaybeTlsStream::Tls(s) => Pin::new(s).poll_write(cx, buf),
+            MaybeTlsStream::Tls(s) => Pin::new(&mut **s).poll_write(cx, buf),
 
             MaybeTlsStream::Upgrading => Poll::Ready(Err(io::ErrorKind::ConnectionAborted.into())),
         }
@@ -245,7 +243,7 @@ where
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         match &mut *self {
             MaybeTlsStream::Raw(s) => Pin::new(s).poll_flush(cx),
-            MaybeTlsStream::Tls(s) => Pin::new(s).poll_flush(cx),
+            MaybeTlsStream::Tls(s) => Pin::new(&mut **s).poll_flush(cx),
 
             MaybeTlsStream::Upgrading => Poll::Ready(Err(io::ErrorKind::ConnectionAborted.into())),
         }
@@ -255,7 +253,7 @@ where
     fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         match &mut *self {
             MaybeTlsStream::Raw(s) => Pin::new(s).poll_shutdown(cx),
-            MaybeTlsStream::Tls(s) => Pin::new(s).poll_shutdown(cx),
+            MaybeTlsStream::Tls(s) => Pin::new(&mut **s).poll_shutdown(cx),
 
             MaybeTlsStream::Upgrading => Poll::Ready(Err(io::ErrorKind::ConnectionAborted.into())),
         }
@@ -265,7 +263,7 @@ where
     fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         match &mut *self {
             MaybeTlsStream::Raw(s) => Pin::new(s).poll_close(cx),
-            MaybeTlsStream::Tls(s) => Pin::new(s).poll_close(cx),
+            MaybeTlsStream::Tls(s) => Pin::new(&mut **s).poll_close(cx),
 
             MaybeTlsStream::Upgrading => Poll::Ready(Err(io::ErrorKind::ConnectionAborted.into())),
         }

@@ -48,7 +48,7 @@ async fn prepare(
 
     // next we send the PARSE command to the server
     conn.stream.write(Parse {
-        param_types: &*param_types,
+        param_types: &param_types,
         query: sql,
         statement: id,
     });
@@ -160,7 +160,7 @@ impl PgConnection {
         self.pending_ready_for_query_count += 1;
     }
 
-    async fn get_or_prepare<'a>(
+    async fn get_or_prepare(
         &mut self,
         sql: &str,
         parameters: &[PgTypeInfo],
@@ -226,8 +226,9 @@ impl PgConnection {
                 portal: None,
                 statement,
                 formats: &[PgValueFormat::Binary],
+                #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
                 num_params: arguments.types.len() as i16,
-                params: &*arguments.buffer,
+                params: &arguments.buffer,
                 result_formats: &[PgValueFormat::Binary],
             });
 
@@ -360,13 +361,13 @@ impl PgConnection {
 impl<'c> Executor<'c> for &'c mut PgConnection {
     type Database = Postgres;
 
-    fn fetch_many<'e, 'q: 'e, E: 'q>(
+    fn fetch_many<'e, 'q: 'e, E>(
         self,
         mut query: E,
     ) -> BoxStream<'e, Result<Either<PgQueryResult, PgRow>, Error>>
     where
         'c: 'e,
-        E: Execute<'q, Self::Database>,
+        E: Execute<'q, Self::Database> + 'q,
     {
         let sql = query.sql();
         let metadata = query.statement().map(|s| Arc::clone(&s.metadata));
@@ -385,13 +386,13 @@ impl<'c> Executor<'c> for &'c mut PgConnection {
         })
     }
 
-    fn fetch_optional<'e, 'q: 'e, E: 'q>(
+    fn fetch_optional<'e, 'q: 'e, E>(
         self,
         mut query: E,
     ) -> BoxFuture<'e, Result<Option<PgRow>, Error>>
     where
         'c: 'e,
-        E: Execute<'q, Self::Database>,
+        E: Execute<'q, Self::Database> + 'q,
     {
         let sql = query.sql();
         let metadata = query.statement().map(|s| Arc::clone(&s.metadata));

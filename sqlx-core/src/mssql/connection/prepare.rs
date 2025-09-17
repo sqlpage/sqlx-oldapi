@@ -28,7 +28,7 @@ pub(crate) async fn prepare(
 
     for m in PARAMS_RE.captures_iter(sql) {
         if !params.is_empty() {
-            params.push_str(",");
+            params.push(',');
         }
 
         params.push_str(&m[0]);

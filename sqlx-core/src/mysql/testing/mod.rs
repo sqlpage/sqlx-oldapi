@@ -45,7 +45,7 @@ impl TestSupport for MySql {
                 .await?;
 
             query("delete from _sqlx_test_databases where db_id = ?")
-                .bind(&db_id)
+                .bind(db_id)
                 .execute(&mut conn)
                 .await?;
 
@@ -127,7 +127,7 @@ async fn test_context(args: &TestArgs) -> Result<TestContext<MySql>, Error> {
     }
 
     query("insert into _sqlx_test_databases(test_path) values (?)")
-        .bind(&args.test_path)
+        .bind(args.test_path)
         .execute(&mut conn)
         .await?;
 
@@ -199,7 +199,8 @@ async fn do_cleanup(conn: &mut MySqlConnection) -> Result<usize, Error> {
         separated.push_bind(db_id);
     }
 
-    drop(separated);
+    // Finalize the separated query builder
+    let _ = separated;
 
     query.push(")").build().execute(&mut *conn).await?;
 

@@ -75,7 +75,7 @@ impl PgLQuery {
     }
 
     /// creates lquery from an iterator with checking labels
-    pub fn from_iter<I, S>(levels: I) -> Result<Self, PgLQueryParseError>
+    pub fn from_level_iter<I, S>(levels: I) -> Result<Self, PgLQueryParseError>
     where
         S: Into<String>,
         I: IntoIterator<Item = S>,
@@ -104,7 +104,7 @@ impl FromStr for PgLQuery {
         Ok(Self {
             levels: s
                 .split('.')
-                .map(|s| PgLQueryLevel::from_str(s))
+                .map(PgLQueryLevel::from_str)
                 .collect::<Result<_, Self::Err>>()?,
         })
     }
@@ -245,12 +245,12 @@ impl FromStr for PgLQueryLevel {
                 b'!' => Ok(PgLQueryLevel::NotNonStar(
                     s[1..]
                         .split('|')
-                        .map(|s| PgLQueryVariant::from_str(s))
+                        .map(PgLQueryVariant::from_str)
                         .collect::<Result<Vec<_>, PgLQueryParseError>>()?,
                 )),
                 _ => Ok(PgLQueryLevel::NonStar(
                     s.split('|')
-                        .map(|s| PgLQueryVariant::from_str(s))
+                        .map(PgLQueryVariant::from_str)
                         .collect::<Result<Vec<_>, PgLQueryParseError>>()?,
                 )),
             }
@@ -263,10 +263,10 @@ impl FromStr for PgLQueryVariant {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut label_length = s.len();
-        let mut rev_iter = s.bytes().rev();
+        let rev_iter = s.bytes().rev();
         let mut modifiers = PgLQueryVariantFlag::default();
 
-        while let Some(b) = rev_iter.next() {
+        for b in rev_iter {
             match b {
                 b'@' => modifiers.insert(PgLQueryVariantFlag::IN_CASE),
                 b'*' => modifiers.insert(PgLQueryVariantFlag::ANY_END),
@@ -307,8 +307,8 @@ impl Display for PgLQueryLevel {
             PgLQueryLevel::Star(Some(at_least), _) => write!(f, "*{{{},}}", at_least),
             PgLQueryLevel::Star(_, Some(at_most)) => write!(f, "*{{,{}}}", at_most),
             PgLQueryLevel::Star(_, _) => write!(f, "*"),
-            PgLQueryLevel::NonStar(variants) => write_variants(f, &variants, false),
-            PgLQueryLevel::NotNonStar(variants) => write_variants(f, &variants, true),
+            PgLQueryLevel::NonStar(variants) => write_variants(f, variants, false),
+            PgLQueryLevel::NotNonStar(variants) => write_variants(f, variants, true),
         }
     }
 }

@@ -1,11 +1,14 @@
 use futures::TryStreamExt;
 use sqlx_core::mssql::MssqlRow;
+#[allow(unused_imports)]
 use sqlx_oldapi::mssql::{Mssql, MssqlPoolOptions};
-use sqlx_oldapi::{
-    Column, Connection, Execute, Executor, MssqlConnection, Row, Statement, TypeInfo,
-};
+#[allow(unused_imports)]
+use sqlx_oldapi::Execute;
+use sqlx_oldapi::{Column, Connection, Executor, MssqlConnection, Row, Statement, TypeInfo};
 use sqlx_test::new;
+#[allow(unused_imports)]
 use std::sync::atomic::{AtomicI32, Ordering};
+#[allow(unused_imports)]
 use std::time::Duration;
 
 #[sqlx_macros::test]
@@ -530,7 +533,7 @@ CREATE TABLE #qb_test (
         name: String,
     }
 
-    let items_to_insert = vec![
+    let items_to_insert = [
         TestItem {
             id: 1,
             name: "Alice".to_string(),

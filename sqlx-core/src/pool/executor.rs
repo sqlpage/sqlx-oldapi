@@ -15,12 +15,12 @@ where
 {
     type Database = DB;
 
-    fn fetch_many<'e, 'q: 'e, E: 'q>(
+    fn fetch_many<'e, 'q: 'e, E>(
         self,
         query: E,
     ) -> BoxStream<'e, Result<Either<DB::QueryResult, DB::Row>, Error>>
     where
-        E: Execute<'q, Self::Database>,
+        E: Execute<'q, Self::Database> + 'q,
     {
         let pool = self.clone();
 
@@ -36,12 +36,12 @@ where
         })
     }
 
-    fn fetch_optional<'e, 'q: 'e, E: 'q>(
+    fn fetch_optional<'e, 'q: 'e, E>(
         self,
         query: E,
     ) -> BoxFuture<'e, Result<Option<DB::Row>, Error>>
     where
-        E: Execute<'q, Self::Database>,
+        E: Execute<'q, Self::Database> + 'q,
     {
         let pool = self.clone();
 
@@ -77,7 +77,7 @@ macro_rules! impl_executor_for_pool_connection {
             type Database = $DB;
 
             #[inline]
-            fn fetch_many<'e, 'q: 'e, E: 'q>(
+            fn fetch_many<'e, 'q: 'e, E>(
                 self,
                 query: E,
             ) -> futures_core::stream::BoxStream<
@@ -89,19 +89,19 @@ macro_rules! impl_executor_for_pool_connection {
             >
             where
                 'c: 'e,
-                E: crate::executor::Execute<'q, $DB>,
+                E: crate::executor::Execute<'q, $DB> + 'q,
             {
                 (**self).fetch_many(query)
             }
 
             #[inline]
-            fn fetch_optional<'e, 'q: 'e, E: 'q>(
+            fn fetch_optional<'e, 'q: 'e, E>(
                 self,
                 query: E,
             ) -> futures_core::future::BoxFuture<'e, Result<Option<$R>, crate::error::Error>>
             where
                 'c: 'e,
-                E: crate::executor::Execute<'q, $DB>,
+                E: crate::executor::Execute<'q, $DB> + 'q,
             {
                 (**self).fetch_optional(query)
             }
