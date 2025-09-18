@@ -25,22 +25,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
-      - run:
-          cargo check
-            --manifest-path sqlx-core/Cargo.toml
-            --no-default-features
-            --features offline,all-databases,all-types,migrate,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
-        env:
-          RUSTFLAGS: -D warnings
-      - run:
-          cargo check
-            --no-default-features
-            --features offline,all-databases,all-types,migrate,runtime-${{ matrix.runtime }}-${{ matrix.tls }},macros
-      - run:
-          cargo check
-            --no-default-features
-            --lib --tests
-            --features offline,all-databases,migrate,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
       - name: Run clippy for core with all features
         run: |
           cargo clippy --manifest-path sqlx-core/Cargo.toml \
