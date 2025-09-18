@@ -24,7 +24,11 @@ jobs:
         tls: [native-tls, rustls]
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: v1-sqlx
+          save-if: ${{ false }}
       - name: Run clippy for core with all features
         run: |
           cargo clippy --manifest-path sqlx-core/Cargo.toml \
@@ -62,7 +66,11 @@ jobs:
         ]
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: v1-sqlx
+          save-if: ${{ false }}
       - run:
           cargo test
             --manifest-path sqlx-core/Cargo.toml
@@ -90,7 +98,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: v1-sqlx
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - run:
           cargo build
             --manifest-path sqlx-cli/Cargo.toml
@@ -114,7 +126,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: mkdir /tmp/sqlite3-lib && wget -O /tmp/sqlite3-lib/ipaddr.so https://github.com/nalgeon/sqlean/releases/download/0.15.2/ipaddr.so
+      - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: v1-sqlx
+          shared-key: sqlite-${{ matrix.runtime }}-${{ matrix.tls }}
+          save-if: ${{ github.ref == 'refs/heads/main' && matrix.runtime == 'tokio' && matrix.tls == 'native-tls' }}
       - name: Run clippy for sqlite
         run: |
           cargo clippy \
@@ -148,7 +165,9 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          key: ${{ runner.os }}-postgres-${{ matrix.runtime }}-${{ matrix.tls }}
+          prefix-key: v1-sqlx
+          shared-key: postgres-${{ matrix.runtime }}-${{ matrix.tls }}
+          save-if: ${{ github.ref == 'refs/heads/main' && matrix.postgres == '14' }}
 
       - run: |
           cargo build --features postgres,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
@@ -192,9 +211,12 @@ jobs:
     needs: check
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          key: linux-postgres-ssl-client-cert
+          prefix-key: v1-sqlx
+          shared-key: postgres-actix-rustls
+          save-if: ${{ false }}
       - run: docker compose up --wait postgres_16
         working-directory: tests
       - run: cargo test --no-default-features --features any,postgres,macros,all-types,runtime-actix-rustls
@@ -217,7 +239,9 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          key: ${{ runner.os }}-mysql-${{ matrix.runtime }}-${{ matrix.tls }}
+          prefix-key: v1-sqlx
+          shared-key: mysql-${{ matrix.runtime }}-${{ matrix.tls }}
+          save-if: ${{ github.ref == 'refs/heads/main' && matrix.mysql == '8' }}
 
       - run: |
           cargo build --features mysql,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
@@ -260,7 +284,9 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          key: ${{ runner.os }}-mysql-${{ matrix.runtime }}-${{ matrix.tls }}
+          prefix-key: v1-sqlx
+          shared-key: mariadb-${{ matrix.runtime }}-${{ matrix.tls }}
+          save-if: ${{ github.ref == 'refs/heads/main' && matrix.mariadb == '10_6' }}
 
       - run: |
           cargo build --features mysql,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
@@ -296,7 +322,9 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          key: ${{ runner.os }}-mssql-${{ matrix.runtime }}-${{ matrix.tls }}-${{ hashFiles('**/Cargo.lock') }}
+          prefix-key: v1-sqlx
+          shared-key: mssql-${{ matrix.runtime }}-${{ matrix.tls }}
+          save-if: ${{ github.ref == 'refs/heads/main' && matrix.mssql == '2022' }}
 
       - run: |
           cargo build --features mssql,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
