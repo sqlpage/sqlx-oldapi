@@ -25,22 +25,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
-      - run:
-          cargo check
-            --manifest-path sqlx-core/Cargo.toml
-            --no-default-features
-            --features offline,all-databases,all-types,migrate,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
-        env:
-          RUSTFLAGS: -D warnings
-      - run:
-          cargo check
-            --no-default-features
-            --features offline,all-databases,all-types,migrate,runtime-${{ matrix.runtime }}-${{ matrix.tls }},macros
-      - run:
-          cargo check
-            --no-default-features
-            --lib --tests
-            --features offline,all-databases,migrate,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
       - name: Run clippy for core with all features
         run: |
           cargo clippy --manifest-path sqlx-core/Cargo.toml \
@@ -160,25 +144,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
+      - uses: dtolnay/rust-toolchain@stable
 
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ runner.os }}-postgres-${{ matrix.runtime }}-${{ matrix.tls }}
 
-      - uses: actions-rs/cargo@v1
+      - run: |
+          cargo build --features postgres,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
         env:
           # FIXME: needed to disable `ltree` tests in Postgres 9.6
           # but `PgLTree` should just fall back to text format
           RUSTFLAGS: --cfg postgres_${{ matrix.postgres }}
-        with:
-          command: build
-          args: >
-            --features postgres,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
 
       - name: Run clippy for postgres
         run: |
@@ -193,24 +170,16 @@ jobs:
           docker compose -f tests/docker-compose.yml run -d -p 5432:5432 --name postgres_${{ matrix.postgres }} postgres_${{ matrix.postgres }}
           docker exec postgres_${{ matrix.postgres }} bash -c "until pg_isready; do sleep 1; done"
 
-      - uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: >
-            --no-default-features
-            --features any,postgres,macros,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
+      - run: |
+          cargo test --no-default-features --features any,postgres,macros,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
         env:
           DATABASE_URL: postgres://postgres:password@localhost:5432/sqlx
           # FIXME: needed to disable `ltree` tests in Postgres 9.6
           # but `PgLTree` should just fall back to text format
           RUSTFLAGS: --cfg postgres_${{ matrix.postgres }}
 
-      - uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: >
-            --no-default-features
-            --features any,postgres,macros,migrate,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
+      - run: |
+          cargo test --no-default-features --features any,postgres,macros,migrate,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
         env:
           DATABASE_URL: postgres://postgres:password@localhost:5432/sqlx?sslmode=verify-ca&sslrootcert=./tests/certs/ca.crt
           # FIXME: needed to disable `ltree` tests in Postgres 9.6
@@ -244,21 +213,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
+      - uses: dtolnay/rust-toolchain@stable
 
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ runner.os }}-mysql-${{ matrix.runtime }}-${{ matrix.tls }}
 
-      - uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: >
-            --features mysql,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
+      - run: |
+          cargo build --features mysql,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
 
       - name: Run clippy for mysql
         run: |
@@ -270,23 +232,15 @@ jobs:
       - run: docker compose -f tests/docker-compose.yml run -d -p 3306:3306 mysql_${{ matrix.mysql }}
       - run: sleep 60
 
-      - uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: >
-            --no-default-features
-            --features any,mysql,macros,migrate,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
+      - run: |
+          cargo test --no-default-features --features any,mysql,macros,migrate,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
         env:
           DATABASE_URL: mysql://root:password@localhost:3306/sqlx?ssl-mode=disabled
 
       # MySQL 5.7 supports TLS but not TLSv1.3 as required by RusTLS.
-      - uses: actions-rs/cargo@v1
+      - run: |
+          cargo test --no-default-features --features any,mysql,macros,migrate,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
         if: ${{ !(matrix.mysql == '5_7' && matrix.tls == 'rustls') }}
-        with:
-          command: test
-          args: >
-            --no-default-features
-            --features any,mysql,macros,migrate,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
         env:
           DATABASE_URL: mysql://root:password@localhost:3306/sqlx
 
@@ -302,21 +256,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
+      - uses: dtolnay/rust-toolchain@stable
 
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ runner.os }}-mysql-${{ matrix.runtime }}-${{ matrix.tls }}
 
-      - uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: >
-            --features mysql,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
+      - run: |
+          cargo build --features mysql,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
 
       - name: Run clippy for mariadb
         run: |
@@ -328,12 +275,8 @@ jobs:
       - run: docker compose -f tests/docker-compose.yml run -d -p 3306:3306 mariadb_${{ matrix.mariadb }}
       - run: sleep 30
 
-      - uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: >
-            --no-default-features
-            --features any,mysql,macros,migrate,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
+      - run: |
+          cargo test --no-default-features --features any,mysql,macros,migrate,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
         env:
           DATABASE_URL: mysql://root:password@localhost:3306/sqlx
 
@@ -349,21 +292,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
+      - uses: dtolnay/rust-toolchain@stable
 
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ runner.os }}-mssql-${{ matrix.runtime }}-${{ matrix.tls }}-${{ hashFiles('**/Cargo.lock') }}
 
-      - uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: >
-            --features mssql,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
+      - run: |
+          cargo build --features mssql,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
 
       - name: Run clippy for mssql
         run: |
@@ -375,11 +311,7 @@ jobs:
       - run: docker compose -f tests/docker-compose.yml run -d -p 1433:1433 mssql_${{ matrix.mssql }}
       - run: sleep 80 # MSSQL takes a "bit" to startup
 
-      - uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: >
-            --no-default-features
-            --features any,mssql,macros,migrate,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
+      - run: |
+          cargo test --no-default-features --features any,mssql,macros,migrate,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
         env:
           DATABASE_URL: mssql://sa:Password123!@localhost/sqlx
