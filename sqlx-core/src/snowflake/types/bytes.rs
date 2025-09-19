@@ -55,7 +55,9 @@ impl<'r> Decode<'r, Snowflake> for Vec<u8> {
         match value.value {
             Some(serde_json::Value::String(s)) => {
                 // Snowflake returns binary data as base64-encoded strings
-                STANDARD.decode(s).map_err(|e| format!("invalid base64: {}", e).into())
+                STANDARD
+                    .decode(s)
+                    .map_err(|e| format!("invalid base64: {}", e).into())
             }
             None => Err("unexpected null".into()),
             _ => Err("expected string (base64 encoded binary)".into()),

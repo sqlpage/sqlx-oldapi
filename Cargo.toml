@@ -351,3 +351,8 @@ required-features = ["mssql", "macros"]
 name = "snowflake"
 path = "tests/snowflake/snowflake.rs"
 required-features = ["snowflake"]
+
+[[test]]
+name = "snowflake-integration"
+path = "tests/snowflake/integration.rs"
+required-features = ["snowflake"]

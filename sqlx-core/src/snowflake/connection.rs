@@ -3,7 +3,9 @@ use crate::connection::Connection;
 use crate::describe::Describe;
 use crate::error::Error;
 use crate::executor::{Execute, Executor};
-use crate::snowflake::{Snowflake, SnowflakeConnectOptions, SnowflakeQueryResult, SnowflakeStatement};
+use crate::snowflake::{
+    Snowflake, SnowflakeConnectOptions, SnowflakeQueryResult, SnowflakeStatement,
+};
 use crate::transaction::Transaction;
 use either::Either;
 use futures_core::future::BoxFuture;

@@ -19,6 +19,9 @@ use crate::any::kind::AnyKind;
 #[cfg(feature = "mssql")]
 use crate::mssql::MssqlConnectOptions;
 
+#[cfg(feature = "snowflake")]
+use crate::snowflake::SnowflakeConnectOptions;
+
 /// Opaque options for connecting to a database. These may only be constructed by parsing from
 /// a connection url.
 ///
@@ -43,6 +46,9 @@ impl AnyConnectOptions {
 
             #[cfg(feature = "mssql")]
             AnyConnectOptionsKind::Mssql(_) => AnyKind::Mssql,
+
+            #[cfg(feature = "snowflake")]
+            AnyConnectOptionsKind::Snowflake(_) => AnyKind::Snowflake,
         }
     }
 }
@@ -108,6 +114,13 @@ try_from_any_connect_options_to!(
 #[cfg(feature = "mssql")]
 try_from_any_connect_options_to!(MssqlConnectOptions, AnyConnectOptionsKind::Mssql, "mssql");
 
+#[cfg(feature = "snowflake")]
+try_from_any_connect_options_to!(
+    SnowflakeConnectOptions,
+    AnyConnectOptionsKind::Snowflake,
+    "snowflake"
+);
+
 #[derive(Debug, Clone)]
 pub(crate) enum AnyConnectOptionsKind {
     #[cfg(feature = "postgres")]
@@ -121,6 +134,9 @@ pub(crate) enum AnyConnectOptionsKind {
 
     #[cfg(feature = "mssql")]
     Mssql(MssqlConnectOptions),
+
+    #[cfg(feature = "snowflake")]
+    Snowflake(SnowflakeConnectOptions),
 }
 
 #[cfg(feature = "postgres")]
@@ -151,6 +167,13 @@ impl From<MssqlConnectOptions> for AnyConnectOptions {
     }
 }
 
+#[cfg(feature = "snowflake")]
+impl From<SnowflakeConnectOptions> for AnyConnectOptions {
+    fn from(options: SnowflakeConnectOptions) -> Self {
+        Self(AnyConnectOptionsKind::Snowflake(options))
+    }
+}
+
 impl FromStr for AnyConnectOptions {
     type Err = Error;
 
@@ -171,6 +194,11 @@ impl FromStr for AnyConnectOptions {
 
             #[cfg(feature = "mssql")]
             AnyKind::Mssql => MssqlConnectOptions::from_str(url).map(AnyConnectOptionsKind::Mssql),
+
+            #[cfg(feature = "snowflake")]
+            AnyKind::Snowflake => {
+                SnowflakeConnectOptions::from_str(url).map(AnyConnectOptionsKind::Snowflake)
+            }
         }
         .map(AnyConnectOptions)
     }
@@ -205,6 +233,11 @@ impl ConnectOptions for AnyConnectOptions {
             AnyConnectOptionsKind::Mssql(o) => {
                 o.log_statements(level);
             }
+
+            #[cfg(feature = "snowflake")]
+            AnyConnectOptionsKind::Snowflake(o) => {
+                o.log_statements(level);
+            }
         };
         self
     }
@@ -228,6 +261,11 @@ impl ConnectOptions for AnyConnectOptions {
 
             #[cfg(feature = "mssql")]
             AnyConnectOptionsKind::Mssql(o) => {
+                o.log_slow_statements(level, duration);
+            }
+
+            #[cfg(feature = "snowflake")]
+            AnyConnectOptionsKind::Snowflake(o) => {
                 o.log_slow_statements(level, duration);
             }
         };

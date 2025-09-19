@@ -11,7 +11,7 @@ pub struct SnowflakeDatabaseError {
 }
 
 impl SnowflakeDatabaseError {
-    pub(crate) fn new(code: String, message: String, sql_state: Option<String>) -> Self {
+    pub fn new(code: String, message: String, sql_state: Option<String>) -> Self {
         Self {
             code,
             message,

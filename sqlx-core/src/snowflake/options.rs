@@ -20,7 +20,7 @@ pub struct SnowflakeConnectOptions {
 }
 
 /// SSL mode for Snowflake connections.
-/// 
+///
 /// Snowflake always uses SSL, so this is mainly for future extensibility.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum SnowflakeSslMode {

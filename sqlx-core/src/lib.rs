@@ -78,6 +78,8 @@ pub mod value;
 #[cfg(feature = "migrate")]
 pub mod migrate;
 
+// TODO: Complete Snowflake integration in Any driver
+// The Any driver requires extensive conditional compilation updates
 #[cfg(all(
     any(
         feature = "postgres",
