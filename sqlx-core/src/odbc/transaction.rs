@@ -2,7 +2,6 @@ use crate::error::Error;
 use crate::odbc::Odbc;
 use crate::transaction::TransactionManager;
 use futures_core::future::BoxFuture;
-use futures_util::future;
 
 pub struct OdbcTransactionManager;
 

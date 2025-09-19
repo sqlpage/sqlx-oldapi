@@ -77,13 +77,13 @@ impl ConnectionWorker {
                     match cmd {
                         Command::Ping { tx } => {
                             // Using SELECT 1 as generic ping
-                            if let Some(mut guard) = shared.conn.try_lock() {
+                            if let Some(guard) = shared.conn.try_lock() {
                                 let _ = guard.execute("SELECT 1", (), None);
                             }
                             let _ = tx.send(());
                         }
                         Command::Begin { tx } => {
-                            let res = if let Some(mut guard) = shared.conn.try_lock() {
+                            let res = if let Some(guard) = shared.conn.try_lock() {
                                 match guard.execute("BEGIN", (), None) {
                                     Ok(_) => Ok(()),
                                     Err(e) => Err(Error::Configuration(e.to_string().into())),
@@ -94,7 +94,7 @@ impl ConnectionWorker {
                             let _ = tx.send(res);
                         }
                         Command::Commit { tx } => {
-                            let res = if let Some(mut guard) = shared.conn.try_lock() {
+                            let res = if let Some(guard) = shared.conn.try_lock() {
                                 match guard.execute("COMMIT", (), None) {
                                     Ok(_) => Ok(()),
                                     Err(e) => Err(Error::Configuration(e.to_string().into())),
@@ -105,7 +105,7 @@ impl ConnectionWorker {
                             let _ = tx.send(res);
                         }
                         Command::Rollback { tx } => {
-                            let res = if let Some(mut guard) = shared.conn.try_lock() {
+                            let res = if let Some(guard) = shared.conn.try_lock() {
                                 match guard.execute("ROLLBACK", (), None) {
                                     Ok(_) => Ok(()),
                                     Err(e) => Err(Error::Configuration(e.to_string().into())),
