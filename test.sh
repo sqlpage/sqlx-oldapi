@@ -9,3 +9,5 @@ docker compose -f tests/docker-compose.yml run -it -p 3306:3306 --name mysql_8 m
 DATABASE_URL='mysql://root:password@localhost/sqlx' cargo test --features any,mysql,macros,all-types,runtime-actix-rustls --
 
 DATABASE_URL='sqlite://./tests/sqlite/sqlite.db' cargo test --features any,sqlite,macros,all-types,runtime-actix-rustls --
+
+ATABASE_URL='DSN=SQLX_PG_55432;UID=postgres;PWD=password' cargo test --no-default-features --features odbc,macros,runtime-tokio-rustls --test odbc

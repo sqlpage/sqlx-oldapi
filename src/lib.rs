@@ -62,6 +62,10 @@ pub use sqlx_core::postgres::{self, PgConnection, PgExecutor, PgPool, Postgres};
 #[cfg_attr(docsrs, doc(cfg(feature = "sqlite")))]
 pub use sqlx_core::sqlite::{self, Sqlite, SqliteConnection, SqliteExecutor, SqlitePool};
 
+#[cfg(feature = "odbc")]
+#[cfg_attr(docsrs, doc(cfg(feature = "odbc")))]
+pub use sqlx_core::odbc::{self, Odbc, OdbcConnection, OdbcExecutor, OdbcPool};
+
 #[cfg(feature = "macros")]
 #[doc(hidden)]
 pub extern crate sqlx_macros;

@@ -131,6 +131,7 @@ postgres = ["sqlx-core/postgres", "sqlx-macros/postgres"]
 mysql = ["sqlx-core/mysql", "sqlx-macros/mysql"]
 sqlite = ["sqlx-core/sqlite", "sqlx-macros/sqlite"]
 mssql = ["sqlx-core/mssql", "sqlx-macros/mssql"]
+odbc = ["sqlx-core/odbc"]
 
 # types
 bigdecimal = ["sqlx-core/bigdecimal", "sqlx-macros/bigdecimal"]
@@ -325,6 +326,15 @@ required-features = ["postgres", "macros", "migrate"]
 name = "mssql"
 path = "tests/mssql/mssql.rs"
 required-features = ["mssql"]
+
+#
+# ODBC
+#
+
+[[test]]
+name = "odbc"
+path = "tests/odbc/odbc.rs"
+required-features = ["odbc"]
 
 [[test]]
 name = "mssql-types"
