@@ -8,6 +8,7 @@ pub struct OdbcArguments<'q> {
     pub(crate) values: Vec<OdbcArgumentValue<'q>>,
 }
 
+#[derive(Debug, Clone)]
 pub enum OdbcArgumentValue<'q> {
     Text(String),
     Bytes(Vec<u8>),
@@ -114,5 +115,42 @@ impl<'q> Encode<'q, Odbc> for Vec<u8> {
     fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
         buf.push(OdbcArgumentValue::Bytes(self.clone()));
         crate::encode::IsNull::No
+    }
+}
+
+impl<'q, T> Encode<'q, Odbc> for Option<T>
+where
+    T: Encode<'q, Odbc> + Type<Odbc> + 'q,
+{
+    fn produces(&self) -> Option<crate::odbc::OdbcTypeInfo> {
+        if let Some(v) = self {
+            v.produces()
+        } else {
+            T::type_info().into()
+        }
+    }
+
+    fn encode(self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+        match self {
+            Some(v) => v.encode(buf),
+            None => {
+                buf.push(OdbcArgumentValue::Null);
+                crate::encode::IsNull::Yes
+            }
+        }
+    }
+
+    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+        match self {
+            Some(v) => v.encode_by_ref(buf),
+            None => {
+                buf.push(OdbcArgumentValue::Null);
+                crate::encode::IsNull::Yes
+            }
+        }
+    }
+
+    fn size_hint(&self) -> usize {
+        self.as_ref().map_or(0, Encode::size_hint)
     }
 }
