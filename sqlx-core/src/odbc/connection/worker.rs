@@ -11,7 +11,7 @@ use crate::odbc::{
 #[allow(unused_imports)]
 use crate::row::Row as SqlxRow;
 use either::Either;
-use odbc_api::{Cursor, CursorRow, ResultSetMetadata};
+use odbc_api::{Cursor, CursorRow, IntoParameter, ResultSetMetadata};
 
 #[derive(Debug)]
 pub(crate) struct ConnectionWorker {
@@ -115,12 +115,10 @@ impl ConnectionWorker {
                         Command::Execute { sql, tx } => {
                             with_conn(&shared, |conn| execute_sql(conn, &sql, &tx));
                         }
-                        Command::ExecuteWithArgs {
-                            sql,
-                            args: _args,
-                            tx,
-                        } => {
-                            with_conn(&shared, |conn| execute_sql(conn, &sql, &tx));
+                        Command::ExecuteWithArgs { sql, args, tx } => {
+                            with_conn(&shared, |conn| {
+                                execute_sql_with_params(conn, &sql, args, &tx)
+                            });
                         }
                     }
                 }
@@ -237,6 +235,65 @@ fn execute_sql(
     tx: &flume::Sender<Result<Either<OdbcQueryResult, OdbcRow>, Error>>,
 ) {
     match conn.execute(sql, (), None) {
+        Ok(Some(mut cursor)) => {
+            let columns = collect_columns(&mut cursor);
+            if let Err(e) = stream_rows(&mut cursor, &columns, tx) {
+                let _ = tx.send(Err(e));
+                return;
+            }
+            let _ = tx.send(Ok(Either::Left(OdbcQueryResult { rows_affected: 0 })));
+        }
+        Ok(None) => {
+            let _ = tx.send(Ok(Either::Left(OdbcQueryResult { rows_affected: 0 })));
+        }
+        Err(e) => {
+            let _ = tx.send(Err(Error::from(e)));
+        }
+    }
+}
+
+fn execute_sql_with_params(
+    conn: &odbc_api::Connection<'static>,
+    sql: &str,
+    args: Vec<OdbcArgumentValue<'static>>,
+    tx: &flume::Sender<Result<Either<OdbcQueryResult, OdbcRow>, Error>>,
+) {
+    if args.is_empty() {
+        dispatch_execute(conn, sql, (), tx);
+        return;
+    }
+
+    let mut params: Vec<Box<dyn odbc_api::parameter::InputParameter>> =
+        Vec::with_capacity(args.len());
+    for a in args {
+        params.push(to_param(a));
+    }
+    dispatch_execute(conn, sql, &params[..], tx);
+}
+
+fn to_param(
+    arg: OdbcArgumentValue<'static>,
+) -> Box<dyn odbc_api::parameter::InputParameter + 'static> {
+    match arg {
+        OdbcArgumentValue::Int(i) => Box::new(i.into_parameter()),
+        OdbcArgumentValue::Float(f) => Box::new(f.into_parameter()),
+        OdbcArgumentValue::Text(s) => Box::new(s.into_parameter()),
+        OdbcArgumentValue::Bytes(b) => Box::new(b.into_parameter()),
+        OdbcArgumentValue::Null | OdbcArgumentValue::Phantom(_) => {
+            Box::new(Option::<i32>::None.into_parameter())
+        }
+    }
+}
+
+fn dispatch_execute<P>(
+    conn: &odbc_api::Connection<'static>,
+    sql: &str,
+    params: P,
+    tx: &flume::Sender<Result<Either<OdbcQueryResult, OdbcRow>, Error>>,
+) where
+    P: odbc_api::ParameterCollectionRef,
+{
+    match conn.execute(sql, params, None) {
         Ok(Some(mut cursor)) => {
             let columns = collect_columns(&mut cursor);
             if let Err(e) = stream_rows(&mut cursor, &columns, tx) {
