@@ -13,6 +13,7 @@ pub struct SnowflakeConnectOptions {
     pub(crate) schema: Option<String>,
     pub(crate) role: Option<String>,
     pub(crate) username: String,
+    pub(crate) password: Option<String>,
     pub(crate) private_key_path: Option<String>,
     pub(crate) private_key_data: Option<String>,
     pub(crate) passphrase: Option<String>,
@@ -43,6 +44,7 @@ impl SnowflakeConnectOptions {
             schema: None,
             role: None,
             username: String::new(),
+            password: None,
             private_key_path: None,
             private_key_data: None,
             passphrase: None,
@@ -80,6 +82,11 @@ impl SnowflakeConnectOptions {
         self
     }
 
+    pub fn password(mut self, password: impl Into<String>) -> Self {
+        self.password = Some(password.into());
+        self
+    }
+
     pub fn private_key_path(mut self, path: impl Into<String>) -> Self {
         self.private_key_path = Some(path.into());
         self
@@ -98,6 +105,73 @@ impl SnowflakeConnectOptions {
     pub fn timeout(mut self, timeout: std::time::Duration) -> Self {
         self.timeout = Some(timeout);
         self
+    }
+
+    // Getter methods for testing
+    pub fn get_account(&self) -> &str {
+        &self.account
+    }
+
+    pub fn get_username(&self) -> &str {
+        &self.username
+    }
+
+    pub fn get_database(&self) -> Option<&str> {
+        self.database.as_deref()
+    }
+
+    pub fn get_warehouse(&self) -> Option<&str> {
+        self.warehouse.as_deref()
+    }
+
+    pub fn get_schema(&self) -> Option<&str> {
+        self.schema.as_deref()
+    }
+
+    pub fn from_url(url: &Url) -> Result<Self, Error> {
+        let mut options = SnowflakeConnectOptions::new();
+
+        // Extract account from host (format: account.snowflakecomputing.com)
+        if let Some(host) = url.host_str() {
+            if let Some(account) = host.split('.').next() {
+                options = options.account(account);
+            }
+        }
+
+        // Extract username from URL
+        if !url.username().is_empty() {
+            options = options.username(url.username());
+        }
+
+        // Extract password from URL
+        if let Some(password) = url.password() {
+            options = options.password(password);
+        }
+
+        // Extract database from path
+        let path = url.path();
+        if !path.is_empty() && path != "/" {
+            let database = path.trim_start_matches('/');
+            if !database.is_empty() {
+                options = options.database(database);
+            }
+        }
+
+        // Extract query parameters
+        for (key, value) in url.query_pairs() {
+            match key.as_ref() {
+                "warehouse" => options = options.warehouse(value.as_ref()),
+                "database" | "db" => options = options.database(value.as_ref()),
+                "schema" => options = options.schema(value.as_ref()),
+                "role" => options = options.role(value.as_ref()),
+                "private_key_path" => options = options.private_key_path(value.as_ref()),
+                "private_key_data" => options = options.private_key_data(value.as_ref()),
+                "passphrase" => options = options.passphrase(value.as_ref()),
+                _ => {}
+            }
+        }
+
+        Ok(options)
     }
 }
 
@@ -118,71 +192,6 @@ impl FromStr for SnowflakeConnectOptions {
 
 impl ConnectOptions for SnowflakeConnectOptions {
     type Connection = crate::snowflake::SnowflakeConnection;
-
-    fn from_url(url: &Url) -> Result<Self, Error> {
-        let mut options = SnowflakeConnectOptions::new();
-
-        // Extract account from host (format: account.snowflakecomputing.com)
-        if let Some(host) = url.host_str() {
-            if let Some(account) = host.split('.').next() {
-                options = options.account(account);
-            }
-        }
-
-        // Extract username from URL
-        if !url.username().is_empty() {
-            options = options.username(url.username());
-        }
-
-        // Extract query parameters
-        for (key, value) in url.query_pairs() {
-            match key.as_ref() {
-                "warehouse" => options = options.warehouse(value.as_ref()),
-                "database" | "db" => options = options.database(value.as_ref()),
-                "schema" => options = options.schema(value.as_ref()),
-                "role" => options = options.role(value.as_ref()),
-                "private_key_path" => options = options.private_key_path(value.as_ref()),
-                "private_key_data" => options = options.private_key_data(value.as_ref()),
-                "passphrase" => options = options.passphrase(value.as_ref()),
-                _ => {}
-            }
-        }
-
-        Ok(options)
-    }
-
-    fn to_url_lossy(&self) -> Url {
-        let mut url = Url::parse(&format!(
-            "snowflake://{}@{}.snowflakecomputing.com/",
-            self.username, self.account
-        ))
-        .expect("BUG: generated URL is not valid");
-
-        if let Some(ref database) = self.database {
-            url.set_path(database);
-        }
-
-        let mut query_pairs = url.query_pairs_mut();
-
-        if let Some(ref warehouse) = self.warehouse {
-            query_pairs.append_pair("warehouse", warehouse);
-        }
-
-        if let Some(ref schema) = self.schema {
-            query_pairs.append_pair("schema", schema);
-        }
-
-        if let Some(ref role) = self.role {
-            query_pairs.append_pair("role", role);
-        }
-
-        if let Some(ref private_key_path) = self.private_key_path {
-            query_pairs.append_pair("private_key_path", private_key_path);
-        }
-
-        drop(query_pairs);
-        url
-    }
 
     fn connect(&self) -> futures_core::future::BoxFuture<'_, Result<Self::Connection, Error>>
     where

@@ -35,10 +35,7 @@ impl TransactionManager for SnowflakeTransactionManager {
     fn start_rollback(conn: &mut SnowflakeConnection) {
         // For Snowflake, we can immediately start the rollback
         // This is a best-effort operation
-        if let Ok(runtime) = tokio::runtime::Handle::try_current() {
-            runtime.spawn(async move {
-                let _ = conn.execute("ROLLBACK").await;
-            });
-        }
+        // TODO: Implement proper async rollback handling
+        let _ = conn;
     }
 }

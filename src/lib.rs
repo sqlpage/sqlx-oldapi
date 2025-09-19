@@ -62,6 +62,10 @@ pub use sqlx_core::postgres::{self, PgConnection, PgExecutor, PgPool, Postgres};
 #[cfg_attr(docsrs, doc(cfg(feature = "sqlite")))]
 pub use sqlx_core::sqlite::{self, Sqlite, SqliteConnection, SqliteExecutor, SqlitePool};
 
+#[cfg(feature = "snowflake")]
+#[cfg_attr(docsrs, doc(cfg(feature = "snowflake")))]
+pub use sqlx_core::snowflake::{self, Snowflake, SnowflakeConnection, SnowflakeExecutor, SnowflakePool};
+
 #[cfg(feature = "macros")]
 #[doc(hidden)]
 pub extern crate sqlx_macros;
@@ -100,6 +104,7 @@ pub mod ty_match;
 ///  * MySQL: [mysql::types]
 ///  * SQLite: [sqlite::types]
 ///  * MSSQL: [mssql::types]
+///  * Snowflake: [snowflake::types]
 ///
 /// Any external types that have had [`Type`] implemented for, are re-exported in this module
 /// for convenience as downstream users need to use a compatible version of the external crate

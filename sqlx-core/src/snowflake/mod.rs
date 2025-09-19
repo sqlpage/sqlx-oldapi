@@ -34,7 +34,7 @@ pub use query_result::SnowflakeQueryResult;
 pub use row::SnowflakeRow;
 pub use statement::SnowflakeStatement;
 pub use transaction::SnowflakeTransactionManager;
-pub use type_info::SnowflakeTypeInfo;
+pub use type_info::{SnowflakeTypeInfo, SnowflakeType};
 pub use value::{SnowflakeValue, SnowflakeValueRef};
 
 /// An alias for [`Pool`][crate::pool::Pool], specialized for Snowflake.

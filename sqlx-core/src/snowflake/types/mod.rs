@@ -20,14 +20,5 @@ mod float;
 mod int;
 mod str;
 
-#[cfg(feature = "chrono")]
-mod chrono;
-
-#[cfg(feature = "time")]
-mod time;
-
-#[cfg(feature = "uuid")]
-mod uuid;
-
-#[cfg(feature = "json")]
-mod json;
+// Optional type support modules - only include if features are enabled
+// TODO: Implement these when the corresponding features are needed

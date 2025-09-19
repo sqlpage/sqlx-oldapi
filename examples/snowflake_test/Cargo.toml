@@ -1,0 +1,10 @@
+[workspace]
+
+[package]
+name = "snowflake_test"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+sqlx-oldapi = { path = "../..", features = ["snowflake", "runtime-tokio-rustls"] }
+tokio = { version = "1", features = ["full"] }

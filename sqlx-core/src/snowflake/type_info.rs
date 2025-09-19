@@ -59,7 +59,7 @@ pub enum SnowflakeType {
 }
 
 impl SnowflakeTypeInfo {
-    pub(crate) fn new(ty: SnowflakeType) -> Self {
+    pub fn new(ty: SnowflakeType) -> Self {
         Self(ty)
     }
 
