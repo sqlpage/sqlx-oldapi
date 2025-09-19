@@ -62,7 +62,7 @@ impl Type<Odbc> for String {
     }
 }
 
-impl<'a> Type<Odbc> for &'a str {
+impl Type<Odbc> for &str {
     fn type_info() -> OdbcTypeInfo {
         OdbcTypeInfo {
             name: "TEXT".into(),

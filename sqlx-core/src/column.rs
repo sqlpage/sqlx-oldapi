@@ -55,6 +55,7 @@ impl<T: ?Sized, I: ColumnIndex<T> + ?Sized> ColumnIndex<T> for &'_ I {
     }
 }
 
+#[allow(unused_macros)]
 macro_rules! impl_column_index_for_row {
     ($R:ident) => {
         impl crate::column::ColumnIndex<$R> for usize {
@@ -71,6 +72,7 @@ macro_rules! impl_column_index_for_row {
     };
 }
 
+#[allow(unused_macros)]
 macro_rules! impl_column_index_for_statement {
     ($S:ident) => {
         impl crate::column::ColumnIndex<$S<'_>> for usize {

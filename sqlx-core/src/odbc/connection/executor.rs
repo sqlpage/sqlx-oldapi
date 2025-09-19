@@ -88,8 +88,7 @@ impl<'c> Executor<'c> for &'c mut OdbcConnection {
 fn interpolate_sql_with_odbc_args(sql: &str, args: &[OdbcArgumentValue<'_>]) -> String {
     let mut result = String::with_capacity(sql.len() + args.len() * 8);
     let mut arg_iter = args.iter();
-    let mut chars = sql.chars().peekable();
-    while let Some(ch) = chars.next() {
+    for ch in sql.chars() {
         if ch == '?' {
             if let Some(arg) = arg_iter.next() {
                 match arg {

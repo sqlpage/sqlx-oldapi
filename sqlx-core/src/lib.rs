@@ -116,5 +116,6 @@ pub mod testing;
 pub use sqlx_rt::test_block_on;
 
 /// sqlx uses ahash for increased performance, at the cost of reduced DoS resistance.
+#[allow(unused_imports)]
 use ahash::AHashMap as HashMap;
 //type HashMap<K, V> = std::collections::HashMap<K, V, ahash::RandomState>;

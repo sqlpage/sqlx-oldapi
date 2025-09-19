@@ -1,5 +1,6 @@
 mod statement_cache;
 
+#[allow(unused_imports)]
 pub(crate) use statement_cache::StatementCache;
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
