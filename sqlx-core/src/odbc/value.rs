@@ -22,20 +22,39 @@ impl<'r> ValueRef<'r> for OdbcValueRef<'r> {
     type Database = Odbc;
 
     fn to_owned(&self) -> OdbcValue {
-        OdbcValue { type_info: self.type_info.clone(), is_null: self.is_null, data: self.blob.unwrap_or(&[]).to_vec() }
+        OdbcValue {
+            type_info: self.type_info.clone(),
+            is_null: self.is_null,
+            data: self.blob.unwrap_or(&[]).to_vec(),
+        }
     }
 
-    fn type_info(&self) -> Cow<'_, OdbcTypeInfo> { Cow::Borrowed(&self.type_info) }
-    fn is_null(&self) -> bool { self.is_null }
+    fn type_info(&self) -> Cow<'_, OdbcTypeInfo> {
+        Cow::Borrowed(&self.type_info)
+    }
+    fn is_null(&self) -> bool {
+        self.is_null
+    }
 }
 
 impl Value for OdbcValue {
     type Database = Odbc;
 
     fn as_ref(&self) -> OdbcValueRef<'_> {
-        OdbcValueRef { type_info: self.type_info.clone(), is_null: self.is_null, text: None, blob: Some(&self.data), int: None, float: None }
+        OdbcValueRef {
+            type_info: self.type_info.clone(),
+            is_null: self.is_null,
+            text: None,
+            blob: Some(&self.data),
+            int: None,
+            float: None,
+        }
     }
 
-    fn type_info(&self) -> Cow<'_, OdbcTypeInfo> { Cow::Borrowed(&self.type_info) }
-    fn is_null(&self) -> bool { self.is_null }
+    fn type_info(&self) -> Cow<'_, OdbcTypeInfo> {
+        Cow::Borrowed(&self.type_info)
+    }
+    fn is_null(&self) -> bool {
+        self.is_null
+    }
 }

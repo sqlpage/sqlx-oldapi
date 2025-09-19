@@ -2,30 +2,30 @@
 
 use crate::executor::Executor;
 
+mod arguments;
+mod column;
 mod connection;
 mod database;
-mod row;
-mod column;
-mod value;
-mod type_info;
-mod statement;
-mod query_result;
-mod transaction;
-mod options;
 mod error;
-mod arguments;
+mod options;
+mod query_result;
+mod row;
+mod statement;
+mod transaction;
+mod type_info;
+mod value;
 
+pub use arguments::{OdbcArgumentValue, OdbcArguments};
+pub use column::OdbcColumn;
 pub use connection::OdbcConnection;
 pub use database::Odbc;
 pub use options::OdbcConnectOptions;
 pub use query_result::OdbcQueryResult;
 pub use row::OdbcRow;
-pub use column::OdbcColumn;
 pub use statement::OdbcStatement;
 pub use transaction::OdbcTransactionManager;
 pub use type_info::OdbcTypeInfo;
 pub use value::{OdbcValue, OdbcValueRef};
-pub use arguments::{OdbcArguments, OdbcArgumentValue};
 
 /// An alias for [`Pool`][crate::pool::Pool], specialized for ODBC.
 pub type OdbcPool = crate::pool::Pool<Odbc>;

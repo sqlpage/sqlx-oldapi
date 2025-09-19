@@ -1,12 +1,12 @@
 use crate::connection::{Connection, LogSettings};
 use crate::error::Error;
-use crate::transaction::Transaction;
 use crate::odbc::{Odbc, OdbcConnectOptions};
+use crate::transaction::Transaction;
 use futures_core::future::BoxFuture;
 use futures_util::future;
 
-mod worker;
 mod executor;
+mod worker;
 
 pub(crate) use worker::ConnectionWorker;
 
@@ -23,7 +23,10 @@ pub struct OdbcConnection {
 impl OdbcConnection {
     pub(crate) async fn establish(options: &OdbcConnectOptions) -> Result<Self, Error> {
         let worker = ConnectionWorker::establish(options.clone()).await?;
-        Ok(Self { worker, log_settings: LogSettings::default() })
+        Ok(Self {
+            worker,
+            log_settings: LogSettings::default(),
+        })
     }
 }
 

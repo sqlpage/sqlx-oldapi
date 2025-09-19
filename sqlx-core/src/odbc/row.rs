@@ -13,20 +13,32 @@ pub struct OdbcRow {
 impl Row for OdbcRow {
     type Database = Odbc;
 
-    fn columns(&self) -> &[OdbcColumn] { &self.columns }
+    fn columns(&self) -> &[OdbcColumn] {
+        &self.columns
+    }
 
-    fn try_get_raw<I>(&self, index: I) -> Result<<Self::Database as HasValueRef<'_>>::ValueRef, Error>
+    fn try_get_raw<I>(
+        &self,
+        index: I,
+    ) -> Result<<Self::Database as HasValueRef<'_>>::ValueRef, Error>
     where
         I: ColumnIndex<Self>,
     {
         let idx = index.index(self)?;
         let (ti, data) = &self.values[idx];
-        Ok(OdbcValueRef { type_info: ti.clone(), is_null: data.is_none(), text: None, blob: data.as_deref(), int: None, float: None })
+        Ok(OdbcValueRef {
+            type_info: ti.clone(),
+            is_null: data.is_none(),
+            text: None,
+            blob: data.as_deref(),
+            int: None,
+            float: None,
+        })
     }
 }
 
 mod private {
-    use crate::row::private_row::Sealed;
     use super::OdbcRow;
+    use crate::row::private_row::Sealed;
     impl Sealed for OdbcRow {}
 }
