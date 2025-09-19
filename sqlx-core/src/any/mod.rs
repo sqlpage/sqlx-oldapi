@@ -82,9 +82,6 @@ where
 
             #[cfg(feature = "sqlite")]
             arguments::AnyArgumentBufferKind::Sqlite(args) => args.add(self),
-
-            #[cfg(feature = "snowflake")]
-            arguments::AnyArgumentBufferKind::Snowflake(args, _) => args.add(self),
         }
 
         // unused

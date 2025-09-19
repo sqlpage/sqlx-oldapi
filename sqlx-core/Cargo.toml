@@ -20,7 +20,7 @@ default = ["migrate"]
 migrate = ["sha2", "crc"]
 
 # databases
-all-databases = ["postgres", "mysql", "sqlite", "mssql", "snowflake", "any"]
+all-databases = ["postgres", "mysql", "sqlite", "mssql", "any"]
 postgres = [
     "md-5",
     "sha2",

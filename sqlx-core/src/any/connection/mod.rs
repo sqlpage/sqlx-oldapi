@@ -15,10 +15,6 @@ use crate::mssql;
 
 #[cfg(feature = "mysql")]
 use crate::mysql;
-
-#[cfg(feature = "snowflake")]
-use crate::snowflake;
-
 use crate::transaction::Transaction;
 
 mod establish;
@@ -52,9 +48,6 @@ pub enum AnyConnectionKind {
 
     #[cfg(feature = "sqlite")]
     Sqlite(sqlite::SqliteConnection),
-
-    #[cfg(feature = "snowflake")]
-    Snowflake(snowflake::SnowflakeConnection),
 }
 
 impl AnyConnectionKind {
@@ -71,9 +64,6 @@ impl AnyConnectionKind {
 
             #[cfg(feature = "mssql")]
             AnyConnectionKind::Mssql(_) => AnyKind::Mssql,
-
-            #[cfg(feature = "snowflake")]
-            AnyConnectionKind::Snowflake(_) => AnyKind::Snowflake,
         }
     }
 }
@@ -104,9 +94,6 @@ macro_rules! delegate_to {
 
             #[cfg(feature = "mssql")]
             AnyConnectionKind::Mssql(conn) => conn.$method($($arg),*),
-
-            #[cfg(feature = "snowflake")]
-            AnyConnectionKind::Snowflake(conn) => conn.$method($($arg),*),
         }
     };
 }
@@ -125,9 +112,6 @@ macro_rules! delegate_to_mut {
 
             #[cfg(feature = "mssql")]
             AnyConnectionKind::Mssql(conn) => conn.$method($($arg),*),
-
-            #[cfg(feature = "snowflake")]
-            AnyConnectionKind::Snowflake(conn) => conn.$method($($arg),*),
         }
     };
 }
@@ -150,9 +134,6 @@ impl Connection for AnyConnection {
 
             #[cfg(feature = "mssql")]
             AnyConnectionKind::Mssql(conn) => conn.close(),
-
-            #[cfg(feature = "snowflake")]
-            AnyConnectionKind::Snowflake(conn) => conn.close(),
         }
     }
 
@@ -169,9 +150,6 @@ impl Connection for AnyConnection {
 
             #[cfg(feature = "mssql")]
             AnyConnectionKind::Mssql(conn) => conn.close_hard(),
-
-            #[cfg(feature = "snowflake")]
-            AnyConnectionKind::Snowflake(conn) => conn.close_hard(),
         }
     }
 
@@ -200,9 +178,6 @@ impl Connection for AnyConnection {
             // no cache
             #[cfg(feature = "mssql")]
             AnyConnectionKind::Mssql(_) => 0,
-
-            #[cfg(feature = "snowflake")]
-            AnyConnectionKind::Snowflake(conn) => conn.cached_statements_size(),
         }
     }
 
@@ -220,9 +195,6 @@ impl Connection for AnyConnection {
             // no cache
             #[cfg(feature = "mssql")]
             AnyConnectionKind::Mssql(_) => Box::pin(futures_util::future::ok(())),
-
-            #[cfg(feature = "snowflake")]
-            AnyConnectionKind::Snowflake(conn) => conn.clear_cached_statements(),
         }
     }
 
@@ -262,12 +234,5 @@ impl From<mysql::MySqlConnection> for AnyConnection {
 impl From<sqlite::SqliteConnection> for AnyConnection {
     fn from(conn: sqlite::SqliteConnection) -> Self {
         AnyConnection(AnyConnectionKind::Sqlite(conn))
-    }
-}
-
-#[cfg(feature = "snowflake")]
-impl From<snowflake::SnowflakeConnection> for AnyConnection {
-    fn from(conn: snowflake::SnowflakeConnection) -> Self {
-        AnyConnection(AnyConnectionKind::Snowflake(conn))
     }
 }

@@ -46,12 +46,6 @@ pub(crate) enum AnyArgumentBufferKind<'q> {
         crate::mssql::MssqlArguments,
         std::marker::PhantomData<&'q ()>,
     ),
-
-    #[cfg(feature = "snowflake")]
-    Snowflake(
-        crate::snowflake::SnowflakeArguments,
-        std::marker::PhantomData<&'q ()>,
-    ),
 }
 
 // control flow inferred type bounds would be fun
