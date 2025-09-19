@@ -1,6 +1,6 @@
-use crate::odbc::{Odbc, OdbcTypeInfo};
 use crate::decode::Decode;
 use crate::error::BoxDynError;
+use crate::odbc::{Odbc, OdbcTypeInfo};
 use crate::value::{Value, ValueRef};
 use std::borrow::Cow;
 
@@ -87,7 +87,9 @@ impl<'r> Decode<'r, Odbc> for &'r str {
 
 impl<'r> Decode<'r, Odbc> for i64 {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        if let Some(i) = value.int { return Ok(i); }
+        if let Some(i) = value.int {
+            return Ok(i);
+        }
         if let Some(bytes) = value.blob {
             let s = std::str::from_utf8(bytes)?;
             return Ok(s.trim().parse()?);
@@ -104,7 +106,9 @@ impl<'r> Decode<'r, Odbc> for i32 {
 
 impl<'r> Decode<'r, Odbc> for f64 {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        if let Some(f) = value.float { return Ok(f); }
+        if let Some(f) = value.float {
+            return Ok(f);
+        }
         if let Some(bytes) = value.blob {
             let s = std::str::from_utf8(bytes)?;
             return Ok(s.trim().parse()?);
