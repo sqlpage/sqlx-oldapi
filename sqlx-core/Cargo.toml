@@ -20,7 +20,7 @@ default = ["migrate"]
 migrate = ["sha2", "crc"]
 
 # databases
-all-databases = ["postgres", "mysql", "sqlite", "mssql", "any"]
+all-databases = ["postgres", "mysql", "sqlite", "mssql", "snowflake", "any"]
 postgres = [
     "md-5",
     "sha2",
@@ -45,6 +45,17 @@ mysql = [
 ]
 sqlite = ["libsqlite3-sys", "futures-executor", "flume"]
 mssql = ["uuid", "encoding_rs", "regex"]
+snowflake = [
+    "reqwest", 
+    "jsonwebtoken", 
+    "rsa", 
+    "sha2", 
+    "base64", 
+    "serde", 
+    "serde_json",
+    "uuid",
+    "chrono"
+]
 any = []
 
 # types
@@ -170,6 +181,8 @@ hashlink = "0.10.0"
 indexmap = "2.0.0"
 hkdf = { version = "0.12.0", optional = true }
 event-listener = "5.4.0"
+reqwest = { version = "0.12", optional = true, default-features = false, features = ["json", "rustls-tls"] }
+jsonwebtoken = { version = "9.3", optional = true }
 
 dotenvy = "0.15"
 

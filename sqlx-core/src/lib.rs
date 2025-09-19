@@ -83,7 +83,8 @@ pub mod migrate;
         feature = "postgres",
         feature = "mysql",
         feature = "mssql",
-        feature = "sqlite"
+        feature = "sqlite",
+        feature = "snowflake"
     ),
     feature = "any"
 ))]
@@ -104,6 +105,10 @@ pub mod mysql;
 #[cfg(feature = "mssql")]
 #[cfg_attr(docsrs, doc(cfg(feature = "mssql")))]
 pub mod mssql;
+
+#[cfg(feature = "snowflake")]
+#[cfg_attr(docsrs, doc(cfg(feature = "snowflake")))]
+pub mod snowflake;
 
 // Implements test support with automatic DB management.
 #[cfg(feature = "migrate")]
