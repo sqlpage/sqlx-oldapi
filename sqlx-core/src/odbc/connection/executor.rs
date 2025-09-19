@@ -21,8 +21,14 @@ impl<'c> Executor<'c> for &'c mut OdbcConnection {
         'c: 'e,
         E: Execute<'q, Self::Database> + 'q,
     {
-        let empty: Vec<Result<Either<OdbcQueryResult, OdbcRow>, Error>> = Vec::new();
-        Box::pin(futures_util::stream::iter(empty))
+        let sql = _query.sql().to_string();
+        Box::pin(try_stream! {
+            let rx = self.worker.execute_stream(&sql).await?;
+            while let Ok(item) = rx.recv_async().await {
+                r#yield!(item?);
+            }
+            Ok(())
+        })
     }
 
     fn fetch_optional<'e, 'q: 'e, E>(
