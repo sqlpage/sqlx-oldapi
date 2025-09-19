@@ -26,9 +26,19 @@ impl<'c> Executor<'c> for &'c mut OdbcConnection {
         let sql = _query.sql().to_string();
         let mut args = _query.take_arguments();
         Box::pin(try_stream! {
-            let rx = if let Some(a) = args.take() {
-                let new_sql = interpolate_sql_with_odbc_args(&sql, &a.values);
-                self.worker.execute_stream(&new_sql).await?
+            let rx = if let Some(mut a) = args.take() {
+                let vals: Vec<OdbcArgumentValue<'static>> = std::mem::take(&mut a.values)
+                    .into_iter()
+                    .map(|v| match v {
+                        OdbcArgumentValue::Text(s) => OdbcArgumentValue::Text(s),
+                        OdbcArgumentValue::Bytes(b) => OdbcArgumentValue::Bytes(b),
+                        OdbcArgumentValue::Int(i) => OdbcArgumentValue::Int(i),
+                        OdbcArgumentValue::Float(f) => OdbcArgumentValue::Float(f),
+                        OdbcArgumentValue::Null => OdbcArgumentValue::Null,
+                        OdbcArgumentValue::Phantom(_) => OdbcArgumentValue::Null,
+                    })
+                    .collect();
+                self.worker.execute_stream_with_args(&sql, vals).await?
             } else {
                 self.worker.execute_stream(&sql).await?
             };
@@ -83,44 +93,4 @@ impl<'c> Executor<'c> for &'c mut OdbcConnection {
     {
         Box::pin(async move { Err(Error::Protocol("ODBC describe not implemented".into())) })
     }
-}
-
-fn interpolate_sql_with_odbc_args(sql: &str, args: &[OdbcArgumentValue<'_>]) -> String {
-    let mut result = String::with_capacity(sql.len() + args.len() * 8);
-    let mut arg_iter = args.iter();
-    for ch in sql.chars() {
-        if ch == '?' {
-            if let Some(arg) = arg_iter.next() {
-                match arg {
-                    OdbcArgumentValue::Int(i) => result.push_str(&i.to_string()),
-                    OdbcArgumentValue::Float(f) => result.push_str(&format!("{}", f)),
-                    OdbcArgumentValue::Text(s) => {
-                        result.push('\'');
-                        for c in s.chars() {
-                            if c == '\'' {
-                                result.push('\'');
-                            }
-                            result.push(c);
-                        }
-                        result.push('\'');
-                    }
-                    OdbcArgumentValue::Bytes(b) => {
-                        result.push_str("X'");
-                        for byte in b {
-                            result.push_str(&format!("{:02X}", byte));
-                        }
-                        result.push('\'');
-                    }
-                    OdbcArgumentValue::Null | OdbcArgumentValue::Phantom(_) => {
-                        result.push_str("NULL")
-                    }
-                }
-            } else {
-                result.push('?');
-            }
-        } else {
-            result.push(ch);
-        }
-    }
-    result
 }
