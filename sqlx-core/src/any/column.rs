@@ -34,6 +34,9 @@ pub(crate) enum AnyColumnKind {
 
     #[cfg(feature = "mssql")]
     Mssql(MssqlColumn),
+
+    #[cfg(feature = "snowflake")]
+    Snowflake(crate::snowflake::SnowflakeColumn),
 }
 
 impl Column for AnyColumn {
@@ -52,6 +55,9 @@ impl Column for AnyColumn {
 
             #[cfg(feature = "mssql")]
             AnyColumnKind::Mssql(row) => row.ordinal(),
+
+            #[cfg(feature = "snowflake")]
+            AnyColumnKind::Snowflake(row) => row.ordinal(),
         }
     }
 
@@ -68,6 +74,9 @@ impl Column for AnyColumn {
 
             #[cfg(feature = "mssql")]
             AnyColumnKind::Mssql(row) => row.name(),
+
+            #[cfg(feature = "snowflake")]
+            AnyColumnKind::Snowflake(row) => row.name(),
         }
     }
 

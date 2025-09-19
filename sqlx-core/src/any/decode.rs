@@ -53,13 +53,58 @@ macro_rules! impl_any_decode {
 // FIXME: Find a nice way to auto-generate the below or petition Rust to add support for #[cfg]
 //        to trait bounds
 
-// all 4
+// all 5
 
 #[cfg(all(
     feature = "postgres",
     feature = "mysql",
     feature = "mssql",
-    feature = "sqlite"
+    feature = "sqlite",
+    feature = "snowflake"
+))]
+pub trait AnyDecode<'r>:
+    Decode<'r, Postgres>
+    + Type<Postgres>
+    + Decode<'r, MySql>
+    + Type<MySql>
+    + Decode<'r, Mssql>
+    + Type<Mssql>
+    + Decode<'r, Sqlite>
+    + Type<Sqlite>
+    + Decode<'r, crate::snowflake::Snowflake>
+    + Type<crate::snowflake::Snowflake>
+{
+}
+
+#[cfg(all(
+    feature = "postgres",
+    feature = "mysql",
+    feature = "mssql",
+    feature = "sqlite",
+    feature = "snowflake"
+))]
+impl<'r, T> AnyDecode<'r> for T
+where
+    T: Decode<'r, Postgres>
+        + Type<Postgres>
+        + Decode<'r, MySql>
+        + Type<MySql>
+        + Decode<'r, Mssql>
+        + Type<Mssql>
+        + Decode<'r, Sqlite>
+        + Type<Sqlite>
+        + Decode<'r, crate::snowflake::Snowflake>
+        + Type<crate::snowflake::Snowflake>
+{
+}
+
+
+#[cfg(all(
+    feature = "postgres",
+    feature = "mysql",
+    feature = "mssql",
+    feature = "sqlite",
+    not(feature = "snowflake")
 ))]
 pub trait AnyDecode<'r>:
     Decode<'r, Postgres>
@@ -77,7 +122,8 @@ pub trait AnyDecode<'r>:
     feature = "postgres",
     feature = "mysql",
     feature = "mssql",
-    feature = "sqlite"
+    feature = "sqlite",
+    not(feature = "snowflake")
 ))]
 impl<'r, T> AnyDecode<'r> for T where
     T: Decode<'r, Postgres>
@@ -361,3 +407,15 @@ pub trait AnyDecode<'r>: Decode<'r, Sqlite> + Type<Sqlite> {}
     feature = "sqlite"
 ))]
 impl<'r, T> AnyDecode<'r> for T where T: Decode<'r, Sqlite> + Type<Sqlite> {}
+
+#[cfg(all(
+    not(any(feature = "mysql", feature = "mssql", feature = "postgres", feature = "sqlite")),
+    feature = "snowflake"
+))]
+pub trait AnyDecode<'r>: Decode<'r, crate::snowflake::Snowflake> + Type<crate::snowflake::Snowflake> {}
+
+#[cfg(all(
+    not(any(feature = "mysql", feature = "mssql", feature = "postgres", feature = "sqlite")),
+    feature = "snowflake"
+))]
+impl<'r, T> AnyDecode<'r> for T where T: Decode<'r, crate::snowflake::Snowflake> + Type<crate::snowflake::Snowflake> {}

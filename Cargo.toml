@@ -16,6 +16,7 @@ members = [
     "examples/postgres/mockable-todos",
     "examples/postgres/transaction",
     "examples/sqlite/todos",
+    "examples/snowflake/basic",
 ]
 
 [workspace.lints.rust]
@@ -58,6 +59,8 @@ offline = ["sqlx-macros/offline", "sqlx-core/offline"]
 # intended mainly for CI and docs
 all = ["tls", "all-databases", "all-types"]
 all-databases = ["mysql", "sqlite", "postgres", "mssql", "any"]
+# Note: Snowflake integration with Any driver requires additional systematic work
+# Use snowflake feature directly: --features snowflake,runtime-tokio-rustls
 all-types = [
     "bigdecimal",
     "decimal",
@@ -131,6 +134,7 @@ postgres = ["sqlx-core/postgres", "sqlx-macros/postgres"]
 mysql = ["sqlx-core/mysql", "sqlx-macros/mysql"]
 sqlite = ["sqlx-core/sqlite", "sqlx-macros/sqlite"]
 mssql = ["sqlx-core/mssql", "sqlx-macros/mssql"]
+snowflake = ["sqlx-core/snowflake", "sqlx-macros/snowflake"]
 
 # types
 bigdecimal = ["sqlx-core/bigdecimal", "sqlx-macros/bigdecimal"]
@@ -340,3 +344,17 @@ required-features = ["mssql"]
 name = "mssql-macros"
 path = "tests/mssql/macros.rs"
 required-features = ["mssql", "macros"]
+
+#
+# Snowflake
+#
+
+[[test]]
+name = "snowflake"
+path = "tests/snowflake/snowflake.rs"
+required-features = ["snowflake"]
+
+[[test]]
+name = "snowflake-integration"
+path = "tests/snowflake/integration.rs"
+required-features = ["snowflake"]

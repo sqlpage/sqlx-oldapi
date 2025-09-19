@@ -39,6 +39,9 @@ macro_rules! impl_any_encode {
 
                     #[cfg(feature = "sqlite")]
                     crate::any::arguments::AnyArgumentBufferKind::Sqlite(args) => args.add(self),
+
+                    #[cfg(feature = "snowflake")]
+                    crate::any::arguments::AnyArgumentBufferKind::Snowflake(args, _) => args.add(self),
                 }
 
                 // unused

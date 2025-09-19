@@ -78,6 +78,8 @@ pub mod value;
 #[cfg(feature = "migrate")]
 pub mod migrate;
 
+// TODO: Complete Snowflake integration in Any driver
+// The Any driver requires extensive conditional compilation updates
 #[cfg(all(
     any(
         feature = "postgres",
@@ -104,6 +106,10 @@ pub mod mysql;
 #[cfg(feature = "mssql")]
 #[cfg_attr(docsrs, doc(cfg(feature = "mssql")))]
 pub mod mssql;
+
+#[cfg(feature = "snowflake")]
+#[cfg_attr(docsrs, doc(cfg(feature = "snowflake")))]
+pub mod snowflake;
 
 // Implements test support with automatic DB management.
 #[cfg(feature = "migrate")]
