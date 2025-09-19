@@ -45,13 +45,23 @@ Adding support for a new database to SQLx is a significant undertaking that requ
 
 SQLx uses a trait-based architecture where each database implements a set of core traits:
 
-- `Database`: The main trait that defines all associated types for a database
-- `Connection`: Handles database connections and basic operations
-- `Row`, `Column`, `Value`, `TypeInfo`: Handle data representation
-- `Arguments`: Handle query parameter binding
-- `Statement`: Handle prepared statements
-- `QueryResult`: Handle query execution results
-- `TransactionManager`: Handle database transactions
+- **[`Database`](sqlx-core/src/database.rs)**: The main trait that defines all associated types for a database. This is the central trait that ties everything together and must be implemented for your database struct.
+
+- **[`Connection`](sqlx-core/src/connection.rs)**: Handles database connections and basic operations like connecting, closing, pinging, and transaction management. See examples: [PostgreSQL](sqlx-core/src/postgres/connection/mod.rs), [MySQL](sqlx-core/src/mysql/connection/mod.rs), [SQLite](sqlx-core/src/sqlite/connection/mod.rs).
+
+- **[`Row`](sqlx-core/src/row.rs)**: Represents a single row from a query result, providing access to column data by index or name. Examples: [PgRow](sqlx-core/src/postgres/row.rs), [MySqlRow](sqlx-core/src/mysql/row.rs).
+
+- **[`Column`](sqlx-core/src/column.rs)**: Provides metadata about columns (name, type, etc.). Examples: [PgColumn](sqlx-core/src/postgres/column.rs), [MySqlColumn](sqlx-core/src/mysql/column.rs).
+
+- **[`Value`](sqlx-core/src/value.rs) and [`ValueRef`](sqlx-core/src/value.rs)**: Handle owned and borrowed values from the database. Examples: [PgValue](sqlx-core/src/postgres/value.rs), [MySqlValue](sqlx-core/src/mysql/value.rs).
+
+- **[`TypeInfo`](sqlx-core/src/type_info.rs)**: Provides information about database types for the type system. Examples: [PgTypeInfo](sqlx-core/src/postgres/type_info.rs), [MySqlTypeInfo](sqlx-core/src/mysql/type_info.rs).
+
+- **[`Arguments`](sqlx-core/src/arguments.rs)**: Handles query parameter binding and encoding. Examples: [PgArguments](sqlx-core/src/postgres/arguments.rs), [MySqlArguments](sqlx-core/src/mysql/arguments.rs).
+
+- **[`Statement`](sqlx-core/src/statement.rs)**: Handles prepared statements and their metadata. Examples: [PgStatement](sqlx-core/src/postgres/statement.rs), [MySqlStatement](sqlx-core/src/mysql/statement.rs).
+
+- **Query execution**: Implement [`Executor`](sqlx-core/src/executor.rs) for your connection type to handle query execution and result streaming.
 
 ### Prerequisites
 
@@ -62,724 +72,145 @@ Before starting, ensure you have:
 
 ### Step 1: Initial Setup and Feature Configuration
 
-**1.1 Add the feature to the main `Cargo.toml`:**
+**1.1 Add feature flags to Cargo.toml files:**
 
-```toml
-[features]
-default = ["runtime-tokio-rustls", "migrate", "postgres", "mysql", "sqlite"]
-yourdb = ["sqlx-core/yourdb", "sqlx-macros/yourdb"]
+Add your database feature to the main `Cargo.toml`, `sqlx-core/Cargo.toml`, and `sqlx-macros/Cargo.toml`. Follow the pattern used by existing databases like `postgres` or `mysql`. Include any native client library dependencies as optional dependencies.
 
-# Add to the all-features list
-all-features = ["...", "yourdb"]
-```
-
-**1.2 Update `sqlx-core/Cargo.toml`:**
-
-```toml
-[features]
-yourdb = ["dep:yourdb-native-client"]
-
-[dependencies]
-# Add your database's client library
-yourdb-native-client = { version = "1.0", optional = true }
-```
-
-**1.3 Update `sqlx-macros/Cargo.toml`:**
-
-```toml
-[features]
-yourdb = ["sqlx-core/yourdb"]
-```
-
-**1.4 Create the basic module structure:**
-
+**1.2 Create the basic module structure:**
 ```bash
 mkdir -p sqlx-core/src/yourdb
 ```
 
-**Test at this stage:** Ensure the project compiles with your new feature:
-```bash
-cargo check --features yourdb
-```
+**1.3 Add the module to `sqlx-core/src/lib.rs` and main `src/lib.rs`** with appropriate feature gates.
 
-### Step 2: Minimal Database Implementation
+**Test:** `cargo check --features yourdb`
 
-**2.1 Create `sqlx-core/src/yourdb/mod.rs`:**
+### Step 2: Database Struct and Core Types
 
-```rust
-//! **YourDB** database driver.
+**2.1 Create your database struct** that will implement the [`Database`](sqlx-core/src/database.rs) trait. Look at [Postgres](sqlx-core/src/postgres/database.rs), [MySQL](sqlx-core/src/mysql/database.rs), or [SQLite](sqlx-core/src/sqlite/database.rs) for examples.
 
-// Start with just the database struct
-mod database;
-
-pub use database::YourDb;
+**2.2 Implement core types:**
+- **TypeInfo**: Represents your database's type system. Study existing implementations to understand how to map database types to Rust types.
+- **Value and ValueRef**: Handle data storage and retrieval. These work with your database's binary or text protocol.
+- **DatabaseError**: Convert your database's native errors to SQLx's error system.
 
-/// An alias for [`Pool`][crate::pool::Pool], specialized for YourDB.
-pub type YourDbPool = crate::pool::Pool<YourDb>;
-```
+**Test:** `cargo check --features yourdb`
 
-**2.2 Create `sqlx-core/src/yourdb/database.rs`:**
-
-```rust
-/// YourDB database driver.
-#[derive(Debug)]
-pub struct YourDb;
-
-// We'll implement the Database trait in later steps
-```
-
-**2.3 Add the module to `sqlx-core/src/lib.rs`:**
-
-```rust
-#[cfg(feature = "yourdb")]
-pub mod yourdb;
-```
-
-**2.4 Add to main `src/lib.rs`:**
-
-```rust
-#[cfg(feature = "yourdb")]
-#[cfg_attr(docsrs, doc(cfg(feature = "yourdb")))]
-pub use sqlx_core::yourdb::{self, YourDb, YourDbPool};
-```
-
-**Test at this stage:**
-```bash
-cargo check --features yourdb
-```
-
-### Step 3: Type System Foundation
-
-**3.1 Create the core types (add these to `yourdb/mod.rs`):**
-
-```rust
-mod type_info;
-mod value;
-mod error;
-
-pub use type_info::YourDbTypeInfo;
-pub use value::{YourDbValue, YourDbValueRef};
-pub use error::YourDbDatabaseError;
-```
-
-**3.2 Create `sqlx-core/src/yourdb/type_info.rs`:**
-
-```rust
-use std::fmt::{self, Display, Formatter};
-use crate::type_info::TypeInfo;
-
-/// Type information for YourDB.
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct YourDbTypeInfo {
-    pub(crate) name: String,
-    pub(crate) id: u32, // or whatever your DB uses for type IDs
-}
-
-impl Display for YourDbTypeInfo {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.name)
-    }
-}
-
-impl TypeInfo for YourDbTypeInfo {
-    fn is_null(&self) -> bool {
-        false // Implement based on your DB's null handling
-    }
-
-    fn name(&self) -> &str {
-        &self.name
-    }
-}
-```
-
-**3.3 Create `sqlx-core/src/yourdb/value.rs`:**
-
-```rust
-use crate::database::HasValueRef;
-use crate::value::{Value, ValueRef};
-use crate::yourdb::{YourDb, YourDbTypeInfo};
-
-/// An owned value from YourDB.
-#[derive(Debug, Clone)]
-pub struct YourDbValue {
-    pub(crate) type_info: YourDbTypeInfo,
-    pub(crate) data: Vec<u8>, // Adjust based on your needs
-}
-
-/// A borrowed value from YourDB.
-#[derive(Debug)]
-pub struct YourDbValueRef<'r> {
-    pub(crate) type_info: &'r YourDbTypeInfo,
-    pub(crate) data: &'r [u8], // Adjust based on your needs
-}
-
-impl Value for YourDbValue {
-    type Database = YourDb;
-
-    fn as_ref(&self) -> <Self::Database as HasValueRef<'_>>::ValueRef {
-        YourDbValueRef {
-            type_info: &self.type_info,
-            data: &self.data,
-        }
-    }
-
-    fn type_info(&self) -> std::borrow::Cow<'_, YourDbTypeInfo> {
-        std::borrow::Cow::Borrowed(&self.type_info)
-    }
-
-    fn is_null(&self) -> bool {
-        // Implement based on your DB's null representation
-        self.data.is_empty() // Placeholder
-    }
-}
-
-impl<'r> ValueRef<'r> for YourDbValueRef<'r> {
-    type Database = YourDb;
-
-    fn to_owned(&self) -> YourDbValue {
-        YourDbValue {
-            type_info: self.type_info.clone(),
-            data: self.data.to_vec(),
-        }
-    }
-
-    fn type_info(&self) -> std::borrow::Cow<'_, YourDbTypeInfo> {
-        std::borrow::Cow::Borrowed(self.type_info)
-    }
-
-    fn is_null(&self) -> bool {
-        // Implement based on your DB's null representation
-        self.data.is_empty() // Placeholder
-    }
-}
-```
-
-**3.4 Create `sqlx-core/src/yourdb/error.rs`:**
-
-```rust
-use crate::error::DatabaseError;
-use std::borrow::Cow;
-use std::fmt::{self, Display, Formatter};
-
-/// An error returned from YourDB.
-#[derive(Debug)]
-pub struct YourDbDatabaseError {
-    message: String,
-    code: Option<String>,
-}
-
-impl Display for YourDbDatabaseError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.message)
-    }
-}
-
-impl std::error::Error for YourDbDatabaseError {}
-
-impl DatabaseError for YourDbDatabaseError {
-    fn message(&self) -> &str {
-        &self.message
-    }
-
-    fn code(&self) -> Option<Cow<'_, str>> {
-        self.code.as_ref().map(|c| Cow::Borrowed(c.as_str()))
-    }
-
-    // Implement other methods as needed for your database
-}
-```
-
-**Test at this stage:**
-```bash
-cargo check --features yourdb
-```
-
-### Step 4: Database Trait Implementation
-
-**4.1 Update `sqlx-core/src/yourdb/database.rs`:**
-
-```rust
-use crate::database::{Database, HasArguments, HasStatement, HasValueRef};
-use crate::yourdb::{YourDbValue, YourDbValueRef, YourDbTypeInfo};
-
-/// YourDB database driver.
-#[derive(Debug)]
-pub struct YourDb;
-
-// We'll add the other associated types as we implement them
-impl<'r> HasValueRef<'r> for YourDb {
-    type Database = YourDb;
-    type ValueRef = YourDbValueRef<'r>;
-}
-
-// Placeholder implementations - we'll complete these in later steps
-pub struct YourDbConnection;
-pub struct YourDbTransactionManager;
-pub struct YourDbRow;
-pub struct YourDbQueryResult;
-pub struct YourDbColumn;
-pub struct YourDbArguments<'q>(std::marker::PhantomData<&'q ()>);
-pub struct YourDbStatement<'q>(std::marker::PhantomData<&'q ()>);
-pub type YourDbArgumentBuffer = Vec<u8>; // Adjust as needed
-
-impl Database for YourDb {
-    type Connection = YourDbConnection;
-    type TransactionManager = YourDbTransactionManager;
-    type Row = YourDbRow;
-    type QueryResult = YourDbQueryResult;
-    type Column = YourDbColumn;
-    type TypeInfo = YourDbTypeInfo;
-    type Value = YourDbValue;
-}
-
-impl HasArguments<'_> for YourDb {
-    type Database = YourDb;
-    type Arguments = YourDbArguments<'_>;
-    type ArgumentBuffer = YourDbArgumentBuffer;
-}
-
-impl<'q> HasStatement<'q> for YourDb {
-    type Database = YourDb;
-    type Statement = YourDbStatement<'q>;
-}
-```
-
-**Test at this stage:**
-```bash
-cargo check --features yourdb
-```
-
-### Step 5: Connection Implementation (Core Networking)
-
-**5.1 Create `sqlx-core/src/yourdb/connection/mod.rs`:**
-
-```rust
-use crate::connection::{Connection, ConnectOptions, LogSettings};
-use crate::error::Error;
-use crate::transaction::Transaction;
-use crate::yourdb::{YourDb, YourDbConnectOptions};
-use futures_core::future::BoxFuture;
-use std::fmt::{self, Debug, Formatter};
-
-pub struct YourDbConnection {
-    // Add your connection fields here
-    // For example: socket, stream, buffer, etc.
-    _placeholder: (),
-}
-
-impl Debug for YourDbConnection {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.debug_struct("YourDbConnection").finish()
-    }
-}
-
-impl Connection for YourDbConnection {
-    type Database = YourDb;
-    type Options = YourDbConnectOptions;
-
-    fn close(self) -> BoxFuture<'static, Result<(), Error>> {
-        Box::pin(async move {
-            // Implement graceful connection closing
-            Ok(())
-        })
-    }
-
-    fn close_hard(self) -> BoxFuture<'static, Result<(), Error>> {
-        Box::pin(async move {
-            // Implement immediate connection closing
-            Ok(())
-        })
-    }
-
-    fn ping(&mut self) -> BoxFuture<'_, Result<(), Error>> {
-        Box::pin(async move {
-            // Implement connection health check
-            // For now, just return Ok
-            Ok(())
-        })
-    }
-
-    fn begin(&mut self) -> BoxFuture<'_, Result<Transaction<'_, Self::Database>, Error>>
-    where
-        Self: Sized,
-    {
-        Transaction::begin(self)
-    }
-
-    fn flush(&mut self) -> BoxFuture<'_, Result<(), Error>> {
-        Box::pin(async move {
-            // Implement buffer flushing
-            Ok(())
-        })
-    }
-
-    fn should_flush(&self) -> bool {
-        // Return true if buffers need flushing
-        false
-    }
-}
-
-// Placeholder for connection options
-pub struct YourDbConnectOptions {
-    pub(crate) log_settings: LogSettings,
-}
-
-impl Debug for YourDbConnectOptions {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.debug_struct("YourDbConnectOptions").finish()
-    }
-}
-
-impl Clone for YourDbConnectOptions {
-    fn clone(&self) -> Self {
-        Self {
-            log_settings: self.log_settings.clone(),
-        }
-    }
-}
-
-impl std::str::FromStr for YourDbConnectOptions {
-    type Err = Error;
-
-    fn from_str(_s: &str) -> Result<Self, Self::Err> {
-        // Parse connection string - implement based on your DB's URL format
-        Ok(Self {
-            log_settings: LogSettings::default(),
-        })
-    }
-}
-
-impl ConnectOptions for YourDbConnectOptions {
-    type Connection = YourDbConnection;
-
-    fn connect(&self) -> BoxFuture<'_, Result<Self::Connection, Error>>
-    where
-        Self::Connection: Sized,
-    {
-        Box::pin(async move {
-            // Implement actual connection logic
-            // For now, return a placeholder
-            Ok(YourDbConnection {
-                _placeholder: (),
-            })
-        })
-    }
-
-    fn log_statements(&mut self, level: log::LevelFilter) -> &mut Self {
-        self.log_settings.log_statements(level);
-        self
-    }
-
-    fn log_slow_statements(&mut self, level: log::LevelFilter, duration: std::time::Duration) -> &mut Self {
-        self.log_settings.log_slow_statements(level, duration);
-        self
-    }
-}
-```
-
-**5.2 Update `yourdb/mod.rs` to include connection:**
-
-```rust
-mod connection;
-pub use connection::{YourDbConnection, YourDbConnectOptions};
-```
-
-**5.3 Update `yourdb/database.rs` to remove the placeholder:**
-
-```rust
-// Remove: pub struct YourDbConnection;
-// It's now imported from the connection module
-```
-
-**Test at this stage:**
-```bash
-cargo check --features yourdb
-# Try to create a simple connection test
-```
-
-### Step 6: Basic Type Support
-
-**6.1 Create `sqlx-core/src/yourdb/types/mod.rs`:**
-
-```rust
-//! Conversions between Rust and YourDB types.
-
-mod str;
-
-// Re-export the types for easy access
-pub use str::*;
-```
-
-**6.2 Create `sqlx-core/src/yourdb/types/str.rs`:**
-
-```rust
-use crate::decode::Decode;
-use crate::encode::{Encode, IsNull};
-use crate::error::BoxDynError;
-use crate::types::Type;
-use crate::yourdb::{YourDb, YourDbArgumentBuffer, YourDbTypeInfo, YourDbValueRef};
-
-impl Type<YourDb> for String {
-    fn type_info() -> YourDbTypeInfo {
-        YourDbTypeInfo {
-            name: "TEXT".to_string(), // Adjust for your DB
-            id: 1, // Use appropriate type ID
-        }
-    }
-
-    fn compatible(ty: &YourDbTypeInfo) -> bool {
-        ty.name == "TEXT" || ty.name == "VARCHAR" // Adjust for your DB
-    }
-}
-
-impl Type<YourDb> for str {
-    fn type_info() -> YourDbTypeInfo {
-        String::type_info()
-    }
-
-    fn compatible(ty: &YourDbTypeInfo) -> bool {
-        String::compatible(ty)
-    }
-}
-
-impl<'r> Decode<'r, YourDb> for String {
-    fn decode(value: YourDbValueRef<'r>) -> Result<Self, BoxDynError> {
-        // Implement decoding from your database format
-        // This is a placeholder - adjust for your protocol
-        Ok(String::from_utf8(value.data.to_vec())?)
-    }
-}
-
-impl<'r> Decode<'r, YourDb> for &'r str {
-    fn decode(value: YourDbValueRef<'r>) -> Result<Self, BoxDynError> {
-        // Implement decoding from your database format
-        Ok(std::str::from_utf8(value.data)?)
-    }
-}
-
-impl<'q> Encode<'q, YourDb> for String {
-    fn encode_by_ref(&self, buf: &mut YourDbArgumentBuffer) -> IsNull {
-        buf.extend_from_slice(self.as_bytes());
-        IsNull::No
-    }
-}
-
-impl<'q> Encode<'q, YourDb> for &'q str {
-    fn encode_by_ref(&self, buf: &mut YourDbArgumentBuffer) -> IsNull {
-        buf.extend_from_slice(self.as_bytes());
-        IsNull::No
-    }
-}
-```
-
-**Test at this stage:** Create a simple test to ensure type conversions work:
-
-```rust
-// Add to yourdb/mod.rs
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::types::Type;
-
-    #[test]
-    fn test_string_type_info() {
-        let type_info = String::type_info();
-        assert_eq!(type_info.name, "TEXT");
-    }
-}
-```
-
-Run: `cargo test --features yourdb yourdb::tests`
-
-### Step 7: Arguments and Query Execution
-
-**7.1 Create `sqlx-core/src/yourdb/arguments.rs`:**
-
-```rust
-use crate::arguments::Arguments;
-use crate::encode::{Encode, IsNull};
-use crate::types::Type;
-use crate::yourdb::YourDb;
-
-pub type YourDbArgumentBuffer = Vec<u8>;
-
-#[derive(Debug, Default)]
-pub struct YourDbArguments<'q> {
-    buffer: YourDbArgumentBuffer,
-    _phantom: std::marker::PhantomData<&'q ()>,
-}
-
-impl<'q> Arguments<'q> for YourDbArguments<'q> {
-    type Database = YourDb;
-
-    fn reserve(&mut self, additional: usize, size: usize) {
-        self.buffer.reserve(size);
-    }
-
-    fn add<T>(&mut self, value: T)
-    where
-        T: 'q + Send + Encode<'q, Self::Database> + Type<Self::Database>,
-    {
-        let _ = value.encode_by_ref(&mut self.buffer);
-    }
-}
-```
-
-**7.2 Update `yourdb/mod.rs`:**
-
-```rust
-mod arguments;
-pub use arguments::{YourDbArguments, YourDbArgumentBuffer};
-```
-
-**7.3 Create basic executor functionality in `connection/executor.rs`:**
-
-```rust
-use crate::executor::Executor;
-use crate::yourdb::{YourDbConnection, YourDbRow, YourDb};
-use futures_core::stream::BoxStream;
-use futures_util::stream;
-use either::Either;
-use crate::error::Error;
-
-impl<'c> Executor<'c> for &'c mut YourDbConnection {
-    type Database = YourDb;
-
-    fn fetch_many<'e, 'q: 'e, E>(
-        self,
-        _query: E,
-    ) -> BoxStream<'e, Result<Either<<Self::Database as crate::database::Database>::QueryResult, <Self::Database as crate::database::Database>::Row>, Error>>
-    where
-        'c: 'e,
-        E: crate::executor::Execute<'q, Self::Database> + 'q,
-    {
-        // Placeholder implementation
-        Box::pin(stream::empty())
-    }
-}
-```
-
-**Test at this stage:** Test basic argument handling:
-
-```rust
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::arguments::Arguments;
-
-    #[test]
-    fn test_arguments() {
-        let mut args = YourDbArguments::default();
-        args.add("test");
-        // Verify the argument was added correctly
-    }
-}
-```
-
-### Step 8: CI and Testing Infrastructure
-
-**8.1 Update `.github/workflows/ci.yml`:**
-
-Add your database to the test matrix:
-
-```yaml
-strategy:
-  matrix:
-    include:
-      # ... existing entries
-      - runtime: tokio
-        database: yourdb
-        os: ubuntu-20.04
-        tls: native-tls
-
-# Add a job for your database
-test-yourdb:
-  name: YourDB
-  runs-on: ubuntu-20.04
-  services:
-    yourdb:
-      image: yourdb/yourdb:latest  # Use appropriate image
-      ports:
-        - 5432:5432  # Use appropriate port
-      env:
-        YOURDB_PASSWORD: password
-      options: >-
-        --health-cmd "yourdb-health-check"
-        --health-interval 10s
-        --health-timeout 5s
-        --health-retries 5
-
-  steps:
-    - uses: actions/checkout@v2
-    - uses: actions-rs/toolchain@v1
-      with:
-        profile: minimal
-        toolchain: stable
-        override: true
-    - uses: actions-rs/cargo@v1
-      with:
-        command: test
-        args: --features yourdb
-      env:
-        DATABASE_URL: yourdb://user:password@localhost/test
-```
-
-**8.2 Create `tests/yourdb/mod.rs`:**
-
-```rust
-use sqlx::YourDb;
-use sqlx_test::new;
-
-#[sqlx_macros::test]
-async fn it_connects() -> anyhow::Result<()> {
-    let mut conn = new::<YourDb>().await?;
-    
-    // Test basic connectivity
-    sqlx::query("SELECT 1").execute(&mut conn).await?;
-    
-    Ok(())
-}
-```
-
-### Step 9: Complete the Implementation
-
-Now you need to implement the remaining components in order:
-
-**9.1 Row, Column, and QueryResult:**
-- Implement data retrieval and column metadata
-- Test with simple SELECT queries
-
-**9.2 Statement preparation:**
-- Implement prepared statements if your DB supports them
-- Test with parameterized queries
-
-**9.3 Transaction management:**
-- Implement BEGIN, COMMIT, ROLLBACK
-- Test transaction behavior
-
-**9.4 Additional type support:**
-- Add support for integers, floats, dates, etc.
-- Test type conversions thoroughly
-
-**9.5 Integration with `Any` driver:**
-- Add your database to the `Any` enum and implementations
-- Test runtime database selection
-
-### Step 10: Documentation and Polish
-
-**10.1 Add comprehensive documentation:**
-- Document all public APIs
-- Add examples for common use cases
-- Update the main README
-
-**10.2 Create examples:**
-- Basic connection and querying
-- Transaction usage
-- Type conversions
-
-**10.3 Performance testing:**
-- Benchmark against native drivers
-- Optimize hot paths
+### Step 3: Connection Implementation
+
+**3.1 Implement [`Connection`](sqlx-core/src/connection.rs)** for your database. This handles:
+- Connection establishment and URL parsing ([`ConnectOptions`](sqlx-core/src/connection.rs))
+- Connection lifecycle (open, close, ping)
+- Basic connection management
+
+Study the connection implementations in existing drivers, particularly how they handle:
+- Network protocols (see [PostgreSQL stream handling](sqlx-core/src/postgres/connection/stream.rs))
+- Authentication (see [MySQL auth](sqlx-core/src/mysql/connection/auth.rs))
+- Connection options parsing (see [PostgreSQL options](sqlx-core/src/postgres/options/mod.rs))
+
+**Test:** Basic connection establishment
+
+### Step 4: Type System Integration
+
+**4.1 Implement [`Type`](sqlx-core/src/types/mod.rs), [`Encode`](sqlx-core/src/encode.rs), and [`Decode`](sqlx-core/src/decode.rs)** traits for basic Rust types.
+
+Start with simple types like strings and integers. Look at existing type implementations:
+- [PostgreSQL types](sqlx-core/src/postgres/types/)
+- [MySQL types](sqlx-core/src/mysql/types/)
+- [SQLite types](sqlx-core/src/sqlite/types/)
+
+Each type needs:
+- `Type` implementation to provide type metadata
+- `Encode` implementation to convert Rust values to database format
+- `Decode` implementation to convert database values to Rust types
+
+**Test:** Type conversion unit tests
+
+### Step 5: Query Arguments
+
+**5.1 Implement [`Arguments`](sqlx-core/src/arguments.rs)** for your database. This handles parameter binding in prepared statements.
+
+Study how existing databases handle parameter encoding:
+- [PostgreSQL arguments](sqlx-core/src/postgres/arguments.rs) (binary protocol)
+- [MySQL arguments](sqlx-core/src/mysql/arguments.rs) (binary protocol)
+- [SQLite arguments](sqlx-core/src/sqlite/arguments.rs) (uses native SQLite binding)
+
+**Test:** Parameter binding and encoding
+
+### Step 6: Query Execution
+
+**6.1 Implement [`Executor`](sqlx-core/src/executor.rs)** for your connection type. This is where queries are actually sent to the database and results are processed.
+
+Look at executor implementations:
+- [PostgreSQL executor](sqlx-core/src/postgres/connection/executor.rs)
+- [MySQL executor](sqlx-core/src/mysql/connection/executor.rs)
+- [SQLite executor](sqlx-core/src/sqlite/connection/executor.rs)
+
+**6.2 Implement Row, Column, and QueryResult types** to handle query results and metadata.
+
+**Test:** Basic query execution (`SELECT 1`, simple queries)
+
+### Step 7: Statement Preparation
+
+**7.1 Implement [`Statement`](sqlx-core/src/statement.rs)** if your database supports prepared statements.
+
+Study existing statement implementations to understand:
+- Statement preparation and caching
+- Parameter metadata
+- Column metadata
+
+**Test:** Prepared statement execution with parameters
+
+### Step 8: Transaction Management
+
+**8.1 Implement transaction support** by implementing the transaction-related methods in your `Connection` and creating a `TransactionManager`.
+
+Look at existing transaction implementations:
+- [PostgreSQL transactions](sqlx-core/src/postgres/transaction.rs)
+- [MySQL transactions](sqlx-core/src/mysql/transaction.rs)
+
+**Test:** BEGIN, COMMIT, ROLLBACK operations
+
+### Step 9: Integration with Any Driver
+
+**9.1 Add your database to the [`Any`](sqlx-core/src/any/) driver** to support runtime database selection.
+
+This involves:
+- Adding your database to [`AnyKind`](sqlx-core/src/any/kind.rs)
+- Adding connection type to [`AnyConnectionKind`](sqlx-core/src/any/connection/mod.rs)
+- Updating delegation macros in Any implementations
+- Adding to other Any components (arguments, values, etc.)
+
+Study how existing databases are integrated into the Any driver.
+
+**Test:** Runtime database selection with Any driver
+
+### Step 10: CI and Testing Infrastructure
+
+**10.1 Add CI support** by updating `.github/workflows/ci.yml` with:
+- Your database service in GitHub Actions
+- Test job for your database
+- Appropriate environment variables and health checks
+
+**10.2 Create integration tests** in `tests/yourdb/` following the pattern of existing database tests.
+
+**10.3 Add testing utilities** by implementing [`TestSupport`](sqlx-core/src/testing/mod.rs) for your database.
+
+### Step 11: Advanced Features (Optional)
+
+**11.1 Migration support**: Implement [`MigrateDatabase`](sqlx-core/src/migrate/migrate.rs) if your database supports schema migrations.
+
+**11.2 Listen/Notify**: If your database supports real-time notifications, implement listener functionality (see [PostgreSQL listener](sqlx-core/src/postgres/listener.rs)).
+
+**11.3 Additional type support**: Add support for database-specific types, arrays, JSON, etc.
+
+### Step 12: Documentation and Examples
+
+**12.1 Add comprehensive documentation** to all public APIs with examples.
+
+**12.2 Create examples** in `examples/yourdb/` showing common usage patterns.
+
+**12.3 Update the main README** to include your database in the supported databases list.
 
 ### Testing Strategy
 
@@ -787,19 +218,32 @@ At each step, create tests that verify:
 
 1. **Compilation**: `cargo check --features yourdb`
 2. **Unit tests**: Test individual components in isolation
-3. **Integration tests**: Test database connectivity and operations
+3. **Integration tests**: Test database connectivity and operations  
 4. **Type safety**: Ensure compile-time type checking works
 5. **Runtime behavior**: Test actual database operations
 
-### Common Implementation Patterns
+### Implementation Tips
 
-- **Start simple**: Begin with basic string queries before adding prepared statements
-- **Incremental testing**: Test each component as you build it
-- **Error handling**: Convert database errors to SQLx errors consistently
-- **Memory safety**: Be careful with lifetimes, especially in async contexts
-- **Protocol efficiency**: Use binary protocols when possible for performance
+- **Study existing implementations**: The PostgreSQL, MySQL, and SQLite drivers provide excellent examples of different approaches (network protocols vs embedded databases, binary vs text protocols, etc.).
 
-This progressive approach ensures you can test and validate each component before moving to the next, making the development process more manageable and less error-prone.
+- **Start simple**: Begin with basic string queries before adding prepared statements, transactions, and complex types.
+
+- **Incremental development**: Test each component thoroughly before moving to the next.
+
+- **Protocol efficiency**: Use binary protocols when available for better performance.
+
+- **Error handling**: Provide clear error messages and proper error type conversions.
+
+- **Memory safety**: Pay careful attention to lifetimes, especially in async contexts.
+
+### Common Patterns
+
+- **Module organization**: Follow the established pattern of separate modules for connection, types, arguments, etc.
+- **Feature gating**: Ensure all database-specific code is behind feature flags.
+- **Async patterns**: Use `BoxFuture` for async trait methods and `BoxStream` for result streaming.
+- **Protocol handling**: Implement proper buffering and message framing for network protocols.
+
+This progressive approach ensures you can test and validate each component before moving to the next, making the development process manageable and reducing the likelihood of errors.
 
 ## Communication
 
