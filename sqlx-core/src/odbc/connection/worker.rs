@@ -5,7 +5,9 @@ use futures_channel::oneshot;
 use futures_intrusive::sync::Mutex;
 
 use crate::error::Error;
-use crate::odbc::{OdbcArgumentValue, OdbcColumn, OdbcConnectOptions, OdbcQueryResult, OdbcRow, OdbcTypeInfo};
+use crate::odbc::{
+    OdbcArgumentValue, OdbcColumn, OdbcConnectOptions, OdbcQueryResult, OdbcRow, OdbcTypeInfo,
+};
 use either::Either;
 use odbc_api::Cursor;
 
@@ -232,40 +234,70 @@ impl ConnectionWorker {
                                                 });
                                             }
                                         }
-                                    while let Ok(Some(mut row)) = cursor.next_row() {
+                                        while let Ok(Some(mut row)) = cursor.next_row() {
                                             let mut values: Vec<(OdbcTypeInfo, Option<Vec<u8>>)> =
                                                 Vec::with_capacity(columns.len());
                                             for i in 1..=columns.len() {
                                                 let mut buf = Vec::new();
-                                            // Try text first, then fallback to binary, then numeric
-                                            if let Ok(true) = row.get_text(i as u16, &mut buf) {
-                                                values.push((OdbcTypeInfo { name: "TEXT".into(), is_null: false }, Some(buf)));
-                                            } else if let Ok(false) = row.get_text(i as u16, &mut buf) {
-                                                values.push((OdbcTypeInfo { name: "TEXT".into(), is_null: true }, None));
-                                            } else if let Ok(bytes) = row.get_binary(i as u16) {
-                                                values.push((OdbcTypeInfo { name: "BLOB".into(), is_null: false }, Some(bytes.unwrap_or_default())));
-                                            } else if let Ok(opt) = row.get_data::<i64>(i as u16) {
-                                                if let Some(num) = opt {
-                                                    values.push((OdbcTypeInfo { name: "INT".into(), is_null: false }, Some(num.to_string().into_bytes())));
+                                                // Try text first, then fallback to binary, then numeric
+                                                if let Ok(true) = row.get_text(i as u16, &mut buf) {
+                                                    values.push((
+                                                        OdbcTypeInfo {
+                                                            name: "TEXT".into(),
+                                                            is_null: false,
+                                                        },
+                                                        Some(buf),
+                                                    ));
+                                                } else if let Ok(false) =
+                                                    row.get_text(i as u16, &mut buf)
+                                                {
+                                                    values.push((
+                                                        OdbcTypeInfo {
+                                                            name: "TEXT".into(),
+                                                            is_null: true,
+                                                        },
+                                                        None,
+                                                    ));
                                                 } else {
-                                                    values.push((OdbcTypeInfo { name: "INT".into(), is_null: true }, None));
+                                                    let mut bin = Vec::new();
+                                                    match row.get_binary(i as u16, &mut bin) {
+                                                        Ok(true) => values.push((
+                                                            OdbcTypeInfo {
+                                                                name: "BLOB".into(),
+                                                                is_null: false,
+                                                            },
+                                                            Some(bin),
+                                                        )),
+                                                        Ok(false) => values.push((
+                                                            OdbcTypeInfo {
+                                                                name: "BLOB".into(),
+                                                                is_null: true,
+                                                            },
+                                                            None,
+                                                        )),
+                                                        Err(_) => values.push((
+                                                            OdbcTypeInfo {
+                                                                name: "UNKNOWN".into(),
+                                                                is_null: true,
+                                                            },
+                                                            None,
+                                                        )),
+                                                    }
                                                 }
-                                            } else if let Ok(opt) = row.get_data::<f64>(i as u16) {
-                                                if let Some(num) = opt {
-                                                    values.push((OdbcTypeInfo { name: "DOUBLE".into(), is_null: false }, Some(num.to_string().into_bytes())));
-                                                } else {
-                                                    values.push((OdbcTypeInfo { name: "DOUBLE".into(), is_null: true }, None));
-                                                }
-                                            } else {
-                                                values.push((OdbcTypeInfo { name: "UNKNOWN".into(), is_null: true }, None));
                                             }
-                                            }
-                                            let _ = tx.send(Ok(Either::Right(OdbcRow { columns: columns.clone(), values })));
+                                            let _ = tx.send(Ok(Either::Right(OdbcRow {
+                                                columns: columns.clone(),
+                                                values,
+                                            })));
                                         }
-                                        let _ = tx.send(Ok(Either::Left(OdbcQueryResult { rows_affected: 0 })));
+                                        let _ = tx.send(Ok(Either::Left(OdbcQueryResult {
+                                            rows_affected: 0,
+                                        })));
                                     }
                                     Ok(None) => {
-                                        let _ = tx.send(Ok(Either::Left(OdbcQueryResult { rows_affected: 0 })));
+                                        let _ = tx.send(Ok(Either::Left(OdbcQueryResult {
+                                            rows_affected: 0,
+                                        })));
                                     }
                                     Err(e) => {
                                         let _ = tx.send(Err(Error::from(e)));

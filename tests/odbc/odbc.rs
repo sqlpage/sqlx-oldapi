@@ -5,6 +5,7 @@ use sqlx_oldapi::Connection;
 use sqlx_oldapi::Executor;
 use sqlx_oldapi::Row;
 use sqlx_oldapi::Statement;
+use sqlx_oldapi::Value;
 use sqlx_oldapi::ValueRef;
 use sqlx_test::new;
 
@@ -34,13 +35,12 @@ async fn it_streams_row_and_metadata() -> anyhow::Result<()> {
         assert_eq!(row.column(0).name(), "n");
         assert_eq!(row.column(1).name(), "s");
         assert_eq!(row.column(2).name(), "z");
-        // assert values
-        let v_n = row.try_get_raw(0)?; // comes as text cell, but non-null
-        let v_s = row.try_get_raw(1)?;
-        let v_z = row.try_get_raw(2)?;
-        assert!(!v_n.is_null());
-        assert!(!v_s.is_null());
-        assert!(v_z.is_null());
+        let vn = row.try_get_raw(0)?.to_owned();
+        let vs = row.try_get_raw(1)?.to_owned();
+        let vz = row.try_get_raw(2)?.to_owned();
+        assert_eq!(vn.decode::<i64>(), 42);
+        assert_eq!(vs.decode::<String>(), "hi".to_string());
+        assert!(vz.is_null());
         saw_row = true;
     }
     assert!(saw_row);
@@ -52,11 +52,11 @@ async fn it_streams_multiple_rows() -> anyhow::Result<()> {
     let mut conn = new::<Odbc>().await?;
 
     let mut s = conn.fetch("SELECT 1 AS v UNION ALL SELECT 2 UNION ALL SELECT 3");
-    let mut row_count = 0;
-    while let Some(_row) = s.try_next().await? {
-        row_count += 1;
+    let mut vals = Vec::new();
+    while let Some(row) = s.try_next().await? {
+        vals.push(row.try_get_raw(0)?.to_owned().decode::<i64>());
     }
-    assert_eq!(row_count, 3);
+    assert_eq!(vals, vec![1, 2, 3]);
     Ok(())
 }
 
@@ -78,11 +78,10 @@ async fn it_reports_null_and_non_null_values() -> anyhow::Result<()> {
     let mut s = conn.fetch("SELECT 'text' AS s, NULL AS z");
     let row = s.try_next().await?.expect("row expected");
 
-    let v0 = row.try_get_raw(0)?; // 's'
-    let v1 = row.try_get_raw(1)?; // 'z'
-
-    assert!(!v0.is_null());
-    assert!(v1.is_null());
+    let s_val = row.try_get_raw(0)?.to_owned().decode::<String>();
+    let z_val = row.try_get_raw(1)?.to_owned();
+    assert_eq!(s_val, "text");
+    assert!(z_val.is_null());
     Ok(())
 }
 
@@ -96,12 +95,12 @@ async fn it_handles_basic_numeric_and_text_expressions() -> anyhow::Result<()> {
     assert_eq!(row.column(1).name(), "f");
     assert_eq!(row.column(2).name(), "t");
 
-    let i = row.try_get_raw(0)?;
-    let f = row.try_get_raw(1)?;
-    let t = row.try_get_raw(2)?;
-    assert!(!i.is_null());
-    assert!(!f.is_null());
-    assert!(!t.is_null());
+    let i = row.try_get_raw(0)?.to_owned().decode::<i64>();
+    let f = row.try_get_raw(1)?.to_owned().decode::<f64>();
+    let t = row.try_get_raw(2)?.to_owned().decode::<String>();
+    assert_eq!(i, 1);
+    assert_eq!(f, 1.5);
+    assert_eq!(t, "hello");
     Ok(())
 }
 
@@ -121,6 +120,8 @@ async fn it_can_prepare_then_query_without_params() -> anyhow::Result<()> {
     let stmt = (&mut conn).prepare("SELECT 7 AS seven").await?;
     let row = stmt.query().fetch_one(&mut conn).await?;
     assert_eq!(row.column(0).name(), "seven");
+    let v = row.try_get_raw(0)?.to_owned().decode::<i64>();
+    assert_eq!(v, 7);
     Ok(())
 }
 
@@ -128,9 +129,7 @@ async fn it_can_prepare_then_query_without_params() -> anyhow::Result<()> {
 async fn it_can_prepare_then_query_with_params_integer_float_text() -> anyhow::Result<()> {
     let mut conn = new::<Odbc>().await?;
 
-    let stmt = (&mut conn)
-        .prepare("SELECT ? AS i, ? AS f, ? AS t")
-        .await?;
+    let stmt = (&mut conn).prepare("SELECT ? AS i, ? AS f, ? AS t").await?;
 
     let row = stmt
         .query()
@@ -143,12 +142,12 @@ async fn it_can_prepare_then_query_with_params_integer_float_text() -> anyhow::R
     assert_eq!(row.column(0).name(), "i");
     assert_eq!(row.column(1).name(), "f");
     assert_eq!(row.column(2).name(), "t");
-    let i = row.try_get_raw(0)?;
-    let f = row.try_get_raw(1)?;
-    let t = row.try_get_raw(2)?;
-    assert!(!i.is_null());
-    assert!(!f.is_null());
-    assert!(!t.is_null());
-    
+    let i = row.try_get_raw(0)?.to_owned().decode::<i64>();
+    let f = row.try_get_raw(1)?.to_owned().decode::<f64>();
+    let t = row.try_get_raw(2)?.to_owned().decode::<String>();
+    assert_eq!(i, 5);
+    assert!((f - 1.25).abs() < 1e-9);
+    assert_eq!(t, "hello");
+
     Ok(())
 }

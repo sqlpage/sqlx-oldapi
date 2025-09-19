@@ -1,7 +1,9 @@
 use crate::describe::Describe;
 use crate::error::Error;
 use crate::executor::{Execute, Executor};
-use crate::odbc::{Odbc, OdbcArgumentValue, OdbcConnection, OdbcQueryResult, OdbcRow, OdbcStatement, OdbcTypeInfo};
+use crate::odbc::{
+    Odbc, OdbcArgumentValue, OdbcConnection, OdbcQueryResult, OdbcRow, OdbcStatement, OdbcTypeInfo,
+};
 use either::Either;
 use futures_core::future::BoxFuture;
 use futures_core::stream::BoxStream;
@@ -96,17 +98,23 @@ fn interpolate_sql_with_odbc_args(sql: &str, args: &[OdbcArgumentValue<'_>]) -> 
                     OdbcArgumentValue::Text(s) => {
                         result.push('\'');
                         for c in s.chars() {
-                            if c == '\'' { result.push('\''); }
+                            if c == '\'' {
+                                result.push('\'');
+                            }
                             result.push(c);
                         }
                         result.push('\'');
                     }
                     OdbcArgumentValue::Bytes(b) => {
                         result.push_str("X'");
-                        for byte in b { result.push_str(&format!("{:02X}", byte)); }
+                        for byte in b {
+                            result.push_str(&format!("{:02X}", byte));
+                        }
                         result.push('\'');
                     }
-                    OdbcArgumentValue::Null | OdbcArgumentValue::Phantom(_) => result.push_str("NULL"),
+                    OdbcArgumentValue::Null | OdbcArgumentValue::Phantom(_) => {
+                        result.push_str("NULL")
+                    }
                 }
             } else {
                 result.push('?');
