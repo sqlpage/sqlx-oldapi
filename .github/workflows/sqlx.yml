@@ -343,3 +343,36 @@ jobs:
           cargo test --no-default-features --features any,mssql,macros,migrate,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
         env:
           DATABASE_URL: mssql://sa:Password123!@localhost/sqlx
+
+  odbc:
+    name: ODBC (SQLite ODBC)
+    runs-on: ubuntu-22.04
+    needs: check
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: v1-sqlx
+          shared-key: odbc
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: Install unixODBC and SQLite ODBC
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y unixodbc odbcinst odbcinst1debian2 odbc-sqlite3 sqlite3
+          # Configure a system DSN named SQLX_ODBC using SQLite3 driver
+          echo '[SQLite3]\nDescription=SQLite ODBC Driver\nDriver=libsqlite3odbc.so\nSetup=libsqlite3odbc.so\nThreading=2\n' | sudo tee -a /etc/odbcinst.ini
+          echo '[SQLX_ODBC]\nDescription=SQLx SQLite DSN\nDriver=SQLite3\nDatabase=${{ github.workspace }}/tests/sqlite/sqlite.db\n' | sudo tee -a /etc/odbc.ini
+          # Sanity check DSN
+          echo 'select 1;' | isql -v SQLX_ODBC || true
+      - name: Run clippy for odbc
+        run: |
+          cargo clippy \
+            --no-default-features \
+            --features odbc,all-types,runtime-tokio-rustls,macros,migrate \
+            -- -D warnings
+      - name: Run ODBC tests (SQLite DSN)
+        run: |
+          cargo test --no-default-features --features any,odbc,macros,all-types,runtime-tokio-rustls -- --test odbc
+        env:
+          DATABASE_URL: DSN=SQLX_ODBC

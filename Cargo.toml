@@ -327,6 +327,15 @@ name = "mssql"
 path = "tests/mssql/mssql.rs"
 required-features = ["mssql"]
 
+#
+# ODBC
+#
+
+[[test]]
+name = "odbc"
+path = "tests/odbc/odbc.rs"
+required-features = ["odbc"]
+
 [[test]]
 name = "mssql-types"
 path = "tests/mssql/types.rs"
