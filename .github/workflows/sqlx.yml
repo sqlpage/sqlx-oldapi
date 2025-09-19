@@ -339,6 +339,35 @@ jobs:
         env:
           DATABASE_URL: mssql://sa:Password123!@localhost/sqlx
 
+  odbc-sqlite:
+    name: ODBC (SQLite)
+    runs-on: ubuntu-22.04
+    needs: check
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: v1-sqlx
+          shared-key: odbc-sqlite
+          save-if: ${{ false }}
+      - name: Install ODBC drivers (SQLite)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y unixodbc odbcinst libsqliteodbc
+          odbcinst -q -d || true
+      - name: Build with ODBC feature
+        run: |
+          cargo build --manifest-path sqlx-core/Cargo.toml \
+            --no-default-features \
+            --features odbc,runtime-tokio-rustls
+      - name: Run ODBC SQLite tests
+        run: |
+          cargo test \
+            --no-default-features \
+            --features odbc,runtime-tokio-rustls \
+            --test odbc-sqlite
+
   odbc:
     name: ODBC (PostgreSQL via unixODBC)
     runs-on: ubuntu-22.04
