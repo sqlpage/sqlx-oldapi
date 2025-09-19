@@ -4,6 +4,8 @@ use sqlx_oldapi::Column;
 use sqlx_oldapi::Connection;
 use sqlx_oldapi::Executor;
 use sqlx_oldapi::Row;
+use sqlx_oldapi::Statement;
+use sqlx_oldapi::ValueRef;
 use sqlx_test::new;
 
 #[tokio::test]
@@ -60,5 +62,55 @@ async fn it_handles_empty_result() -> anyhow::Result<()> {
         saw_row = true;
     }
     assert!(!saw_row);
+    Ok(())
+}
+
+#[tokio::test]
+async fn it_reports_null_and_non_null_values() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+    let mut s = conn.fetch("SELECT 'text' AS s, NULL AS z");
+    let row = s.try_next().await?.expect("row expected");
+
+    let v0 = row.try_get_raw(0)?; // 's'
+    let v1 = row.try_get_raw(1)?; // 'z'
+
+    assert!(!v0.is_null());
+    assert!(v1.is_null());
+    Ok(())
+}
+
+#[tokio::test]
+async fn it_handles_basic_numeric_and_text_expressions() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+    let mut s = conn.fetch("SELECT 1 AS i, 1.5 AS f, 'hello' AS t");
+    let row = s.try_next().await?.expect("row expected");
+
+    // verify metadata is present and values are non-null
+    assert_eq!(row.column(0).name(), "i");
+    assert_eq!(row.column(1).name(), "f");
+    assert_eq!(row.column(2).name(), "t");
+
+    assert!(!row.try_get_raw(0)?.is_null());
+    assert!(!row.try_get_raw(1)?.is_null());
+    assert!(!row.try_get_raw(2)?.is_null());
+    Ok(())
+}
+
+#[tokio::test]
+async fn it_fetch_optional_some_and_none() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+    let some = (&mut conn).fetch_optional("SELECT 1").await?;
+    let none = (&mut conn).fetch_optional("SELECT 1 WHERE 1=0").await?;
+    assert!(some.is_some());
+    assert!(none.is_none());
+    Ok(())
+}
+
+#[tokio::test]
+async fn it_can_prepare_then_query_without_params() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+    let stmt = (&mut conn).prepare("SELECT 7 AS seven").await?;
+    let row = stmt.query().fetch_one(&mut conn).await?;
+    assert_eq!(row.column(0).name(), "seven");
     Ok(())
 }
