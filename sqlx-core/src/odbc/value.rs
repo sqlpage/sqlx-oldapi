@@ -1,4 +1,6 @@
 use crate::odbc::{Odbc, OdbcTypeInfo};
+use crate::decode::Decode;
+use crate::error::BoxDynError;
 use crate::value::{Value, ValueRef};
 use std::borrow::Cow;
 
@@ -56,5 +58,75 @@ impl Value for OdbcValue {
     }
     fn is_null(&self) -> bool {
         self.is_null
+    }
+}
+
+impl<'r> Decode<'r, Odbc> for String {
+    fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
+        if let Some(text) = value.text {
+            return Ok(text.to_owned());
+        }
+        if let Some(bytes) = value.blob {
+            return Ok(std::str::from_utf8(bytes)?.to_owned());
+        }
+        Err("ODBC: cannot decode String".into())
+    }
+}
+
+impl<'r> Decode<'r, Odbc> for &'r str {
+    fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
+        if let Some(text) = value.text {
+            return Ok(text);
+        }
+        if let Some(bytes) = value.blob {
+            return Ok(std::str::from_utf8(bytes)?);
+        }
+        Err("ODBC: cannot decode &str".into())
+    }
+}
+
+impl<'r> Decode<'r, Odbc> for i64 {
+    fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
+        if let Some(i) = value.int { return Ok(i); }
+        if let Some(bytes) = value.blob {
+            let s = std::str::from_utf8(bytes)?;
+            return Ok(s.trim().parse()?);
+        }
+        Err("ODBC: cannot decode i64".into())
+    }
+}
+
+impl<'r> Decode<'r, Odbc> for i32 {
+    fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
+        Ok(i64::decode(value)? as i32)
+    }
+}
+
+impl<'r> Decode<'r, Odbc> for f64 {
+    fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
+        if let Some(f) = value.float { return Ok(f); }
+        if let Some(bytes) = value.blob {
+            let s = std::str::from_utf8(bytes)?;
+            return Ok(s.trim().parse()?);
+        }
+        Err("ODBC: cannot decode f64".into())
+    }
+}
+
+impl<'r> Decode<'r, Odbc> for f32 {
+    fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
+        Ok(f64::decode(value)? as f32)
+    }
+}
+
+impl<'r> Decode<'r, Odbc> for Vec<u8> {
+    fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
+        if let Some(bytes) = value.blob {
+            return Ok(bytes.to_vec());
+        }
+        if let Some(text) = value.text {
+            return Ok(text.as_bytes().to_vec());
+        }
+        Err("ODBC: cannot decode Vec<u8>".into())
     }
 }

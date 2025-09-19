@@ -13,6 +13,7 @@ mod row;
 mod statement;
 mod transaction;
 mod type_info;
+mod r#type;
 mod value;
 
 pub use arguments::{OdbcArgumentValue, OdbcArguments};
