@@ -17,5 +17,3 @@ async fn it_can_work_with_transactions() -> anyhow::Result<()> {
     tx.rollback().await?;
     Ok(())
 }
-
-

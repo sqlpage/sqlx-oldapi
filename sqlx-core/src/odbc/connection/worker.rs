@@ -127,48 +127,73 @@ impl ConnectionWorker {
                         }
                         Command::Execute { sql, tx } => {
                             // Helper closure to process using a given connection reference
-                            let process = |conn: &odbc_api::Connection<'static>| {
-                                match conn.execute(&sql, (), None) {
-                                    Ok(Some(mut cursor)) => {
-                                        use odbc_api::ResultSetMetadata;
-                                        let mut columns: Vec<OdbcColumn> = Vec::new();
-                                        if let Ok(count) = cursor.num_result_cols() {
-                                            for i in 1..=count {
-                                                let mut cd = odbc_api::ColumnDescription::default();
-                                                let _ = cursor.describe_col(i as u16, &mut cd);
-                                                let name = String::from_utf8(cd.name)
-                                                    .unwrap_or_else(|_| format!("col{}", i - 1));
-                                                columns.push(OdbcColumn {
-                                                    name,
-                                                    type_info: OdbcTypeInfo { name: format!("{:?}", cd.data_type), is_null: false },
-                                                    ordinal: (i - 1) as usize,
-                                                });
-                                            }
+                            let process = |conn: &odbc_api::Connection<'static>| match conn.execute(
+                                &sql,
+                                (),
+                                None,
+                            ) {
+                                Ok(Some(mut cursor)) => {
+                                    use odbc_api::ResultSetMetadata;
+                                    let mut columns: Vec<OdbcColumn> = Vec::new();
+                                    if let Ok(count) = cursor.num_result_cols() {
+                                        for i in 1..=count {
+                                            let mut cd = odbc_api::ColumnDescription::default();
+                                            let _ = cursor.describe_col(i as u16, &mut cd);
+                                            let name = String::from_utf8(cd.name)
+                                                .unwrap_or_else(|_| format!("col{}", i - 1));
+                                            columns.push(OdbcColumn {
+                                                name,
+                                                type_info: OdbcTypeInfo {
+                                                    name: format!("{:?}", cd.data_type),
+                                                    is_null: false,
+                                                },
+                                                ordinal: (i - 1) as usize,
+                                            });
                                         }
+                                    }
 
-                                        while let Ok(Some(mut row)) = cursor.next_row() {
-                                            let mut values: Vec<(OdbcTypeInfo, Option<Vec<u8>>)> = Vec::with_capacity(columns.len());
-                                            for i in 1..=columns.len() {
-                                                let mut buf = Vec::new();
-                                                match row.get_text(i as u16, &mut buf) {
-                                                    Ok(true) => values.push((OdbcTypeInfo { name: "TEXT".into(), is_null: false }, Some(buf))),
-                                                    Ok(false) => values.push((OdbcTypeInfo { name: "TEXT".into(), is_null: true }, None)),
-                                                    Err(e) => {
-                                                        let _ = tx.send(Err(Error::from(e)));
-                                                        return;
-                                                    }
+                                    while let Ok(Some(mut row)) = cursor.next_row() {
+                                        let mut values: Vec<(OdbcTypeInfo, Option<Vec<u8>>)> =
+                                            Vec::with_capacity(columns.len());
+                                        for i in 1..=columns.len() {
+                                            let mut buf = Vec::new();
+                                            match row.get_text(i as u16, &mut buf) {
+                                                Ok(true) => values.push((
+                                                    OdbcTypeInfo {
+                                                        name: "TEXT".into(),
+                                                        is_null: false,
+                                                    },
+                                                    Some(buf),
+                                                )),
+                                                Ok(false) => values.push((
+                                                    OdbcTypeInfo {
+                                                        name: "TEXT".into(),
+                                                        is_null: true,
+                                                    },
+                                                    None,
+                                                )),
+                                                Err(e) => {
+                                                    let _ = tx.send(Err(Error::from(e)));
+                                                    return;
                                                 }
                                             }
-                                            let _ = tx.send(Ok(Either::Right(OdbcRow { columns: columns.clone(), values })));
                                         }
-                                        let _ = tx.send(Ok(Either::Left(OdbcQueryResult { rows_affected: 0 })));
+                                        let _ = tx.send(Ok(Either::Right(OdbcRow {
+                                            columns: columns.clone(),
+                                            values,
+                                        })));
                                     }
-                                    Ok(None) => {
-                                        let _ = tx.send(Ok(Either::Left(OdbcQueryResult { rows_affected: 0 })));
-                                    }
-                                    Err(e) => {
-                                        let _ = tx.send(Err(Error::from(e)));
-                                    }
+                                    let _ = tx.send(Ok(Either::Left(OdbcQueryResult {
+                                        rows_affected: 0,
+                                    })));
+                                }
+                                Ok(None) => {
+                                    let _ = tx.send(Ok(Either::Left(OdbcQueryResult {
+                                        rows_affected: 0,
+                                    })));
+                                }
+                                Err(e) => {
+                                    let _ = tx.send(Err(Error::from(e)));
                                 }
                             };
 
@@ -240,7 +265,10 @@ impl ConnectionWorker {
     ) -> Result<flume::Receiver<Result<Either<OdbcQueryResult, OdbcRow>, Error>>, Error> {
         let (tx, rx) = flume::bounded(64);
         self.command_tx
-            .send_async(Command::Execute { sql: sql.into(), tx })
+            .send_async(Command::Execute {
+                sql: sql.into(),
+                tx,
+            })
             .await
             .map_err(|_| Error::WorkerCrashed)?;
         Ok(rx)
