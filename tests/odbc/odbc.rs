@@ -151,3 +151,62 @@ async fn it_can_prepare_then_query_with_params_integer_float_text() -> anyhow::R
 
     Ok(())
 }
+
+#[tokio::test]
+async fn it_can_bind_many_params_dynamically() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+
+    let count = 20usize;
+    let mut sql = String::from("SELECT ");
+    for i in 0..count {
+        if i != 0 {
+            sql.push_str(", ");
+        }
+        sql.push_str("?");
+    }
+
+    let stmt = (&mut conn).prepare(&sql).await?;
+
+    let values: Vec<i32> = (1..=count as i32).collect();
+    let mut q = stmt.query();
+    for v in &values {
+        q = q.bind(*v);
+    }
+
+    let row = q.fetch_one(&mut conn).await?;
+    for (i, expected) in values.iter().enumerate() {
+        let got = row.try_get_raw(i)?.to_owned().decode::<i64>();
+        assert_eq!(got, *expected as i64);
+    }
+    Ok(())
+}
+
+#[tokio::test]
+async fn it_can_bind_heterogeneous_params() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+
+    let stmt = (&mut conn).prepare("SELECT ?, ?, ?, ?, ?").await?;
+
+    let row = stmt
+        .query()
+        .bind(7_i32)
+        .bind(3.5_f64)
+        .bind("abc")
+        .bind("xyz")
+        .bind(42_i32)
+        .fetch_one(&mut conn)
+        .await?;
+
+    let i = row.try_get_raw(0)?.to_owned().decode::<i64>();
+    let f = row.try_get_raw(1)?.to_owned().decode::<f64>();
+    let t = row.try_get_raw(2)?.to_owned().decode::<String>();
+    let t2 = row.try_get_raw(3)?.to_owned().decode::<String>();
+    let last = row.try_get_raw(4)?.to_owned().decode::<i64>();
+
+    assert_eq!(i, 7);
+    assert!((f - 3.5).abs() < 1e-9);
+    assert_eq!(t, "abc");
+    assert_eq!(t2, "xyz");
+    assert_eq!(last, 42);
+    Ok(())
+}
