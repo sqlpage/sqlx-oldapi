@@ -37,7 +37,10 @@ async fn main() -> Result<(), sqlx_oldapi::Error> {
                     println!("   Rows affected: {}", result.rows_affected());
                 }
                 Err(e) => {
-                    println!("⚠️  Query execution error (expected - auth not fully implemented): {}", e);
+                    println!(
+                        "⚠️  Query execution error (expected - auth not fully implemented): {}",
+                        e
+                    );
                 }
             }
 
@@ -45,7 +48,7 @@ async fn main() -> Result<(), sqlx_oldapi::Error> {
             println!("   ✅ JWT token generation (with dummy key)");
             println!("   ❌ RSA private key authentication (TODO)");
             println!("   ❌ OAuth authentication (TODO)");
-            
+
             println!("\n📡 API Integration Status:");
             println!("   ✅ HTTP client setup");
             println!("   ✅ Request formatting");

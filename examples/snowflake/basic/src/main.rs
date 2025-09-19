@@ -1,7 +1,7 @@
 //! Basic Snowflake connection example
-//! 
+//!
 //! This example demonstrates the current state of Snowflake support in SQLx.
-//! 
+//!
 //! Note: This example shows the API structure but requires proper RSA key-pair
 //! authentication to work with a real Snowflake instance.
 
@@ -15,11 +15,11 @@ async fn main() -> Result<(), sqlx_oldapi::Error> {
 
     // Create connection options
     let options = SnowflakeConnectOptions::new()
-        .account("your-account")           // Replace with your Snowflake account
-        .username("your-username")         // Replace with your username
-        .warehouse("your-warehouse")       // Replace with your warehouse
-        .database("your-database")         // Replace with your database
-        .schema("your-schema");            // Replace with your schema
+        .account("your-account") // Replace with your Snowflake account
+        .username("your-username") // Replace with your username
+        .warehouse("your-warehouse") // Replace with your warehouse
+        .database("your-database") // Replace with your database
+        .schema("your-schema"); // Replace with your schema
 
     println!("📋 Configuration:");
     println!("   Account: {}", options.get_account());
@@ -36,7 +36,10 @@ async fn main() -> Result<(), sqlx_oldapi::Error> {
     // Execute a simple query
     println!("\n📊 Executing query...");
     let result = connection.execute("SELECT CURRENT_VERSION()").await?;
-    println!("✅ Query executed! Rows affected: {}", result.rows_affected());
+    println!(
+        "✅ Query executed! Rows affected: {}",
+        result.rows_affected()
+    );
 
     // Test connection ping
     println!("\n🏓 Testing connection ping...");
@@ -49,6 +52,6 @@ async fn main() -> Result<(), sqlx_oldapi::Error> {
     println!("✅ Connection closed!");
 
     println!("\n🎉 Example completed successfully!");
-    
+
     Ok(())
 }

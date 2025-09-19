@@ -1,8 +1,7 @@
 use crate::arguments::Arguments;
 use crate::encode::{Encode, IsNull};
-use crate::snowflake::{Snowflake, SnowflakeTypeInfo};
+use crate::snowflake::Snowflake;
 use crate::types::Type;
-use std::borrow::Cow;
 
 /// Implementation of [`Arguments`] for Snowflake.
 #[derive(Debug, Default, Clone)]
@@ -12,7 +11,7 @@ pub struct SnowflakeArguments {
 }
 
 /// Implementation of [`ArgumentBuffer`] for Snowflake.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct SnowflakeArgumentBuffer {
     pub(crate) buffer: Vec<u8>,
 }
@@ -26,6 +25,10 @@ impl SnowflakeArguments {
 
     pub fn len(&self) -> usize {
         self.bindings.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.bindings.is_empty()
     }
 
     pub(crate) fn get(&self, index: usize) -> Option<&String> {
@@ -56,14 +59,6 @@ impl<'q> Arguments<'q> for SnowflakeArguments {
             IsNull::Yes => {
                 self.bindings.push("NULL".to_string());
             }
-        }
-    }
-}
-
-impl Default for SnowflakeArgumentBuffer {
-    fn default() -> Self {
-        Self {
-            buffer: Vec::new(),
         }
     }
 }

@@ -1,7 +1,5 @@
-use crate::column::{Column, ColumnIndex};
-use crate::error::Error;
+use crate::column::Column;
 use crate::snowflake::{Snowflake, SnowflakeTypeInfo};
-use std::borrow::Cow;
 
 /// Implementation of [`Column`] for Snowflake.
 #[derive(Debug, Clone)]

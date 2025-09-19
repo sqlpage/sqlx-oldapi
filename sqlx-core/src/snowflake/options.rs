@@ -1,6 +1,5 @@
 use crate::connection::ConnectOptions;
 use crate::error::Error;
-use std::borrow::Cow;
 use std::str::FromStr;
 use url::Url;
 
@@ -23,16 +22,11 @@ pub struct SnowflakeConnectOptions {
 /// SSL mode for Snowflake connections.
 /// 
 /// Snowflake always uses SSL, so this is mainly for future extensibility.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum SnowflakeSslMode {
     /// Always use SSL (default and only supported mode for Snowflake)
+    #[default]
     Require,
-}
-
-impl Default for SnowflakeSslMode {
-    fn default() -> Self {
-        SnowflakeSslMode::Require
-    }
 }
 
 impl SnowflakeConnectOptions {
@@ -197,9 +191,7 @@ impl ConnectOptions for SnowflakeConnectOptions {
     where
         Self::Connection: Sized,
     {
-        Box::pin(async move {
-            crate::snowflake::SnowflakeConnection::establish(self).await
-        })
+        Box::pin(async move { crate::snowflake::SnowflakeConnection::establish(self).await })
     }
 
     fn log_statements(&mut self, _level: log::LevelFilter) -> &mut Self {

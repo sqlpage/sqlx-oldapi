@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 /// The result of a query to a Snowflake database.
 #[derive(Debug, Default)]
 pub struct SnowflakeQueryResult {

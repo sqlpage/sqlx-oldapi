@@ -39,14 +39,20 @@ impl Type<Snowflake> for f64 {
 }
 
 impl<'q> Encode<'q, Snowflake> for f32 {
-    fn encode_by_ref(&self, buf: &mut crate::snowflake::arguments::SnowflakeArgumentBuffer) -> IsNull {
+    fn encode_by_ref(
+        &self,
+        buf: &mut crate::snowflake::arguments::SnowflakeArgumentBuffer,
+    ) -> IsNull {
         buf.buffer.extend_from_slice(self.to_string().as_bytes());
         IsNull::No
     }
 }
 
 impl<'q> Encode<'q, Snowflake> for f64 {
-    fn encode_by_ref(&self, buf: &mut crate::snowflake::arguments::SnowflakeArgumentBuffer) -> IsNull {
+    fn encode_by_ref(
+        &self,
+        buf: &mut crate::snowflake::arguments::SnowflakeArgumentBuffer,
+    ) -> IsNull {
         buf.buffer.extend_from_slice(self.to_string().as_bytes());
         IsNull::No
     }
@@ -55,11 +61,10 @@ impl<'q> Encode<'q, Snowflake> for f64 {
 impl<'r> Decode<'r, Snowflake> for f32 {
     fn decode(value: SnowflakeValueRef<'r>) -> Result<Self, BoxDynError> {
         match value.value {
-            Some(serde_json::Value::Number(n)) => {
-                n.as_f64()
-                    .map(|f| f as f32)
-                    .ok_or_else(|| "number out of range for f32".into())
-            }
+            Some(serde_json::Value::Number(n)) => n
+                .as_f64()
+                .map(|f| f as f32)
+                .ok_or_else(|| "number out of range for f32".into()),
             Some(serde_json::Value::String(s)) => {
                 s.parse::<f32>().map_err(|_| "invalid float string".into())
             }
@@ -72,9 +77,9 @@ impl<'r> Decode<'r, Snowflake> for f32 {
 impl<'r> Decode<'r, Snowflake> for f64 {
     fn decode(value: SnowflakeValueRef<'r>) -> Result<Self, BoxDynError> {
         match value.value {
-            Some(serde_json::Value::Number(n)) => {
-                n.as_f64().ok_or_else(|| "number out of range for f64".into())
-            }
+            Some(serde_json::Value::Number(n)) => n
+                .as_f64()
+                .ok_or_else(|| "number out of range for f64".into()),
             Some(serde_json::Value::String(s)) => {
                 s.parse::<f64>().map_err(|_| "invalid float string".into())
             }

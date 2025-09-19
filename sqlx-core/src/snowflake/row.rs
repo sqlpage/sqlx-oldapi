@@ -1,8 +1,8 @@
 use crate::column::ColumnIndex;
 use crate::error::Error;
 use crate::row::Row;
-use crate::value::Value;
 use crate::snowflake::{Snowflake, SnowflakeColumn, SnowflakeValue, SnowflakeValueRef};
+use crate::value::Value;
 use std::sync::Arc;
 
 /// Implementation of [`Row`] for Snowflake.

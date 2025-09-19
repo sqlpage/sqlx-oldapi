@@ -3,10 +3,7 @@ use crate::connection::Connection;
 use crate::describe::Describe;
 use crate::error::Error;
 use crate::executor::{Execute, Executor};
-use crate::snowflake::{
-    Snowflake, SnowflakeArguments, SnowflakeConnectOptions, SnowflakeQueryResult, SnowflakeRow,
-    SnowflakeStatement, SnowflakeTransactionManager, SnowflakeTypeInfo,
-};
+use crate::snowflake::{Snowflake, SnowflakeConnectOptions, SnowflakeQueryResult, SnowflakeStatement};
 use crate::transaction::Transaction;
 use either::Either;
 use futures_core::future::BoxFuture;
@@ -42,7 +39,11 @@ impl Debug for SnowflakeConnection {
 impl SnowflakeConnection {
     pub(crate) async fn establish(options: &SnowflakeConnectOptions) -> Result<Self, Error> {
         let client = reqwest::Client::builder()
-            .timeout(options.timeout.unwrap_or(std::time::Duration::from_secs(30)))
+            .timeout(
+                options
+                    .timeout
+                    .unwrap_or(std::time::Duration::from_secs(30)),
+            )
             .user_agent("SQLx-Snowflake/0.6.48")
             .build()
             .map_err(|e| Error::Configuration(e.into()))?;
@@ -70,7 +71,7 @@ impl SnowflakeConnection {
     async fn authenticate(&mut self) -> Result<(), Error> {
         // For now, implement username/password authentication
         // TODO: Implement JWT authentication with private key
-        
+
         if self.options.username.is_empty() {
             return Err(Error::Configuration(
                 "Username is required for Snowflake authentication".into(),
@@ -81,7 +82,7 @@ impl SnowflakeConnection {
         // In a real implementation, this would use RSA private keys
         let token = self.generate_jwt_token()?;
         self.auth_token = Some(token);
-        
+
         Ok(())
     }
 
@@ -123,7 +124,9 @@ impl SnowflakeConnection {
     pub(crate) async fn execute(&mut self, query: &str) -> Result<SnowflakeQueryResult, Error> {
         use serde_json::json;
 
-        let auth_token = self.auth_token.as_ref()
+        let auth_token = self
+            .auth_token
+            .as_ref()
             .ok_or_else(|| Error::Configuration("Not authenticated".into()))?;
 
         let request_body = json!({
@@ -135,7 +138,8 @@ impl SnowflakeConnection {
             "role": self.options.role
         });
 
-        let response = self.client
+        let response = self
+            .client
             .post(&self.base_url)
             .header("Authorization", format!("Bearer {}", auth_token))
             .header("Content-Type", "application/json")
@@ -143,21 +147,27 @@ impl SnowflakeConnection {
             .json(&request_body)
             .send()
             .await
-            .map_err(|e| Error::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+            .map_err(|e| Error::Io(std::io::Error::other(e)))?;
 
         if !response.status().is_success() {
             let status = response.status();
-            let error_text = response.text().await
+            let error_text = response
+                .text()
+                .await
                 .unwrap_or_else(|_| "Unknown error".to_string());
-            return Err(Error::Database(Box::new(crate::snowflake::SnowflakeDatabaseError::new(
-                status.as_u16().to_string(),
-                format!("HTTP {}: {}", status, error_text),
-                None,
-            ))));
+            return Err(Error::Database(Box::new(
+                crate::snowflake::SnowflakeDatabaseError::new(
+                    status.as_u16().to_string(),
+                    format!("HTTP {}: {}", status, error_text),
+                    None,
+                ),
+            )));
         }
 
-        let response_json: serde_json::Value = response.json().await
-            .map_err(|e| Error::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+        let response_json: serde_json::Value = response
+            .json()
+            .await
+            .map_err(|e| Error::Io(std::io::Error::other(e)))?;
 
         // Parse the response to extract row count and other metadata
         let rows_affected = response_json
@@ -234,11 +244,14 @@ impl<'c> Executor<'c> for &'c mut SnowflakeConnection {
 
     fn fetch_many<'e, 'q: 'e, E>(
         self,
-        query: E,
+        _query: E,
     ) -> BoxStream<
         'e,
         Result<
-            Either<<Self::Database as crate::database::Database>::QueryResult, <Self::Database as crate::database::Database>::Row>,
+            Either<
+                <Self::Database as crate::database::Database>::QueryResult,
+                <Self::Database as crate::database::Database>::Row,
+            >,
             Error,
         >,
     >
@@ -253,7 +266,7 @@ impl<'c> Executor<'c> for &'c mut SnowflakeConnection {
 
     fn fetch_optional<'e, 'q: 'e, E>(
         self,
-        query: E,
+        _query: E,
     ) -> BoxFuture<'e, Result<Option<<Self::Database as crate::database::Database>::Row>, Error>>
     where
         'c: 'e,
@@ -270,7 +283,10 @@ impl<'c> Executor<'c> for &'c mut SnowflakeConnection {
         self,
         sql: &'q str,
         parameters: &'e [<Self::Database as crate::database::Database>::TypeInfo],
-    ) -> BoxFuture<'e, Result<<Self::Database as crate::database::HasStatement<'q>>::Statement, Error>>
+    ) -> BoxFuture<
+        'e,
+        Result<<Self::Database as crate::database::HasStatement<'q>>::Statement, Error>,
+    >
     where
         'c: 'e,
     {
@@ -288,7 +304,7 @@ impl<'c> Executor<'c> for &'c mut SnowflakeConnection {
 
     fn describe<'e, 'q: 'e>(
         self,
-        sql: &'q str,
+        _sql: &'q str,
     ) -> BoxFuture<'e, Result<Describe<Self::Database>, Error>>
     where
         'c: 'e,

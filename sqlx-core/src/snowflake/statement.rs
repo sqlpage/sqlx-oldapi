@@ -1,5 +1,4 @@
-use crate::column::{Column, ColumnIndex};
-use crate::error::Error;
+use crate::column::Column;
 use crate::snowflake::{Snowflake, SnowflakeArguments, SnowflakeColumn, SnowflakeTypeInfo};
 use crate::statement::Statement;
 use crate::HashMap;
@@ -16,11 +15,7 @@ pub struct SnowflakeStatement<'q> {
 }
 
 impl<'q> SnowflakeStatement<'q> {
-    pub(crate) fn new(
-        sql: Cow<'q, str>,
-        columns: Vec<SnowflakeColumn>,
-        parameters: usize,
-    ) -> Self {
+    pub(crate) fn new(sql: Cow<'q, str>, columns: Vec<SnowflakeColumn>, parameters: usize) -> Self {
         let column_names: HashMap<String, usize> = columns
             .iter()
             .enumerate()

@@ -10,13 +10,20 @@ impl Type<Snowflake> for bool {
     }
 
     fn compatible(ty: &SnowflakeTypeInfo) -> bool {
-        matches!(ty.r#type(), crate::snowflake::type_info::SnowflakeType::Boolean)
+        matches!(
+            ty.r#type(),
+            crate::snowflake::type_info::SnowflakeType::Boolean
+        )
     }
 }
 
 impl<'q> Encode<'q, Snowflake> for bool {
-    fn encode_by_ref(&self, buf: &mut crate::snowflake::arguments::SnowflakeArgumentBuffer) -> IsNull {
-        buf.buffer.extend_from_slice(if *self { b"true" } else { b"false" });
+    fn encode_by_ref(
+        &self,
+        buf: &mut crate::snowflake::arguments::SnowflakeArgumentBuffer,
+    ) -> IsNull {
+        buf.buffer
+            .extend_from_slice(if *self { b"true" } else { b"false" });
         IsNull::No
     }
 }

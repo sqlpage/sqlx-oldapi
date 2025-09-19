@@ -72,7 +72,10 @@ impl Type<Snowflake> for i64 {
 macro_rules! impl_int_encode {
     ($T:ty) => {
         impl<'q> Encode<'q, Snowflake> for $T {
-            fn encode_by_ref(&self, buf: &mut crate::snowflake::arguments::SnowflakeArgumentBuffer) -> IsNull {
+            fn encode_by_ref(
+                &self,
+                buf: &mut crate::snowflake::arguments::SnowflakeArgumentBuffer,
+            ) -> IsNull {
                 buf.buffer.extend_from_slice(self.to_string().as_bytes());
                 IsNull::No
             }

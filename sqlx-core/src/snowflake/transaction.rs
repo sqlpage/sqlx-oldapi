@@ -1,7 +1,6 @@
 use crate::snowflake::{Snowflake, SnowflakeConnection};
 use crate::transaction::TransactionManager;
 use futures_core::future::BoxFuture;
-use std::borrow::Cow;
 
 /// Implementation of [`TransactionManager`] for Snowflake.
 #[derive(Debug)]

@@ -1,9 +1,4 @@
-use crate::decode::Decode;
-use crate::encode::{Encode, IsNull};
-use crate::error::BoxDynError;
 use crate::snowflake::{Snowflake, SnowflakeTypeInfo};
-use crate::type_info::TypeInfo;
-use crate::types::Type;
 use crate::value::{Value, ValueRef};
 use serde_json;
 
@@ -28,10 +23,7 @@ impl SnowflakeValue {
 }
 
 impl<'r> SnowflakeValueRef<'r> {
-    pub(crate) fn new(
-        type_info: SnowflakeTypeInfo,
-        value: Option<&'r serde_json::Value>,
-    ) -> Self {
+    pub(crate) fn new(type_info: SnowflakeTypeInfo, value: Option<&'r serde_json::Value>) -> Self {
         Self { type_info, value }
     }
 }

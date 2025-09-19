@@ -32,14 +32,20 @@ impl Type<Snowflake> for String {
 }
 
 impl<'q> Encode<'q, Snowflake> for &'q str {
-    fn encode_by_ref(&self, buf: &mut crate::snowflake::arguments::SnowflakeArgumentBuffer) -> IsNull {
+    fn encode_by_ref(
+        &self,
+        buf: &mut crate::snowflake::arguments::SnowflakeArgumentBuffer,
+    ) -> IsNull {
         buf.buffer.extend_from_slice(self.as_bytes());
         IsNull::No
     }
 }
 
 impl<'q> Encode<'q, Snowflake> for String {
-    fn encode_by_ref(&self, buf: &mut crate::snowflake::arguments::SnowflakeArgumentBuffer) -> IsNull {
+    fn encode_by_ref(
+        &self,
+        buf: &mut crate::snowflake::arguments::SnowflakeArgumentBuffer,
+    ) -> IsNull {
         buf.buffer.extend_from_slice(self.as_bytes());
         IsNull::No
     }

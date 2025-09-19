@@ -64,7 +64,9 @@ pub use sqlx_core::sqlite::{self, Sqlite, SqliteConnection, SqliteExecutor, Sqli
 
 #[cfg(feature = "snowflake")]
 #[cfg_attr(docsrs, doc(cfg(feature = "snowflake")))]
-pub use sqlx_core::snowflake::{self, Snowflake, SnowflakeConnection, SnowflakeExecutor, SnowflakePool};
+pub use sqlx_core::snowflake::{
+    self, Snowflake, SnowflakeConnection, SnowflakeExecutor, SnowflakePool,
+};
 
 #[cfg(feature = "macros")]
 #[doc(hidden)]
