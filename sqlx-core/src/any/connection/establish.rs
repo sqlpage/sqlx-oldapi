@@ -34,6 +34,13 @@ impl AnyConnection {
                     .await
                     .map(AnyConnectionKind::Mssql)
             }
+
+            #[cfg(feature = "snowflake")]
+            AnyConnectOptionsKind::Snowflake(options) => {
+                crate::snowflake::SnowflakeConnection::establish(options)
+                    .await
+                    .map(AnyConnectionKind::Snowflake)
+            }
         }
         .map(AnyConnection)
     }

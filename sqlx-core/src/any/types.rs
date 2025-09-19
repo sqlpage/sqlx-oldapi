@@ -18,6 +18,7 @@
 //! a potentially `NULL` value from SQL.
 //!
 
+
 // Type
 
 impl_any_type!(bool);

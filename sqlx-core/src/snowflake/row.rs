@@ -43,3 +43,18 @@ impl Row for SnowflakeRow {
         self.values.is_empty()
     }
 }
+
+#[cfg(all(feature = "any", any(feature = "postgres", feature = "mysql", feature = "mssql", feature = "sqlite")))]
+impl From<SnowflakeRow> for crate::any::AnyRow {
+    #[inline]
+    fn from(row: SnowflakeRow) -> Self {
+        crate::any::AnyRow {
+            columns: row
+                .columns
+                .iter()
+                .map(|col| col.clone().into())
+                .collect(),
+            kind: crate::any::row::AnyRowKind::Snowflake(row),
+        }
+    }
+}

@@ -32,6 +32,11 @@ impl TransactionManager for AnyTransactionManager {
             AnyConnectionKind::Mssql(conn) => {
                 <crate::mssql::Mssql as Database>::TransactionManager::begin(conn)
             }
+
+            #[cfg(feature = "snowflake")]
+            AnyConnectionKind::Snowflake(conn) => {
+                <crate::snowflake::Snowflake as Database>::TransactionManager::begin(conn)
+            }
         }
     }
 
@@ -55,6 +60,11 @@ impl TransactionManager for AnyTransactionManager {
             #[cfg(feature = "mssql")]
             AnyConnectionKind::Mssql(conn) => {
                 <crate::mssql::Mssql as Database>::TransactionManager::commit(conn)
+            }
+
+            #[cfg(feature = "snowflake")]
+            AnyConnectionKind::Snowflake(conn) => {
+                <crate::snowflake::Snowflake as Database>::TransactionManager::commit(conn)
             }
         }
     }
@@ -80,6 +90,11 @@ impl TransactionManager for AnyTransactionManager {
             AnyConnectionKind::Mssql(conn) => {
                 <crate::mssql::Mssql as Database>::TransactionManager::rollback(conn)
             }
+
+            #[cfg(feature = "snowflake")]
+            AnyConnectionKind::Snowflake(conn) => {
+                <crate::snowflake::Snowflake as Database>::TransactionManager::rollback(conn)
+            }
         }
     }
 
@@ -103,6 +118,11 @@ impl TransactionManager for AnyTransactionManager {
             #[cfg(feature = "mssql")]
             AnyConnectionKind::Mssql(conn) => {
                 <crate::mssql::Mssql as Database>::TransactionManager::start_rollback(conn)
+            }
+
+            #[cfg(feature = "snowflake")]
+            AnyConnectionKind::Snowflake(conn) => {
+                <crate::snowflake::Snowflake as Database>::TransactionManager::start_rollback(conn)
             }
         }
     }

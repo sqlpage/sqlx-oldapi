@@ -40,6 +40,9 @@ pub(crate) enum AnyRowKind {
 
     #[cfg(feature = "mssql")]
     Mssql(MssqlRow),
+
+    #[cfg(feature = "snowflake")]
+    Snowflake(crate::snowflake::SnowflakeRow),
 }
 
 impl Row for AnyRow {
@@ -70,6 +73,9 @@ impl Row for AnyRow {
 
             #[cfg(feature = "mssql")]
             AnyRowKind::Mssql(row) => row.try_get_raw(index).map(Into::into),
+
+            #[cfg(feature = "snowflake")]
+            AnyRowKind::Snowflake(row) => row.try_get_raw(index).map(Into::into),
         }
     }
 

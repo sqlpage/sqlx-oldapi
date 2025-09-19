@@ -59,6 +59,8 @@ offline = ["sqlx-macros/offline", "sqlx-core/offline"]
 # intended mainly for CI and docs
 all = ["tls", "all-databases", "all-types"]
 all-databases = ["mysql", "sqlite", "postgres", "mssql", "any"]
+# Note: Snowflake integration with Any driver requires additional systematic work
+# Use snowflake feature directly: --features snowflake,runtime-tokio-rustls
 all-types = [
     "bigdecimal",
     "decimal",

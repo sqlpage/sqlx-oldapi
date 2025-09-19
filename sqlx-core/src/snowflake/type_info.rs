@@ -170,3 +170,11 @@ impl SnowflakeType {
         }
     }
 }
+
+#[cfg(all(feature = "any", any(feature = "postgres", feature = "mysql", feature = "mssql", feature = "sqlite")))]
+impl From<SnowflakeTypeInfo> for crate::any::AnyTypeInfo {
+    #[inline]
+    fn from(ty: SnowflakeTypeInfo) -> Self {
+        crate::any::AnyTypeInfo(crate::any::type_info::AnyTypeInfoKind::Snowflake(ty))
+    }
+}

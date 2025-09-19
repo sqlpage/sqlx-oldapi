@@ -36,3 +36,14 @@ impl Column for SnowflakeColumn {
         &self.type_info
     }
 }
+
+#[cfg(all(feature = "any", any(feature = "postgres", feature = "mysql", feature = "mssql", feature = "sqlite")))]
+impl From<SnowflakeColumn> for crate::any::AnyColumn {
+    #[inline]
+    fn from(column: SnowflakeColumn) -> Self {
+        crate::any::AnyColumn {
+            type_info: column.type_info.clone().into(),
+            kind: crate::any::column::AnyColumnKind::Snowflake(column),
+        }
+    }
+}

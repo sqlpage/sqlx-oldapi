@@ -19,6 +19,22 @@ mod bytes;
 mod float;
 mod int;
 mod str;
+mod uint;
+
+#[cfg(feature = "chrono")]
+mod chrono;
+
+#[cfg(feature = "json")]
+mod json;
+
+#[cfg(feature = "uuid")]
+mod uuid;
+
+#[cfg(feature = "bigdecimal")]
+mod bigdecimal;
+
+#[cfg(feature = "decimal")]
+mod decimal;
 
 // Optional type support modules - only include if features are enabled
 // TODO: Implement these when the corresponding features are needed

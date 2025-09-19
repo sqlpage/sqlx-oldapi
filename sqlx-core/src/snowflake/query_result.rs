@@ -35,3 +35,13 @@ impl Extend<SnowflakeQueryResult> for SnowflakeQueryResult {
         }
     }
 }
+
+#[cfg(all(feature = "any", any(feature = "postgres", feature = "mysql", feature = "mssql", feature = "sqlite")))]
+impl From<SnowflakeQueryResult> for crate::any::AnyQueryResult {
+    fn from(result: SnowflakeQueryResult) -> Self {
+        crate::any::AnyQueryResult {
+            rows_affected: result.rows_affected,
+            last_insert_id: result.last_insert_id,
+        }
+    }
+}

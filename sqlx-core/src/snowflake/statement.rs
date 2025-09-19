@@ -57,3 +57,20 @@ impl<'q> Statement<'q> for SnowflakeStatement<'q> {
 
     impl_statement_query!(SnowflakeArguments);
 }
+
+#[cfg(all(feature = "any", any(feature = "postgres", feature = "mysql", feature = "mssql", feature = "sqlite")))]
+impl<'q> From<SnowflakeStatement<'q>> for crate::any::AnyStatement<'q> {
+    #[inline]
+    fn from(statement: SnowflakeStatement<'q>) -> Self {
+        crate::any::AnyStatement::<'q> {
+            columns: statement
+                .columns
+                .iter()
+                .map(|col| col.clone().into())
+                .collect(),
+            column_names: statement.column_names.clone(),
+            parameters: Some(either::Either::Right(statement.parameters)),
+            sql: statement.sql,
+        }
+    }
+}

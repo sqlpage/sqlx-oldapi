@@ -31,6 +31,9 @@ pub enum AnyTypeInfoKind {
 
     #[cfg(feature = "mssql")]
     Mssql(MssqlTypeInfo),
+
+    #[cfg(feature = "snowflake")]
+    Snowflake(crate::snowflake::SnowflakeTypeInfo),
 }
 
 impl TypeInfo for AnyTypeInfo {
@@ -47,6 +50,9 @@ impl TypeInfo for AnyTypeInfo {
 
             #[cfg(feature = "mssql")]
             AnyTypeInfoKind::Mssql(ty) => ty.is_null(),
+
+            #[cfg(feature = "snowflake")]
+            AnyTypeInfoKind::Snowflake(ty) => ty.is_null(),
         }
     }
 
@@ -63,6 +69,9 @@ impl TypeInfo for AnyTypeInfo {
 
             #[cfg(feature = "mssql")]
             AnyTypeInfoKind::Mssql(ty) => ty.name(),
+
+            #[cfg(feature = "snowflake")]
+            AnyTypeInfoKind::Snowflake(ty) => ty.name(),
         }
     }
 }
