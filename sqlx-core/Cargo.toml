@@ -46,6 +46,7 @@ mysql = [
 sqlite = ["libsqlite3-sys", "futures-executor", "flume"]
 mssql = ["uuid", "encoding_rs", "regex"]
 any = []
+odbc = ["odbc-api", "futures-executor", "flume"]
 
 # types
 all-types = [
@@ -172,6 +173,7 @@ hkdf = { version = "0.12.0", optional = true }
 event-listener = "5.4.0"
 
 dotenvy = "0.15"
+odbc-api = { version = "19.0.1", optional = true }
 
 [dev-dependencies]
 sqlx = { package = "sqlx-oldapi", path = "..", features = ["postgres", "sqlite", "mysql", "runtime-tokio-rustls"] }

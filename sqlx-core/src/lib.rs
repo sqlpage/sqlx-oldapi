@@ -105,6 +105,10 @@ pub mod mysql;
 #[cfg_attr(docsrs, doc(cfg(feature = "mssql")))]
 pub mod mssql;
 
+#[cfg(feature = "odbc")]
+#[cfg_attr(docsrs, doc(cfg(feature = "odbc")))]
+pub mod odbc;
+
 // Implements test support with automatic DB management.
 #[cfg(feature = "migrate")]
 pub mod testing;
