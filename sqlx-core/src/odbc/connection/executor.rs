@@ -1,7 +1,7 @@
 use crate::describe::Describe;
 use crate::error::Error;
 use crate::executor::{Execute, Executor};
-use crate::odbc::{Odbc, OdbcConnection, OdbcQueryResult, OdbcRow, OdbcStatement, OdbcTypeInfo};
+use crate::odbc::{Odbc, OdbcArgumentValue, OdbcConnection, OdbcQueryResult, OdbcRow, OdbcStatement, OdbcTypeInfo};
 use either::Either;
 use futures_core::future::BoxFuture;
 use futures_core::stream::BoxStream;
@@ -15,15 +15,21 @@ impl<'c> Executor<'c> for &'c mut OdbcConnection {
 
     fn fetch_many<'e, 'q: 'e, E>(
         self,
-        _query: E,
+        mut _query: E,
     ) -> BoxStream<'e, Result<Either<OdbcQueryResult, OdbcRow>, Error>>
     where
         'c: 'e,
         E: Execute<'q, Self::Database> + 'q,
     {
         let sql = _query.sql().to_string();
+        let mut args = _query.take_arguments();
         Box::pin(try_stream! {
-            let rx = self.worker.execute_stream(&sql).await?;
+            let rx = if let Some(a) = args.take() {
+                let new_sql = interpolate_sql_with_odbc_args(&sql, &a.values);
+                self.worker.execute_stream(&new_sql).await?
+            } else {
+                self.worker.execute_stream(&sql).await?
+            };
             while let Ok(item) = rx.recv_async().await {
                 r#yield!(item?);
             }
@@ -75,4 +81,39 @@ impl<'c> Executor<'c> for &'c mut OdbcConnection {
     {
         Box::pin(async move { Err(Error::Protocol("ODBC describe not implemented".into())) })
     }
+}
+
+fn interpolate_sql_with_odbc_args(sql: &str, args: &[OdbcArgumentValue<'_>]) -> String {
+    let mut result = String::with_capacity(sql.len() + args.len() * 8);
+    let mut arg_iter = args.iter();
+    let mut chars = sql.chars().peekable();
+    while let Some(ch) = chars.next() {
+        if ch == '?' {
+            if let Some(arg) = arg_iter.next() {
+                match arg {
+                    OdbcArgumentValue::Int(i) => result.push_str(&i.to_string()),
+                    OdbcArgumentValue::Float(f) => result.push_str(&format!("{}", f)),
+                    OdbcArgumentValue::Text(s) => {
+                        result.push('\'');
+                        for c in s.chars() {
+                            if c == '\'' { result.push('\''); }
+                            result.push(c);
+                        }
+                        result.push('\'');
+                    }
+                    OdbcArgumentValue::Bytes(b) => {
+                        result.push_str("X'");
+                        for byte in b { result.push_str(&format!("{:02X}", byte)); }
+                        result.push('\'');
+                    }
+                    OdbcArgumentValue::Null | OdbcArgumentValue::Phantom(_) => result.push_str("NULL"),
+                }
+            } else {
+                result.push('?');
+            }
+        } else {
+            result.push(ch);
+        }
+    }
+    result
 }

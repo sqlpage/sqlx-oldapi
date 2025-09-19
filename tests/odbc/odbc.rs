@@ -34,6 +34,13 @@ async fn it_streams_row_and_metadata() -> anyhow::Result<()> {
         assert_eq!(row.column(0).name(), "n");
         assert_eq!(row.column(1).name(), "s");
         assert_eq!(row.column(2).name(), "z");
+        // assert values
+        let v_n = row.try_get_raw(0)?; // comes as text cell, but non-null
+        let v_s = row.try_get_raw(1)?;
+        let v_z = row.try_get_raw(2)?;
+        assert!(!v_n.is_null());
+        assert!(!v_s.is_null());
+        assert!(v_z.is_null());
         saw_row = true;
     }
     assert!(saw_row);
@@ -85,14 +92,16 @@ async fn it_handles_basic_numeric_and_text_expressions() -> anyhow::Result<()> {
     let mut s = conn.fetch("SELECT 1 AS i, 1.5 AS f, 'hello' AS t");
     let row = s.try_next().await?.expect("row expected");
 
-    // verify metadata is present and values are non-null
     assert_eq!(row.column(0).name(), "i");
     assert_eq!(row.column(1).name(), "f");
     assert_eq!(row.column(2).name(), "t");
 
-    assert!(!row.try_get_raw(0)?.is_null());
-    assert!(!row.try_get_raw(1)?.is_null());
-    assert!(!row.try_get_raw(2)?.is_null());
+    let i = row.try_get_raw(0)?;
+    let f = row.try_get_raw(1)?;
+    let t = row.try_get_raw(2)?;
+    assert!(!i.is_null());
+    assert!(!f.is_null());
+    assert!(!t.is_null());
     Ok(())
 }
 
@@ -112,5 +121,34 @@ async fn it_can_prepare_then_query_without_params() -> anyhow::Result<()> {
     let stmt = (&mut conn).prepare("SELECT 7 AS seven").await?;
     let row = stmt.query().fetch_one(&mut conn).await?;
     assert_eq!(row.column(0).name(), "seven");
+    Ok(())
+}
+
+#[tokio::test]
+async fn it_can_prepare_then_query_with_params_integer_float_text() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+
+    let stmt = (&mut conn)
+        .prepare("SELECT ? AS i, ? AS f, ? AS t")
+        .await?;
+
+    let row = stmt
+        .query()
+        .bind(5_i32)
+        .bind(1.25_f64)
+        .bind("hello")
+        .fetch_one(&mut conn)
+        .await?;
+
+    assert_eq!(row.column(0).name(), "i");
+    assert_eq!(row.column(1).name(), "f");
+    assert_eq!(row.column(2).name(), "t");
+    let i = row.try_get_raw(0)?;
+    let f = row.try_get_raw(1)?;
+    let t = row.try_get_raw(2)?;
+    assert!(!i.is_null());
+    assert!(!f.is_null());
+    assert!(!t.is_null());
+    
     Ok(())
 }

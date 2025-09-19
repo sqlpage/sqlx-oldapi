@@ -25,12 +25,94 @@ impl<'q> Arguments<'q> for OdbcArguments<'q> {
         self.values.reserve(additional);
     }
 
-    fn add<T>(&mut self, _value: T)
+    fn add<T>(&mut self, value: T)
     where
         T: 'q + Send + Encode<'q, Self::Database> + Type<Self::Database>,
     {
-        // Not implemented yet; ODBC backend currently executes direct SQL without binds
-        // This stub allows query() without binds to compile.
-        let _ = _value;
+        let _ = value.encode(&mut self.values);
+    }
+}
+
+impl<'q> Encode<'q, Odbc> for i32 {
+    fn encode(self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+        buf.push(OdbcArgumentValue::Int(self as i64));
+        crate::encode::IsNull::No
+    }
+
+    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+        buf.push(OdbcArgumentValue::Int(*self as i64));
+        crate::encode::IsNull::No
+    }
+}
+
+impl<'q> Encode<'q, Odbc> for i64 {
+    fn encode(self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+        buf.push(OdbcArgumentValue::Int(self));
+        crate::encode::IsNull::No
+    }
+
+    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+        buf.push(OdbcArgumentValue::Int(*self));
+        crate::encode::IsNull::No
+    }
+}
+
+impl<'q> Encode<'q, Odbc> for f32 {
+    fn encode(self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+        buf.push(OdbcArgumentValue::Float(self as f64));
+        crate::encode::IsNull::No
+    }
+
+    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+        buf.push(OdbcArgumentValue::Float(*self as f64));
+        crate::encode::IsNull::No
+    }
+}
+
+impl<'q> Encode<'q, Odbc> for f64 {
+    fn encode(self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+        buf.push(OdbcArgumentValue::Float(self));
+        crate::encode::IsNull::No
+    }
+
+    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+        buf.push(OdbcArgumentValue::Float(*self));
+        crate::encode::IsNull::No
+    }
+}
+
+impl<'q> Encode<'q, Odbc> for String {
+    fn encode(self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+        buf.push(OdbcArgumentValue::Text(self));
+        crate::encode::IsNull::No
+    }
+
+    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+        buf.push(OdbcArgumentValue::Text(self.clone()));
+        crate::encode::IsNull::No
+    }
+}
+
+impl<'q> Encode<'q, Odbc> for &'q str {
+    fn encode(self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+        buf.push(OdbcArgumentValue::Text(self.to_owned()));
+        crate::encode::IsNull::No
+    }
+
+    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+        buf.push(OdbcArgumentValue::Text((*self).to_owned()));
+        crate::encode::IsNull::No
+    }
+}
+
+impl<'q> Encode<'q, Odbc> for Vec<u8> {
+    fn encode(self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+        buf.push(OdbcArgumentValue::Bytes(self));
+        crate::encode::IsNull::No
+    }
+
+    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+        buf.push(OdbcArgumentValue::Bytes(self.clone()));
+        crate::encode::IsNull::No
     }
 }
