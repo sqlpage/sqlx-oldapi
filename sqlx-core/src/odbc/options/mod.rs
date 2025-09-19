@@ -15,12 +15,16 @@ pub struct OdbcConnectOptions {
 }
 
 impl OdbcConnectOptions {
-    pub fn connection_string(&self) -> &str { &self.conn_str }
+    pub fn connection_string(&self) -> &str {
+        &self.conn_str
+    }
 }
 
 impl Debug for OdbcConnectOptions {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.debug_struct("OdbcConnectOptions").field("conn_str", &"<redacted>").finish()
+        f.debug_struct("OdbcConnectOptions")
+            .field("conn_str", &"<redacted>")
+            .finish()
     }
 }
 
@@ -29,7 +33,10 @@ impl FromStr for OdbcConnectOptions {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         // Use full string as ODBC connection string or DSN
-        Ok(Self { conn_str: s.to_owned(), log_settings: LogSettings::default() })
+        Ok(Self {
+            conn_str: s.to_owned(),
+            log_settings: LogSettings::default(),
+        })
     }
 }
 

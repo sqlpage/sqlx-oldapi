@@ -11,13 +11,19 @@ pub struct OdbcColumn {
 impl Column for OdbcColumn {
     type Database = Odbc;
 
-    fn ordinal(&self) -> usize { self.ordinal }
-    fn name(&self) -> &str { &self.name }
-    fn type_info(&self) -> &OdbcTypeInfo { &self.type_info }
+    fn ordinal(&self) -> usize {
+        self.ordinal
+    }
+    fn name(&self) -> &str {
+        &self.name
+    }
+    fn type_info(&self) -> &OdbcTypeInfo {
+        &self.type_info
+    }
 }
 
 mod private {
-    use crate::column::private_column::Sealed;
     use super::OdbcColumn;
+    use crate::column::private_column::Sealed;
     impl Sealed for OdbcColumn {}
 }

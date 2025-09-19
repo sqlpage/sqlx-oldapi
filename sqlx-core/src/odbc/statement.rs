@@ -1,7 +1,7 @@
+use crate::column::ColumnIndex;
+use crate::error::Error;
 use crate::odbc::{Odbc, OdbcColumn, OdbcTypeInfo};
 use crate::statement::Statement;
-use crate::error::Error;
-use crate::column::ColumnIndex;
 use either::Either;
 use std::borrow::Cow;
 
@@ -16,12 +16,22 @@ impl<'q> Statement<'q> for OdbcStatement<'q> {
     type Database = Odbc;
 
     fn to_owned(&self) -> OdbcStatement<'static> {
-        OdbcStatement { sql: Cow::Owned(self.sql.to_string()), columns: self.columns.clone(), parameters: self.parameters }
+        OdbcStatement {
+            sql: Cow::Owned(self.sql.to_string()),
+            columns: self.columns.clone(),
+            parameters: self.parameters,
+        }
     }
 
-    fn sql(&self) -> &str { &self.sql }
-    fn parameters(&self) -> Option<Either<&[OdbcTypeInfo], usize>> { Some(Either::Right(self.parameters)) }
-    fn columns(&self) -> &[OdbcColumn] { &self.columns }
+    fn sql(&self) -> &str {
+        &self.sql
+    }
+    fn parameters(&self) -> Option<Either<&[OdbcTypeInfo], usize>> {
+        Some(Either::Right(self.parameters))
+    }
+    fn columns(&self) -> &[OdbcColumn] {
+        &self.columns
+    }
 
     // ODBC arguments placeholder
     impl_statement_query!(crate::odbc::OdbcArguments<'_>);

@@ -8,8 +8,12 @@ pub struct OdbcTypeInfo {
 }
 
 impl TypeInfo for OdbcTypeInfo {
-    fn is_null(&self) -> bool { self.is_null }
-    fn name(&self) -> &str { &self.name }
+    fn is_null(&self) -> bool {
+        self.is_null
+    }
+    fn name(&self) -> &str {
+        &self.name
+    }
 }
 
 impl Display for OdbcTypeInfo {

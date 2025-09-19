@@ -19,11 +19,21 @@ pub(crate) struct Shared {
 }
 
 enum Command {
-    Ping { tx: oneshot::Sender<()> },
-    Shutdown { tx: oneshot::Sender<()> },
-    Begin { tx: oneshot::Sender<Result<(), Error>> },
-    Commit { tx: oneshot::Sender<Result<(), Error>> },
-    Rollback { tx: oneshot::Sender<Result<(), Error>> },
+    Ping {
+        tx: oneshot::Sender<()>,
+    },
+    Shutdown {
+        tx: oneshot::Sender<()>,
+    },
+    Begin {
+        tx: oneshot::Sender<Result<(), Error>>,
+    },
+    Commit {
+        tx: oneshot::Sender<Result<(), Error>>,
+    },
+    Rollback {
+        tx: oneshot::Sender<Result<(), Error>>,
+    },
 }
 
 impl ConnectionWorker {
@@ -39,7 +49,9 @@ impl ConnectionWorker {
                 // to 'static, as ODBC connection borrows it. This is acceptable for long-lived
                 // process and mirrors SQLite approach to background workers.
                 let env = Box::leak(Box::new(odbc_api::Environment::new().unwrap()));
-                let conn = match env.connect_with_connection_string(options.connection_string(), Default::default()) {
+                let conn = match env
+                    .connect_with_connection_string(options.connection_string(), Default::default())
+                {
                     Ok(c) => c,
                     Err(e) => {
                         let _ = establish_tx.send(Err(Error::Configuration(e.to_string().into())));
@@ -47,10 +59,15 @@ impl ConnectionWorker {
                     }
                 };
 
-                let shared = Arc::new(Shared { conn: Mutex::new(conn, true) });
+                let shared = Arc::new(Shared {
+                    conn: Mutex::new(conn, true),
+                });
 
                 if establish_tx
-                    .send(Ok(Self { command_tx: tx.clone(), shared: Arc::clone(&shared) }))
+                    .send(Ok(Self {
+                        command_tx: tx.clone(),
+                        shared: Arc::clone(&shared),
+                    }))
                     .is_err()
                 {
                     return;
@@ -67,20 +84,35 @@ impl ConnectionWorker {
                         }
                         Command::Begin { tx } => {
                             let res = if let Some(mut guard) = shared.conn.try_lock() {
-                                match guard.execute("BEGIN", (), None) { Ok(_) => Ok(()), Err(e) => Err(Error::Configuration(e.to_string().into())) }
-                            } else { Ok(()) };
+                                match guard.execute("BEGIN", (), None) {
+                                    Ok(_) => Ok(()),
+                                    Err(e) => Err(Error::Configuration(e.to_string().into())),
+                                }
+                            } else {
+                                Ok(())
+                            };
                             let _ = tx.send(res);
                         }
                         Command::Commit { tx } => {
                             let res = if let Some(mut guard) = shared.conn.try_lock() {
-                                match guard.execute("COMMIT", (), None) { Ok(_) => Ok(()), Err(e) => Err(Error::Configuration(e.to_string().into())) }
-                            } else { Ok(()) };
+                                match guard.execute("COMMIT", (), None) {
+                                    Ok(_) => Ok(()),
+                                    Err(e) => Err(Error::Configuration(e.to_string().into())),
+                                }
+                            } else {
+                                Ok(())
+                            };
                             let _ = tx.send(res);
                         }
                         Command::Rollback { tx } => {
                             let res = if let Some(mut guard) = shared.conn.try_lock() {
-                                match guard.execute("ROLLBACK", (), None) { Ok(_) => Ok(()), Err(e) => Err(Error::Configuration(e.to_string().into())) }
-                            } else { Ok(()) };
+                                match guard.execute("ROLLBACK", (), None) {
+                                    Ok(_) => Ok(()),
+                                    Err(e) => Err(Error::Configuration(e.to_string().into())),
+                                }
+                            } else {
+                                Ok(())
+                            };
                             let _ = tx.send(res);
                         }
                         Command::Shutdown { tx } => {
