@@ -210,3 +210,21 @@ async fn it_can_bind_heterogeneous_params() -> anyhow::Result<()> {
     assert_eq!(last, 42);
     Ok(())
 }
+
+#[tokio::test]
+async fn it_binds_null_string_parameter() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+    let stmt = (&mut conn).prepare("SELECT ?, ?").await?;
+    let row = stmt
+        .query()
+        .bind("abc")
+        .bind(Option::<String>::None)
+        .fetch_one(&mut conn)
+        .await?;
+
+    let a = row.try_get_raw(0)?.to_owned().decode::<String>();
+    let b = row.try_get_raw(1)?.to_owned();
+    assert_eq!(a, "abc");
+    assert!(b.is_null());
+    Ok(())
+}

@@ -265,7 +265,7 @@ fn execute_sql_with_params(
 
     let mut params: Vec<Box<dyn odbc_api::parameter::InputParameter>> =
         Vec::with_capacity(args.len());
-    for a in args {
+    for a in dbg!(args) {
         params.push(to_param(a));
     }
     dispatch_execute(conn, sql, &params[..], tx);
@@ -280,7 +280,7 @@ fn to_param(
         OdbcArgumentValue::Text(s) => Box::new(s.into_parameter()),
         OdbcArgumentValue::Bytes(b) => Box::new(b.into_parameter()),
         OdbcArgumentValue::Null | OdbcArgumentValue::Phantom(_) => {
-            Box::new(Option::<i32>::None.into_parameter())
+            Box::new(Option::<String>::None.into_parameter())
         }
     }
 }

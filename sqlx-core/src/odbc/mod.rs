@@ -47,5 +47,4 @@ impl_column_index_for_statement!(OdbcStatement);
 impl_acquire!(Odbc, OdbcConnection);
 impl_into_maybe_pool!(Odbc, OdbcConnection);
 
-// required because some databases have a different handling of NULL
-impl_encode_for_option!(Odbc);
+// custom Option<..> handling implemented in `arguments.rs`
