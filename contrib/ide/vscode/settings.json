@@ -1,3 +1,16 @@
 {
-    "rust-analyzer.assist.importMergeBehaviour": "last"
+    "rust-analyzer.check.command": "clippy",
+    "rust-analyzer.cargo.features": [
+        "any",
+        "all-databases",
+        "macros",
+        "migrate",
+        "all-types",
+        "runtime-actix-rustls"
+    ],
+    "rust-analyzer.linkedProjects": [
+        "./Cargo.toml",
+        "./sqlx-core/Cargo.toml",
+        "./sqlx-macros/Cargo.toml"
+    ]
 }
