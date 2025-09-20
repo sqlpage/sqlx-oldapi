@@ -172,3 +172,156 @@ impl<'r> Decode<'r, Odbc> for bool {
         Err("ODBC: cannot decode bool".into())
     }
 }
+
+impl<'r> Decode<'r, Odbc> for u8 {
+    fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
+        let i = i64::decode(value)?;
+        Ok(u8::try_from(i)?)
+    }
+}
+
+impl<'r> Decode<'r, Odbc> for u16 {
+    fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
+        let i = i64::decode(value)?;
+        Ok(u16::try_from(i)?)
+    }
+}
+
+impl<'r> Decode<'r, Odbc> for u32 {
+    fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
+        let i = i64::decode(value)?;
+        Ok(u32::try_from(i)?)
+    }
+}
+
+impl<'r> Decode<'r, Odbc> for u64 {
+    fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
+        let i = i64::decode(value)?;
+        Ok(u64::try_from(i)?)
+    }
+}
+
+impl<'r> Decode<'r, Odbc> for &'r [u8] {
+    fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
+        if let Some(bytes) = value.blob {
+            return Ok(bytes);
+        }
+        if let Some(text) = value.text {
+            return Ok(text.as_bytes());
+        }
+        Err("ODBC: cannot decode &[u8]".into())
+    }
+}
+
+// Feature-gated decode implementations
+#[cfg(feature = "chrono")]
+mod chrono_decode {
+    use super::*;
+    use chrono::{DateTime, FixedOffset, Local, NaiveDate, NaiveDateTime, NaiveTime, Utc};
+
+    impl<'r> Decode<'r, Odbc> for NaiveDate {
+        fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
+            let s = String::decode(value)?;
+            Ok(s.parse()?)
+        }
+    }
+
+    impl<'r> Decode<'r, Odbc> for NaiveTime {
+        fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
+            let s = String::decode(value)?;
+            Ok(s.parse()?)
+        }
+    }
+
+    impl<'r> Decode<'r, Odbc> for NaiveDateTime {
+        fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
+            let s = String::decode(value)?;
+            Ok(s.parse()?)
+        }
+    }
+
+    impl<'r> Decode<'r, Odbc> for DateTime<Utc> {
+        fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
+            let s = String::decode(value)?;
+            Ok(s.parse()?)
+        }
+    }
+
+    impl<'r> Decode<'r, Odbc> for DateTime<FixedOffset> {
+        fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
+            let s = String::decode(value)?;
+            Ok(s.parse()?)
+        }
+    }
+
+    impl<'r> Decode<'r, Odbc> for DateTime<Local> {
+        fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
+            let s = String::decode(value)?;
+            Ok(s.parse::<DateTime<Utc>>()?.with_timezone(&Local))
+        }
+    }
+}
+
+#[cfg(feature = "json")]
+mod json_decode {
+    use super::*;
+    use serde_json::Value;
+
+    impl<'r> Decode<'r, Odbc> for Value {
+        fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
+            let s = String::decode(value)?;
+            Ok(serde_json::from_str(&s)?)
+        }
+    }
+}
+
+#[cfg(feature = "bigdecimal")]
+mod bigdecimal_decode {
+    use super::*;
+    use bigdecimal::BigDecimal;
+    use std::str::FromStr;
+
+    impl<'r> Decode<'r, Odbc> for BigDecimal {
+        fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
+            let s = String::decode(value)?;
+            Ok(BigDecimal::from_str(&s)?)
+        }
+    }
+}
+
+#[cfg(feature = "decimal")]
+mod decimal_decode {
+    use super::*;
+    use rust_decimal::Decimal;
+    use std::str::FromStr;
+
+    impl<'r> Decode<'r, Odbc> for Decimal {
+        fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
+            let s = String::decode(value)?;
+            Ok(Decimal::from_str(&s)?)
+        }
+    }
+}
+
+#[cfg(feature = "uuid")]
+mod uuid_decode {
+    use super::*;
+    use uuid::Uuid;
+    use std::str::FromStr;
+
+    impl<'r> Decode<'r, Odbc> for Uuid {
+        fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
+            if let Some(bytes) = value.blob {
+                if bytes.len() == 16 {
+                    // Binary UUID format
+                    return Ok(Uuid::from_bytes(bytes.try_into()?));
+                }
+                // Try as string
+                let s = std::str::from_utf8(bytes)?;
+                return Ok(Uuid::from_str(s)?);
+            }
+            let s = String::decode(value)?;
+            Ok(Uuid::from_str(&s)?)
+        }
+    }
+}
