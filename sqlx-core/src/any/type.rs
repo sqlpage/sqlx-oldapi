@@ -33,6 +33,53 @@ macro_rules! impl_any_type {
                     crate::any::type_info::AnyTypeInfoKind::Mssql(ty) => {
                         <$ty as crate::types::Type<crate::mssql::Mssql>>::compatible(&ty)
                     }
+
+                    #[cfg(feature = "odbc")]
+                    crate::any::type_info::AnyTypeInfoKind::Odbc(ty) => {
+                        <$ty as crate::types::Type<crate::odbc::Odbc>>::compatible(&ty)
+                    }
+                }
+            }
+        }
+    };
+}
+
+// Macro for types that don't support all databases (e.g., str and [u8] don't support ODBC)
+macro_rules! impl_any_type_skip_odbc {
+    ($ty:ty) => {
+        impl crate::types::Type<crate::any::Any> for $ty {
+            fn type_info() -> crate::any::AnyTypeInfo {
+                // FIXME: nicer panic explaining why this isn't possible
+                unimplemented!()
+            }
+
+            fn compatible(ty: &crate::any::AnyTypeInfo) -> bool {
+                match &ty.0 {
+                    #[cfg(feature = "postgres")]
+                    crate::any::type_info::AnyTypeInfoKind::Postgres(ty) => {
+                        <$ty as crate::types::Type<crate::postgres::Postgres>>::compatible(&ty)
+                    }
+
+                    #[cfg(feature = "mysql")]
+                    crate::any::type_info::AnyTypeInfoKind::MySql(ty) => {
+                        <$ty as crate::types::Type<crate::mysql::MySql>>::compatible(&ty)
+                    }
+
+                    #[cfg(feature = "sqlite")]
+                    crate::any::type_info::AnyTypeInfoKind::Sqlite(ty) => {
+                        <$ty as crate::types::Type<crate::sqlite::Sqlite>>::compatible(&ty)
+                    }
+
+                    #[cfg(feature = "mssql")]
+                    crate::any::type_info::AnyTypeInfoKind::Mssql(ty) => {
+                        <$ty as crate::types::Type<crate::mssql::Mssql>>::compatible(&ty)
+                    }
+
+                    #[cfg(feature = "odbc")]
+                    crate::any::type_info::AnyTypeInfoKind::Odbc(_) => {
+                        // str and [u8] don't support ODBC directly, only their reference forms do
+                        false
+                    }
                 }
             }
         }

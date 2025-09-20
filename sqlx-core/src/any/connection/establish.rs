@@ -34,6 +34,13 @@ impl AnyConnection {
                     .await
                     .map(AnyConnectionKind::Mssql)
             }
+
+            #[cfg(feature = "odbc")]
+            AnyConnectOptionsKind::Odbc(options) => {
+                crate::odbc::OdbcConnection::connect_with(options)
+                    .await
+                    .map(AnyConnectionKind::Odbc)
+            }
         }
         .map(AnyConnection)
     }

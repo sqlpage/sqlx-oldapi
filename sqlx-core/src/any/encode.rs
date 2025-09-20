@@ -1,6 +1,9 @@
 use crate::encode::Encode;
 use crate::types::Type;
 
+#[cfg(feature = "odbc")]
+use crate::odbc::Odbc;
+
 #[cfg(feature = "postgres")]
 use crate::postgres::Postgres;
 
@@ -39,6 +42,11 @@ macro_rules! impl_any_encode {
 
                     #[cfg(feature = "sqlite")]
                     crate::any::arguments::AnyArgumentBufferKind::Sqlite(args) => args.add(self),
+
+                    #[cfg(feature = "odbc")]
+                    crate::any::arguments::AnyArgumentBufferKind::Odbc(args, _) => {
+                        let _ = self.encode_by_ref(&mut args.values);
+                    }
                 }
 
                 // unused
@@ -48,314 +56,323 @@ macro_rules! impl_any_encode {
     };
 }
 
-// FIXME: Find a nice way to auto-generate the below or petition Rust to add support for #[cfg]
-//        to trait bounds
+// Macro to generate AnyEncode trait and implementation for a given set of databases
+macro_rules! impl_any_encode_for_db {
+    (
+        $(#[$meta:meta])*
+        $($db:ident),+
+    ) => {
+        $(#[$meta])*
+        pub trait AnyEncode<'q>: $(Encode<'q, $db> + Type<$db> + )+ {}
 
-// all 4
-
-#[cfg(all(
-    feature = "postgres",
-    feature = "mysql",
-    feature = "mssql",
-    feature = "sqlite"
-))]
-pub trait AnyEncode<'q>:
-    Encode<'q, Postgres>
-    + Type<Postgres>
-    + Encode<'q, MySql>
-    + Type<MySql>
-    + Encode<'q, Mssql>
-    + Type<Mssql>
-    + Encode<'q, Sqlite>
-    + Type<Sqlite>
-{
+        $(#[$meta])*
+        impl<'q, T> AnyEncode<'q> for T
+        where
+            T: $(Encode<'q, $db> + Type<$db> + )+
+        {}
+    };
 }
 
-#[cfg(all(
-    feature = "postgres",
-    feature = "mysql",
-    feature = "mssql",
-    feature = "sqlite"
-))]
-impl<'q, T> AnyEncode<'q> for T where
-    T: Encode<'q, Postgres>
-        + Type<Postgres>
-        + Encode<'q, MySql>
-        + Type<MySql>
-        + Encode<'q, Mssql>
-        + Type<Mssql>
-        + Encode<'q, Sqlite>
-        + Type<Sqlite>
-{
+// Generate all combinations of databases
+// The order is: Postgres, MySql, Mssql, Sqlite, Odbc
+
+// All 5 databases
+impl_any_encode_for_db! {
+    #[cfg(all(
+        feature = "postgres",
+        feature = "mysql",
+        feature = "mssql",
+        feature = "sqlite",
+        feature = "odbc"
+    ))]
+    Postgres, MySql, Mssql, Sqlite, Odbc
 }
 
-// only 3 (4)
-
-#[cfg(all(
-    not(feature = "mssql"),
-    all(feature = "postgres", feature = "mysql", feature = "sqlite")
-))]
-pub trait AnyEncode<'q>:
-    Encode<'q, Postgres>
-    + Type<Postgres>
-    + Encode<'q, MySql>
-    + Type<MySql>
-    + Encode<'q, Sqlite>
-    + Type<Sqlite>
-{
+// 4 databases (5 combinations)
+impl_any_encode_for_db! {
+    #[cfg(all(
+        feature = "mysql",
+        feature = "mssql",
+        feature = "sqlite",
+        feature = "odbc",
+        not(feature = "postgres")
+    ))]
+    MySql, Mssql, Sqlite, Odbc
 }
 
-#[cfg(all(
-    not(feature = "mssql"),
-    all(feature = "postgres", feature = "mysql", feature = "sqlite")
-))]
-impl<'q, T> AnyEncode<'q> for T where
-    T: Encode<'q, Postgres>
-        + Type<Postgres>
-        + Encode<'q, MySql>
-        + Type<MySql>
-        + Encode<'q, Sqlite>
-        + Type<Sqlite>
-{
+impl_any_encode_for_db! {
+    #[cfg(all(
+        feature = "postgres",
+        feature = "mssql",
+        feature = "sqlite",
+        feature = "odbc",
+        not(feature = "mysql")
+    ))]
+    Postgres, Mssql, Sqlite, Odbc
 }
 
-#[cfg(all(
-    not(feature = "mysql"),
-    all(feature = "postgres", feature = "mssql", feature = "sqlite")
-))]
-pub trait AnyEncode<'q>:
-    Encode<'q, Postgres>
-    + Type<Postgres>
-    + Encode<'q, Mssql>
-    + Type<Mssql>
-    + Encode<'q, Sqlite>
-    + Type<Sqlite>
-{
+impl_any_encode_for_db! {
+    #[cfg(all(
+        feature = "postgres",
+        feature = "mysql",
+        feature = "sqlite",
+        feature = "odbc",
+        not(feature = "mssql")
+    ))]
+    Postgres, MySql, Sqlite, Odbc
 }
 
-#[cfg(all(
-    not(feature = "mysql"),
-    all(feature = "postgres", feature = "mssql", feature = "sqlite")
-))]
-impl<'q, T> AnyEncode<'q> for T where
-    T: Encode<'q, Postgres>
-        + Type<Postgres>
-        + Encode<'q, Mssql>
-        + Type<Mssql>
-        + Encode<'q, Sqlite>
-        + Type<Sqlite>
-{
+impl_any_encode_for_db! {
+    #[cfg(all(
+        feature = "postgres",
+        feature = "mysql",
+        feature = "mssql",
+        feature = "odbc",
+        not(feature = "sqlite")
+    ))]
+    Postgres, MySql, Mssql, Odbc
 }
 
-#[cfg(all(
-    not(feature = "sqlite"),
-    all(feature = "postgres", feature = "mysql", feature = "mssql")
-))]
-pub trait AnyEncode<'q>:
-    Encode<'q, Postgres>
-    + Type<Postgres>
-    + Encode<'q, MySql>
-    + Type<MySql>
-    + Encode<'q, Mssql>
-    + Type<Mssql>
-{
+impl_any_encode_for_db! {
+    #[cfg(all(
+        feature = "postgres",
+        feature = "mysql",
+        feature = "mssql",
+        feature = "sqlite",
+        not(feature = "odbc")
+    ))]
+    Postgres, MySql, Mssql, Sqlite
 }
 
-#[cfg(all(
-    not(feature = "sqlite"),
-    all(feature = "postgres", feature = "mysql", feature = "mssql")
-))]
-impl<'q, T> AnyEncode<'q> for T where
-    T: Encode<'q, Postgres>
-        + Type<Postgres>
-        + Encode<'q, MySql>
-        + Type<MySql>
-        + Encode<'q, Mssql>
-        + Type<Mssql>
-{
+// 3 databases (10 combinations)
+impl_any_encode_for_db! {
+    #[cfg(all(
+        feature = "mysql",
+        feature = "mssql",
+        feature = "sqlite",
+        not(any(feature = "postgres", feature = "odbc"))
+    ))]
+    MySql, Mssql, Sqlite
 }
 
-#[cfg(all(
-    not(feature = "postgres"),
-    all(feature = "sqlite", feature = "mysql", feature = "mssql")
-))]
-pub trait AnyEncode<'q>:
-    Encode<'q, Sqlite>
-    + Type<Sqlite>
-    + Encode<'q, MySql>
-    + Type<MySql>
-    + Encode<'q, Mssql>
-    + Type<Mssql>
-{
+impl_any_encode_for_db! {
+    #[cfg(all(
+        feature = "mysql",
+        feature = "mssql",
+        feature = "odbc",
+        not(any(feature = "postgres", feature = "sqlite"))
+    ))]
+    MySql, Mssql, Odbc
 }
 
-#[cfg(all(
-    not(feature = "postgres"),
-    all(feature = "sqlite", feature = "mysql", feature = "mssql")
-))]
-impl<'q, T> AnyEncode<'q> for T where
-    T: Encode<'q, Sqlite>
-        + Type<Sqlite>
-        + Encode<'q, MySql>
-        + Type<MySql>
-        + Encode<'q, Mssql>
-        + Type<Mssql>
-{
+impl_any_encode_for_db! {
+    #[cfg(all(
+        feature = "mysql",
+        feature = "sqlite",
+        feature = "odbc",
+        not(any(feature = "postgres", feature = "mssql"))
+    ))]
+    MySql, Sqlite, Odbc
 }
 
-// only 2 (6)
-
-#[cfg(all(
-    not(any(feature = "mssql", feature = "sqlite")),
-    all(feature = "postgres", feature = "mysql")
-))]
-pub trait AnyEncode<'q>:
-    Encode<'q, Postgres> + Type<Postgres> + Encode<'q, MySql> + Type<MySql>
-{
+impl_any_encode_for_db! {
+    #[cfg(all(
+        feature = "mssql",
+        feature = "sqlite",
+        feature = "odbc",
+        not(any(feature = "postgres", feature = "mysql"))
+    ))]
+    Mssql, Sqlite, Odbc
 }
 
-#[cfg(all(
-    not(any(feature = "mssql", feature = "sqlite")),
-    all(feature = "postgres", feature = "mysql")
-))]
-impl<'q, T> AnyEncode<'q> for T where
-    T: Encode<'q, Postgres> + Type<Postgres> + Encode<'q, MySql> + Type<MySql>
-{
+impl_any_encode_for_db! {
+    #[cfg(all(
+        feature = "postgres",
+        feature = "mssql",
+        feature = "sqlite",
+        not(any(feature = "mysql", feature = "odbc"))
+    ))]
+    Postgres, Mssql, Sqlite
 }
 
-#[cfg(all(
-    not(any(feature = "mysql", feature = "sqlite")),
-    all(feature = "postgres", feature = "mssql")
-))]
-pub trait AnyEncode<'q>:
-    Encode<'q, Postgres> + Type<Postgres> + Encode<'q, Mssql> + Type<Mssql>
-{
+impl_any_encode_for_db! {
+    #[cfg(all(
+        feature = "postgres",
+        feature = "mssql",
+        feature = "odbc",
+        not(any(feature = "mysql", feature = "sqlite"))
+    ))]
+    Postgres, Mssql, Odbc
 }
 
-#[cfg(all(
-    not(any(feature = "mysql", feature = "sqlite")),
-    all(feature = "postgres", feature = "mssql")
-))]
-impl<'q, T> AnyEncode<'q> for T where
-    T: Encode<'q, Postgres> + Type<Postgres> + Encode<'q, Mssql> + Type<Mssql>
-{
+impl_any_encode_for_db! {
+    #[cfg(all(
+        feature = "postgres",
+        feature = "sqlite",
+        feature = "odbc",
+        not(any(feature = "mysql", feature = "mssql"))
+    ))]
+    Postgres, Sqlite, Odbc
 }
 
-#[cfg(all(
-    not(any(feature = "mysql", feature = "mssql")),
-    all(feature = "postgres", feature = "sqlite")
-))]
-pub trait AnyEncode<'q>:
-    Encode<'q, Postgres> + Type<Postgres> + Encode<'q, Sqlite> + Type<Sqlite>
-{
+impl_any_encode_for_db! {
+    #[cfg(all(
+        feature = "postgres",
+        feature = "mysql",
+        feature = "sqlite",
+        not(any(feature = "mssql", feature = "odbc"))
+    ))]
+    Postgres, MySql, Sqlite
 }
 
-#[cfg(all(
-    not(any(feature = "mysql", feature = "mssql")),
-    all(feature = "postgres", feature = "sqlite")
-))]
-impl<'q, T> AnyEncode<'q> for T where
-    T: Encode<'q, Postgres> + Type<Postgres> + Encode<'q, Sqlite> + Type<Sqlite>
-{
+impl_any_encode_for_db! {
+    #[cfg(all(
+        feature = "postgres",
+        feature = "mysql",
+        feature = "odbc",
+        not(any(feature = "mssql", feature = "sqlite"))
+    ))]
+    Postgres, MySql, Odbc
 }
 
-#[cfg(all(
-    not(any(feature = "postgres", feature = "sqlite")),
-    all(feature = "mssql", feature = "mysql")
-))]
-pub trait AnyEncode<'q>: Encode<'q, Mssql> + Type<Mssql> + Encode<'q, MySql> + Type<MySql> {}
-
-#[cfg(all(
-    not(any(feature = "postgres", feature = "sqlite")),
-    all(feature = "mssql", feature = "mysql")
-))]
-impl<'q, T> AnyEncode<'q> for T where
-    T: Encode<'q, Mssql> + Type<Mssql> + Encode<'q, MySql> + Type<MySql>
-{
+impl_any_encode_for_db! {
+    #[cfg(all(
+        feature = "postgres",
+        feature = "mysql",
+        feature = "mssql",
+        not(any(feature = "sqlite", feature = "odbc"))
+    ))]
+    Postgres, MySql, Mssql
 }
 
-#[cfg(all(
-    not(any(feature = "postgres", feature = "mysql")),
-    all(feature = "mssql", feature = "sqlite")
-))]
-pub trait AnyEncode<'q>:
-    Encode<'q, Mssql> + Type<Mssql> + Encode<'q, Sqlite> + Type<Sqlite>
-{
+// 2 databases (10 combinations)
+impl_any_encode_for_db! {
+    #[cfg(all(
+        feature = "postgres",
+        feature = "mysql",
+        not(any(feature = "mssql", feature = "sqlite", feature = "odbc"))
+    ))]
+    Postgres, MySql
 }
 
-#[cfg(all(
-    not(any(feature = "postgres", feature = "mysql")),
-    all(feature = "mssql", feature = "sqlite")
-))]
-impl<'q, T> AnyEncode<'q> for T where
-    T: Encode<'q, Mssql> + Type<Mssql> + Encode<'q, Sqlite> + Type<Sqlite>
-{
+impl_any_encode_for_db! {
+    #[cfg(all(
+        feature = "postgres",
+        feature = "mssql",
+        not(any(feature = "mysql", feature = "sqlite", feature = "odbc"))
+    ))]
+    Postgres, Mssql
 }
 
-#[cfg(all(
-    not(any(feature = "postgres", feature = "mssql")),
-    all(feature = "mysql", feature = "sqlite")
-))]
-pub trait AnyEncode<'q>:
-    Encode<'q, MySql> + Type<MySql> + Encode<'q, Sqlite> + Type<Sqlite>
-{
+impl_any_encode_for_db! {
+    #[cfg(all(
+        feature = "postgres",
+        feature = "sqlite",
+        not(any(feature = "mysql", feature = "mssql", feature = "odbc"))
+    ))]
+    Postgres, Sqlite
 }
 
-#[cfg(all(
-    not(any(feature = "postgres", feature = "mssql")),
-    all(feature = "mysql", feature = "sqlite")
-))]
-impl<'q, T> AnyEncode<'q> for T where
-    T: Encode<'q, MySql> + Type<MySql> + Encode<'q, Sqlite> + Type<Sqlite>
-{
+impl_any_encode_for_db! {
+    #[cfg(all(
+        feature = "postgres",
+        feature = "odbc",
+        not(any(feature = "mysql", feature = "mssql", feature = "sqlite"))
+    ))]
+    Postgres, Odbc
 }
 
-// only 1 (4)
+impl_any_encode_for_db! {
+    #[cfg(all(
+        feature = "mysql",
+        feature = "mssql",
+        not(any(feature = "postgres", feature = "sqlite", feature = "odbc"))
+    ))]
+    MySql, Mssql
+}
 
-#[cfg(all(
-    not(any(feature = "mysql", feature = "mssql", feature = "sqlite")),
-    feature = "postgres"
-))]
-pub trait AnyEncode<'q>: Encode<'q, Postgres> + Type<Postgres> {}
+impl_any_encode_for_db! {
+    #[cfg(all(
+        feature = "mysql",
+        feature = "sqlite",
+        not(any(feature = "postgres", feature = "mssql", feature = "odbc"))
+    ))]
+    MySql, Sqlite
+}
 
-#[cfg(all(
-    not(any(feature = "mysql", feature = "mssql", feature = "sqlite")),
-    feature = "postgres"
-))]
-impl<'q, T> AnyEncode<'q> for T where T: Encode<'q, Postgres> + Type<Postgres> {}
+impl_any_encode_for_db! {
+    #[cfg(all(
+        feature = "mysql",
+        feature = "odbc",
+        not(any(feature = "postgres", feature = "mssql", feature = "sqlite"))
+    ))]
+    MySql, Odbc
+}
 
-#[cfg(all(
-    not(any(feature = "postgres", feature = "mssql", feature = "sqlite")),
-    feature = "mysql"
-))]
-pub trait AnyEncode<'q>: Encode<'q, MySql> + Type<MySql> {}
+impl_any_encode_for_db! {
+    #[cfg(all(
+        feature = "mssql",
+        feature = "sqlite",
+        not(any(feature = "postgres", feature = "mysql", feature = "odbc"))
+    ))]
+    Mssql, Sqlite
+}
 
-#[cfg(all(
-    not(any(feature = "postgres", feature = "mssql", feature = "sqlite")),
-    feature = "mysql"
-))]
-impl<'q, T> AnyEncode<'q> for T where T: Encode<'q, MySql> + Type<MySql> {}
+impl_any_encode_for_db! {
+    #[cfg(all(
+        feature = "mssql",
+        feature = "odbc",
+        not(any(feature = "postgres", feature = "mysql", feature = "sqlite"))
+    ))]
+    Mssql, Odbc
+}
 
-#[cfg(all(
-    not(any(feature = "mysql", feature = "postgres", feature = "sqlite")),
-    feature = "mssql"
-))]
-pub trait AnyEncode<'q>: Encode<'q, Mssql> + Type<Mssql> {}
+impl_any_encode_for_db! {
+    #[cfg(all(
+        feature = "sqlite",
+        feature = "odbc",
+        not(any(feature = "postgres", feature = "mysql", feature = "mssql"))
+    ))]
+    Sqlite, Odbc
+}
 
-#[cfg(all(
-    not(any(feature = "mysql", feature = "postgres", feature = "sqlite")),
-    feature = "mssql"
-))]
-impl<'q, T> AnyEncode<'q> for T where T: Encode<'q, Mssql> + Type<Mssql> {}
+// 1 database (5 combinations)
+impl_any_encode_for_db! {
+    #[cfg(all(
+        feature = "postgres",
+        not(any(feature = "mysql", feature = "mssql", feature = "sqlite", feature = "odbc"))
+    ))]
+    Postgres
+}
 
-#[cfg(all(
-    not(any(feature = "mysql", feature = "mssql", feature = "postgres")),
-    feature = "sqlite"
-))]
-pub trait AnyEncode<'q>: Encode<'q, Sqlite> + Type<Sqlite> {}
+impl_any_encode_for_db! {
+    #[cfg(all(
+        feature = "mysql",
+        not(any(feature = "postgres", feature = "mssql", feature = "sqlite", feature = "odbc"))
+    ))]
+    MySql
+}
 
-#[cfg(all(
-    not(any(feature = "mysql", feature = "mssql", feature = "postgres")),
-    feature = "sqlite"
-))]
-impl<'q, T> AnyEncode<'q> for T where T: Encode<'q, Sqlite> + Type<Sqlite> {}
+impl_any_encode_for_db! {
+    #[cfg(all(
+        feature = "mssql",
+        not(any(feature = "postgres", feature = "mysql", feature = "sqlite", feature = "odbc"))
+    ))]
+    Mssql
+}
+
+impl_any_encode_for_db! {
+    #[cfg(all(
+        feature = "sqlite",
+        not(any(feature = "postgres", feature = "mysql", feature = "mssql", feature = "odbc"))
+    ))]
+    Sqlite
+}
+
+impl_any_encode_for_db! {
+    #[cfg(all(
+        feature = "odbc",
+        not(any(feature = "postgres", feature = "mysql", feature = "mssql", feature = "sqlite"))
+    ))]
+    Odbc
+}

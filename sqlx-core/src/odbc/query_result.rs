@@ -16,3 +16,13 @@ impl Extend<OdbcQueryResult> for OdbcQueryResult {
         }
     }
 }
+
+#[cfg(feature = "any")]
+impl From<OdbcQueryResult> for crate::any::AnyQueryResult {
+    fn from(result: OdbcQueryResult) -> Self {
+        crate::any::AnyQueryResult {
+            rows_affected: result.rows_affected,
+            last_insert_id: None, // ODBC doesn't provide last insert ID
+        }
+    }
+}

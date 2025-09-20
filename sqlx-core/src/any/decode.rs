@@ -1,6 +1,9 @@
 use crate::decode::Decode;
 use crate::types::Type;
 
+#[cfg(feature = "odbc")]
+use crate::odbc::Odbc;
+
 #[cfg(feature = "postgres")]
 use crate::postgres::Postgres;
 
@@ -44,320 +47,334 @@ macro_rules! impl_any_decode {
                     crate::any::value::AnyValueRefKind::Postgres(value) => {
                         <$ty as crate::decode::Decode<'r, crate::postgres::Postgres>>::decode(value)
                     }
+
+                    #[cfg(feature = "odbc")]
+                    crate::any::value::AnyValueRefKind::Odbc(value) => {
+                        <$ty as crate::decode::Decode<'r, crate::odbc::Odbc>>::decode(value)
+                    }
                 }
             }
         }
     };
 }
 
-// FIXME: Find a nice way to auto-generate the below or petition Rust to add support for #[cfg]
-//        to trait bounds
+// Macro to generate AnyDecode trait and implementation for a given set of databases
+macro_rules! impl_any_decode_for_db {
+    (
+        $(#[$meta:meta])*
+        $($db:ident),+
+    ) => {
+        $(#[$meta])*
+        pub trait AnyDecode<'r>: $(Decode<'r, $db> + Type<$db> + )+ {}
 
-// all 4
-
-#[cfg(all(
-    feature = "postgres",
-    feature = "mysql",
-    feature = "mssql",
-    feature = "sqlite"
-))]
-pub trait AnyDecode<'r>:
-    Decode<'r, Postgres>
-    + Type<Postgres>
-    + Decode<'r, MySql>
-    + Type<MySql>
-    + Decode<'r, Mssql>
-    + Type<Mssql>
-    + Decode<'r, Sqlite>
-    + Type<Sqlite>
-{
+        $(#[$meta])*
+        impl<'r, T> AnyDecode<'r> for T
+        where
+            T: $(Decode<'r, $db> + Type<$db> + )+
+        {}
+    };
 }
 
-#[cfg(all(
-    feature = "postgres",
-    feature = "mysql",
-    feature = "mssql",
-    feature = "sqlite"
-))]
-impl<'r, T> AnyDecode<'r> for T where
-    T: Decode<'r, Postgres>
-        + Type<Postgres>
-        + Decode<'r, MySql>
-        + Type<MySql>
-        + Decode<'r, Mssql>
-        + Type<Mssql>
-        + Decode<'r, Sqlite>
-        + Type<Sqlite>
-{
+// Generate all combinations of databases
+// The order is: Postgres, MySql, Mssql, Sqlite, Odbc
+
+// All 5 databases
+impl_any_decode_for_db! {
+    #[cfg(all(
+        feature = "postgres",
+        feature = "mysql",
+        feature = "mssql",
+        feature = "sqlite",
+        feature = "odbc"
+    ))]
+    Postgres, MySql, Mssql, Sqlite, Odbc
 }
 
-// only 3 (4)
-
-#[cfg(all(
-    not(feature = "mssql"),
-    all(feature = "postgres", feature = "mysql", feature = "sqlite")
-))]
-pub trait AnyDecode<'r>:
-    Decode<'r, Postgres>
-    + Type<Postgres>
-    + Decode<'r, MySql>
-    + Type<MySql>
-    + Decode<'r, Sqlite>
-    + Type<Sqlite>
-{
+// 4 databases (5 combinations)
+impl_any_decode_for_db! {
+    #[cfg(all(
+        feature = "mysql",
+        feature = "mssql",
+        feature = "sqlite",
+        feature = "odbc",
+        not(feature = "postgres")
+    ))]
+    MySql, Mssql, Sqlite, Odbc
 }
 
-#[cfg(all(
-    not(feature = "mssql"),
-    all(feature = "postgres", feature = "mysql", feature = "sqlite")
-))]
-impl<'r, T> AnyDecode<'r> for T where
-    T: Decode<'r, Postgres>
-        + Type<Postgres>
-        + Decode<'r, MySql>
-        + Type<MySql>
-        + Decode<'r, Sqlite>
-        + Type<Sqlite>
-{
+impl_any_decode_for_db! {
+    #[cfg(all(
+        feature = "postgres",
+        feature = "mssql",
+        feature = "sqlite",
+        feature = "odbc",
+        not(feature = "mysql")
+    ))]
+    Postgres, Mssql, Sqlite, Odbc
 }
 
-#[cfg(all(
-    not(feature = "mysql"),
-    all(feature = "postgres", feature = "mssql", feature = "sqlite")
-))]
-pub trait AnyDecode<'r>:
-    Decode<'r, Postgres>
-    + Type<Postgres>
-    + Decode<'r, Mssql>
-    + Type<Mssql>
-    + Decode<'r, Sqlite>
-    + Type<Sqlite>
-{
+impl_any_decode_for_db! {
+    #[cfg(all(
+        feature = "postgres",
+        feature = "mysql",
+        feature = "sqlite",
+        feature = "odbc",
+        not(feature = "mssql")
+    ))]
+    Postgres, MySql, Sqlite, Odbc
 }
 
-#[cfg(all(
-    not(feature = "mysql"),
-    all(feature = "postgres", feature = "mssql", feature = "sqlite")
-))]
-impl<'r, T> AnyDecode<'r> for T where
-    T: Decode<'r, Postgres>
-        + Type<Postgres>
-        + Decode<'r, Mssql>
-        + Type<Mssql>
-        + Decode<'r, Sqlite>
-        + Type<Sqlite>
-{
+impl_any_decode_for_db! {
+    #[cfg(all(
+        feature = "postgres",
+        feature = "mysql",
+        feature = "mssql",
+        feature = "odbc",
+        not(feature = "sqlite")
+    ))]
+    Postgres, MySql, Mssql, Odbc
 }
 
-#[cfg(all(
-    not(feature = "sqlite"),
-    all(feature = "postgres", feature = "mysql", feature = "mssql")
-))]
-pub trait AnyDecode<'r>:
-    Decode<'r, Postgres>
-    + Type<Postgres>
-    + Decode<'r, MySql>
-    + Type<MySql>
-    + Decode<'r, Mssql>
-    + Type<Mssql>
-{
+impl_any_decode_for_db! {
+    #[cfg(all(
+        feature = "postgres",
+        feature = "mysql",
+        feature = "mssql",
+        feature = "sqlite",
+        not(feature = "odbc")
+    ))]
+    Postgres, MySql, Mssql, Sqlite
 }
 
-#[cfg(all(
-    not(feature = "sqlite"),
-    all(feature = "postgres", feature = "mysql", feature = "mssql")
-))]
-impl<'r, T> AnyDecode<'r> for T where
-    T: Decode<'r, Postgres>
-        + Type<Postgres>
-        + Decode<'r, MySql>
-        + Type<MySql>
-        + Decode<'r, Mssql>
-        + Type<Mssql>
-{
+// 3 databases (10 combinations)
+impl_any_decode_for_db! {
+    #[cfg(all(
+        feature = "mysql",
+        feature = "mssql",
+        feature = "sqlite",
+        not(any(feature = "postgres", feature = "odbc"))
+    ))]
+    MySql, Mssql, Sqlite
 }
 
-#[cfg(all(
-    not(feature = "postgres"),
-    all(feature = "sqlite", feature = "mysql", feature = "mssql")
-))]
-pub trait AnyDecode<'r>:
-    Decode<'r, Sqlite>
-    + Type<Sqlite>
-    + Decode<'r, MySql>
-    + Type<MySql>
-    + Decode<'r, Mssql>
-    + Type<Mssql>
-{
+impl_any_decode_for_db! {
+    #[cfg(all(
+        feature = "mysql",
+        feature = "mssql",
+        feature = "odbc",
+        not(any(feature = "postgres", feature = "sqlite"))
+    ))]
+    MySql, Mssql, Odbc
 }
 
-#[cfg(all(
-    not(feature = "postgres"),
-    all(feature = "sqlite", feature = "mysql", feature = "mssql")
-))]
-impl<'r, T> AnyDecode<'r> for T where
-    T: Decode<'r, Sqlite>
-        + Type<Sqlite>
-        + Decode<'r, MySql>
-        + Type<MySql>
-        + Decode<'r, Mssql>
-        + Type<Mssql>
-{
+impl_any_decode_for_db! {
+    #[cfg(all(
+        feature = "mysql",
+        feature = "sqlite",
+        feature = "odbc",
+        not(any(feature = "postgres", feature = "mssql"))
+    ))]
+    MySql, Sqlite, Odbc
 }
 
-// only 2 (6)
-
-#[cfg(all(
-    not(any(feature = "mssql", feature = "sqlite")),
-    all(feature = "postgres", feature = "mysql")
-))]
-pub trait AnyDecode<'r>:
-    Decode<'r, Postgres> + Type<Postgres> + Decode<'r, MySql> + Type<MySql>
-{
+impl_any_decode_for_db! {
+    #[cfg(all(
+        feature = "mssql",
+        feature = "sqlite",
+        feature = "odbc",
+        not(any(feature = "postgres", feature = "mysql"))
+    ))]
+    Mssql, Sqlite, Odbc
 }
 
-#[cfg(all(
-    not(any(feature = "mssql", feature = "sqlite")),
-    all(feature = "postgres", feature = "mysql")
-))]
-impl<'r, T> AnyDecode<'r> for T where
-    T: Decode<'r, Postgres> + Type<Postgres> + Decode<'r, MySql> + Type<MySql>
-{
+impl_any_decode_for_db! {
+    #[cfg(all(
+        feature = "postgres",
+        feature = "mssql",
+        feature = "sqlite",
+        not(any(feature = "mysql", feature = "odbc"))
+    ))]
+    Postgres, Mssql, Sqlite
 }
 
-#[cfg(all(
-    not(any(feature = "mysql", feature = "sqlite")),
-    all(feature = "postgres", feature = "mssql")
-))]
-pub trait AnyDecode<'r>:
-    Decode<'r, Postgres> + Type<Postgres> + Decode<'r, Mssql> + Type<Mssql>
-{
+impl_any_decode_for_db! {
+    #[cfg(all(
+        feature = "postgres",
+        feature = "mssql",
+        feature = "odbc",
+        not(any(feature = "mysql", feature = "sqlite"))
+    ))]
+    Postgres, Mssql, Odbc
 }
 
-#[cfg(all(
-    not(any(feature = "mysql", feature = "sqlite")),
-    all(feature = "postgres", feature = "mssql")
-))]
-impl<'r, T> AnyDecode<'r> for T where
-    T: Decode<'r, Postgres> + Type<Postgres> + Decode<'r, Mssql> + Type<Mssql>
-{
+impl_any_decode_for_db! {
+    #[cfg(all(
+        feature = "postgres",
+        feature = "sqlite",
+        feature = "odbc",
+        not(any(feature = "mysql", feature = "mssql"))
+    ))]
+    Postgres, Sqlite, Odbc
 }
 
-#[cfg(all(
-    not(any(feature = "mysql", feature = "mssql")),
-    all(feature = "postgres", feature = "sqlite")
-))]
-pub trait AnyDecode<'r>:
-    Decode<'r, Postgres> + Type<Postgres> + Decode<'r, Sqlite> + Type<Sqlite>
-{
+impl_any_decode_for_db! {
+    #[cfg(all(
+        feature = "postgres",
+        feature = "mysql",
+        feature = "sqlite",
+        not(any(feature = "mssql", feature = "odbc"))
+    ))]
+    Postgres, MySql, Sqlite
 }
 
-#[cfg(all(
-    not(any(feature = "mysql", feature = "mssql")),
-    all(feature = "postgres", feature = "sqlite")
-))]
-impl<'r, T> AnyDecode<'r> for T where
-    T: Decode<'r, Postgres> + Type<Postgres> + Decode<'r, Sqlite> + Type<Sqlite>
-{
+impl_any_decode_for_db! {
+    #[cfg(all(
+        feature = "postgres",
+        feature = "mysql",
+        feature = "odbc",
+        not(any(feature = "mssql", feature = "sqlite"))
+    ))]
+    Postgres, MySql, Odbc
 }
 
-#[cfg(all(
-    not(any(feature = "postgres", feature = "sqlite")),
-    all(feature = "mssql", feature = "mysql")
-))]
-pub trait AnyDecode<'r>: Decode<'r, Mssql> + Type<Mssql> + Decode<'r, MySql> + Type<MySql> {}
-
-#[cfg(all(
-    not(any(feature = "postgres", feature = "sqlite")),
-    all(feature = "mssql", feature = "mysql")
-))]
-impl<'r, T> AnyDecode<'r> for T where
-    T: Decode<'r, Mssql> + Type<Mssql> + Decode<'r, MySql> + Type<MySql>
-{
+impl_any_decode_for_db! {
+    #[cfg(all(
+        feature = "postgres",
+        feature = "mysql",
+        feature = "mssql",
+        not(any(feature = "sqlite", feature = "odbc"))
+    ))]
+    Postgres, MySql, Mssql
 }
 
-#[cfg(all(
-    not(any(feature = "postgres", feature = "mysql")),
-    all(feature = "mssql", feature = "sqlite")
-))]
-pub trait AnyDecode<'r>:
-    Decode<'r, Mssql> + Type<Mssql> + Decode<'r, Sqlite> + Type<Sqlite>
-{
+// 2 databases (10 combinations)
+impl_any_decode_for_db! {
+    #[cfg(all(
+        feature = "postgres",
+        feature = "mysql",
+        not(any(feature = "mssql", feature = "sqlite", feature = "odbc"))
+    ))]
+    Postgres, MySql
 }
 
-#[cfg(all(
-    not(any(feature = "postgres", feature = "mysql")),
-    all(feature = "mssql", feature = "sqlite")
-))]
-impl<'r, T> AnyDecode<'r> for T where
-    T: Decode<'r, Mssql> + Type<Mssql> + Decode<'r, Sqlite> + Type<Sqlite>
-{
+impl_any_decode_for_db! {
+    #[cfg(all(
+        feature = "postgres",
+        feature = "mssql",
+        not(any(feature = "mysql", feature = "sqlite", feature = "odbc"))
+    ))]
+    Postgres, Mssql
 }
 
-#[cfg(all(
-    not(any(feature = "postgres", feature = "mssql")),
-    all(feature = "mysql", feature = "sqlite")
-))]
-pub trait AnyDecode<'r>:
-    Decode<'r, MySql> + Type<MySql> + Decode<'r, Sqlite> + Type<Sqlite>
-{
+impl_any_decode_for_db! {
+    #[cfg(all(
+        feature = "postgres",
+        feature = "sqlite",
+        not(any(feature = "mysql", feature = "mssql", feature = "odbc"))
+    ))]
+    Postgres, Sqlite
 }
 
-#[cfg(all(
-    not(any(feature = "postgres", feature = "mssql")),
-    all(feature = "mysql", feature = "sqlite")
-))]
-impl<'r, T> AnyDecode<'r> for T where
-    T: Decode<'r, MySql> + Type<MySql> + Decode<'r, Sqlite> + Type<Sqlite>
-{
+impl_any_decode_for_db! {
+    #[cfg(all(
+        feature = "postgres",
+        feature = "odbc",
+        not(any(feature = "mysql", feature = "mssql", feature = "sqlite"))
+    ))]
+    Postgres, Odbc
 }
 
-// only 1 (4)
+impl_any_decode_for_db! {
+    #[cfg(all(
+        feature = "mysql",
+        feature = "mssql",
+        not(any(feature = "postgres", feature = "sqlite", feature = "odbc"))
+    ))]
+    MySql, Mssql
+}
 
-#[cfg(all(
-    not(any(feature = "mysql", feature = "mssql", feature = "sqlite")),
-    feature = "postgres"
-))]
-pub trait AnyDecode<'r>: Decode<'r, Postgres> + Type<Postgres> {}
+impl_any_decode_for_db! {
+    #[cfg(all(
+        feature = "mysql",
+        feature = "sqlite",
+        not(any(feature = "postgres", feature = "mssql", feature = "odbc"))
+    ))]
+    MySql, Sqlite
+}
 
-#[cfg(all(
-    not(any(feature = "mysql", feature = "mssql", feature = "sqlite")),
-    feature = "postgres"
-))]
-impl<'r, T> AnyDecode<'r> for T where T: Decode<'r, Postgres> + Type<Postgres> {}
+impl_any_decode_for_db! {
+    #[cfg(all(
+        feature = "mysql",
+        feature = "odbc",
+        not(any(feature = "postgres", feature = "mssql", feature = "sqlite"))
+    ))]
+    MySql, Odbc
+}
 
-#[cfg(all(
-    not(any(feature = "postgres", feature = "mssql", feature = "sqlite")),
-    feature = "mysql"
-))]
-pub trait AnyDecode<'r>: Decode<'r, MySql> + Type<MySql> {}
+impl_any_decode_for_db! {
+    #[cfg(all(
+        feature = "mssql",
+        feature = "sqlite",
+        not(any(feature = "postgres", feature = "mysql", feature = "odbc"))
+    ))]
+    Mssql, Sqlite
+}
 
-#[cfg(all(
-    not(any(feature = "postgres", feature = "mssql", feature = "sqlite")),
-    feature = "mysql"
-))]
-impl<'r, T> AnyDecode<'r> for T where T: Decode<'r, MySql> + Type<MySql> {}
+impl_any_decode_for_db! {
+    #[cfg(all(
+        feature = "mssql",
+        feature = "odbc",
+        not(any(feature = "postgres", feature = "mysql", feature = "sqlite"))
+    ))]
+    Mssql, Odbc
+}
 
-#[cfg(all(
-    not(any(feature = "mysql", feature = "postgres", feature = "sqlite")),
-    feature = "mssql"
-))]
-pub trait AnyDecode<'r>: Decode<'r, Mssql> + Type<Mssql> {}
+impl_any_decode_for_db! {
+    #[cfg(all(
+        feature = "sqlite",
+        feature = "odbc",
+        not(any(feature = "postgres", feature = "mysql", feature = "mssql"))
+    ))]
+    Sqlite, Odbc
+}
 
-#[cfg(all(
-    not(any(feature = "mysql", feature = "postgres", feature = "sqlite")),
-    feature = "mssql"
-))]
-impl<'r, T> AnyDecode<'r> for T where T: Decode<'r, Mssql> + Type<Mssql> {}
+// 1 database (5 combinations)
+impl_any_decode_for_db! {
+    #[cfg(all(
+        feature = "postgres",
+        not(any(feature = "mysql", feature = "mssql", feature = "sqlite", feature = "odbc"))
+    ))]
+    Postgres
+}
 
-#[cfg(all(
-    not(any(feature = "mysql", feature = "mssql", feature = "postgres")),
-    feature = "sqlite"
-))]
-pub trait AnyDecode<'r>: Decode<'r, Sqlite> + Type<Sqlite> {}
+impl_any_decode_for_db! {
+    #[cfg(all(
+        feature = "mysql",
+        not(any(feature = "postgres", feature = "mssql", feature = "sqlite", feature = "odbc"))
+    ))]
+    MySql
+}
 
-#[cfg(all(
-    not(any(feature = "mysql", feature = "mssql", feature = "postgres")),
-    feature = "sqlite"
-))]
-impl<'r, T> AnyDecode<'r> for T where T: Decode<'r, Sqlite> + Type<Sqlite> {}
+impl_any_decode_for_db! {
+    #[cfg(all(
+        feature = "mssql",
+        not(any(feature = "postgres", feature = "mysql", feature = "sqlite", feature = "odbc"))
+    ))]
+    Mssql
+}
+
+impl_any_decode_for_db! {
+    #[cfg(all(
+        feature = "sqlite",
+        not(any(feature = "postgres", feature = "mysql", feature = "mssql", feature = "odbc"))
+    ))]
+    Sqlite
+}
+
+impl_any_decode_for_db! {
+    #[cfg(all(
+        feature = "odbc",
+        not(any(feature = "postgres", feature = "mysql", feature = "mssql", feature = "sqlite"))
+    ))]
+    Odbc
+}

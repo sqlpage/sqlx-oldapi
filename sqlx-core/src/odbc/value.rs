@@ -60,3 +60,23 @@ impl Value for OdbcValue {
 }
 
 // Decode implementations have been moved to the types module
+
+#[cfg(feature = "any")]
+impl<'r> From<OdbcValueRef<'r>> for crate::any::AnyValueRef<'r> {
+    fn from(value: OdbcValueRef<'r>) -> Self {
+        crate::any::AnyValueRef {
+            type_info: crate::any::AnyTypeInfo::from(value.type_info.clone()),
+            kind: crate::any::value::AnyValueRefKind::Odbc(value),
+        }
+    }
+}
+
+#[cfg(feature = "any")]
+impl From<OdbcValue> for crate::any::AnyValue {
+    fn from(value: OdbcValue) -> Self {
+        crate::any::AnyValue {
+            type_info: crate::any::AnyTypeInfo::from(value.type_info.clone()),
+            kind: crate::any::value::AnyValueKind::Odbc(value),
+        }
+    }
+}

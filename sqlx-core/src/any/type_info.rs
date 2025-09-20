@@ -14,6 +14,9 @@ use crate::sqlite::SqliteTypeInfo;
 #[cfg(feature = "mssql")]
 use crate::mssql::MssqlTypeInfo;
 
+#[cfg(feature = "odbc")]
+use crate::odbc::OdbcTypeInfo;
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct AnyTypeInfo(pub AnyTypeInfoKind);
 
@@ -31,6 +34,9 @@ pub enum AnyTypeInfoKind {
 
     #[cfg(feature = "mssql")]
     Mssql(MssqlTypeInfo),
+
+    #[cfg(feature = "odbc")]
+    Odbc(OdbcTypeInfo),
 }
 
 impl TypeInfo for AnyTypeInfo {
@@ -47,6 +53,9 @@ impl TypeInfo for AnyTypeInfo {
 
             #[cfg(feature = "mssql")]
             AnyTypeInfoKind::Mssql(ty) => ty.is_null(),
+
+            #[cfg(feature = "odbc")]
+            AnyTypeInfoKind::Odbc(ty) => ty.is_null(),
         }
     }
 
@@ -63,6 +72,9 @@ impl TypeInfo for AnyTypeInfo {
 
             #[cfg(feature = "mssql")]
             AnyTypeInfoKind::Mssql(ty) => ty.name(),
+
+            #[cfg(feature = "odbc")]
+            AnyTypeInfoKind::Odbc(ty) => ty.name(),
         }
     }
 }
@@ -81,6 +93,9 @@ impl Display for AnyTypeInfo {
 
             #[cfg(feature = "mssql")]
             AnyTypeInfoKind::Mssql(ty) => ty.fmt(f),
+
+            #[cfg(feature = "odbc")]
+            AnyTypeInfoKind::Odbc(ty) => ty.fmt(f),
         }
     }
 }

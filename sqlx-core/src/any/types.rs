@@ -29,7 +29,7 @@ impl_any_type!(i64);
 impl_any_type!(f32);
 impl_any_type!(f64);
 
-impl_any_type!(str);
+impl_any_type_skip_odbc!(str);
 impl_any_type!(String);
 
 impl_any_type!(u16);
@@ -74,7 +74,7 @@ impl_any_decode!(u64);
 
 // Conversions for Blob SQL types
 // Type
-impl_any_type!([u8]);
+impl_any_type_skip_odbc!([u8]);
 impl_any_type!(Vec<u8>);
 
 // Encode

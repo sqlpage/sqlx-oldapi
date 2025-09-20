@@ -15,6 +15,9 @@ use crate::mssql;
 
 #[cfg(feature = "mysql")]
 use crate::mysql;
+
+#[cfg(feature = "odbc")]
+use crate::odbc;
 use crate::transaction::Transaction;
 
 mod establish;
@@ -48,6 +51,9 @@ pub enum AnyConnectionKind {
 
     #[cfg(feature = "sqlite")]
     Sqlite(sqlite::SqliteConnection),
+
+    #[cfg(feature = "odbc")]
+    Odbc(odbc::OdbcConnection),
 }
 
 impl AnyConnectionKind {
@@ -64,6 +70,9 @@ impl AnyConnectionKind {
 
             #[cfg(feature = "mssql")]
             AnyConnectionKind::Mssql(_) => AnyKind::Mssql,
+
+            #[cfg(feature = "odbc")]
+            AnyConnectionKind::Odbc(_) => AnyKind::Odbc,
         }
     }
 }
@@ -94,6 +103,9 @@ macro_rules! delegate_to {
 
             #[cfg(feature = "mssql")]
             AnyConnectionKind::Mssql(conn) => conn.$method($($arg),*),
+
+            #[cfg(feature = "odbc")]
+            AnyConnectionKind::Odbc(conn) => conn.$method($($arg),*),
         }
     };
 }
@@ -112,6 +124,9 @@ macro_rules! delegate_to_mut {
 
             #[cfg(feature = "mssql")]
             AnyConnectionKind::Mssql(conn) => conn.$method($($arg),*),
+
+            #[cfg(feature = "odbc")]
+            AnyConnectionKind::Odbc(conn) => conn.$method($($arg),*),
         }
     };
 }
@@ -134,6 +149,9 @@ impl Connection for AnyConnection {
 
             #[cfg(feature = "mssql")]
             AnyConnectionKind::Mssql(conn) => conn.close(),
+
+            #[cfg(feature = "odbc")]
+            AnyConnectionKind::Odbc(conn) => conn.close(),
         }
     }
 
@@ -150,6 +168,9 @@ impl Connection for AnyConnection {
 
             #[cfg(feature = "mssql")]
             AnyConnectionKind::Mssql(conn) => conn.close_hard(),
+
+            #[cfg(feature = "odbc")]
+            AnyConnectionKind::Odbc(conn) => conn.close_hard(),
         }
     }
 
@@ -178,6 +199,10 @@ impl Connection for AnyConnection {
             // no cache
             #[cfg(feature = "mssql")]
             AnyConnectionKind::Mssql(_) => 0,
+
+            // no cache
+            #[cfg(feature = "odbc")]
+            AnyConnectionKind::Odbc(_) => 0,
         }
     }
 
@@ -195,6 +220,10 @@ impl Connection for AnyConnection {
             // no cache
             #[cfg(feature = "mssql")]
             AnyConnectionKind::Mssql(_) => Box::pin(futures_util::future::ok(())),
+
+            // no cache
+            #[cfg(feature = "odbc")]
+            AnyConnectionKind::Odbc(_) => Box::pin(futures_util::future::ok(())),
         }
     }
 
@@ -234,5 +263,12 @@ impl From<mysql::MySqlConnection> for AnyConnection {
 impl From<sqlite::SqliteConnection> for AnyConnection {
     fn from(conn: sqlite::SqliteConnection) -> Self {
         AnyConnection(AnyConnectionKind::Sqlite(conn))
+    }
+}
+
+#[cfg(feature = "odbc")]
+impl From<odbc::OdbcConnection> for AnyConnection {
+    fn from(conn: odbc::OdbcConnection) -> Self {
+        AnyConnection(AnyConnectionKind::Odbc(conn))
     }
 }

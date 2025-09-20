@@ -67,7 +67,7 @@ impl_into_maybe_pool!(Any, AnyConnection);
 // required because some databases have a different handling of NULL
 impl<'q, T> crate::encode::Encode<'q, Any> for Option<T>
 where
-    T: AnyEncode<'q> + 'q,
+    T: AnyEncode<'q> + 'q + Sync,
 {
     fn encode_by_ref(&self, buf: &mut AnyArgumentBuffer<'q>) -> crate::encode::IsNull {
         match &mut buf.0 {
@@ -82,6 +82,14 @@ where
 
             #[cfg(feature = "sqlite")]
             arguments::AnyArgumentBufferKind::Sqlite(args) => args.add(self),
+
+            #[cfg(feature = "odbc")]
+            arguments::AnyArgumentBufferKind::Odbc(args, _) => {
+                let _ = <Option<T> as crate::encode::Encode<'q, crate::odbc::Odbc>>::encode_by_ref(
+                    self,
+                    &mut args.values,
+                );
+            }
         }
 
         // unused

@@ -22,6 +22,9 @@ impl MigrateDatabase for Any {
 
                 #[cfg(feature = "mssql")]
                 AnyKind::Mssql => unimplemented!(),
+
+                #[cfg(feature = "odbc")]
+                AnyKind::Odbc => unimplemented!(),
             }
         })
     }
@@ -40,6 +43,9 @@ impl MigrateDatabase for Any {
 
                 #[cfg(feature = "mssql")]
                 AnyKind::Mssql => unimplemented!(),
+
+                #[cfg(feature = "odbc")]
+                AnyKind::Odbc => unimplemented!(),
             }
         })
     }
@@ -58,6 +64,9 @@ impl MigrateDatabase for Any {
 
                 #[cfg(feature = "mssql")]
                 AnyKind::Mssql => unimplemented!(),
+
+                #[cfg(feature = "odbc")]
+                AnyKind::Odbc => unimplemented!(),
             }
         })
     }
@@ -77,6 +86,9 @@ impl Migrate for AnyConnection {
 
             #[cfg(feature = "mssql")]
             AnyConnectionKind::Mssql(_conn) => unimplemented!(),
+
+            #[cfg(feature = "odbc")]
+            AnyConnectionKind::Odbc(_conn) => unimplemented!(),
         }
     }
 
@@ -94,6 +106,9 @@ impl Migrate for AnyConnection {
 
             #[cfg(feature = "mssql")]
             AnyConnectionKind::Mssql(_conn) => unimplemented!(),
+
+            #[cfg(feature = "odbc")]
+            AnyConnectionKind::Odbc(_conn) => unimplemented!(),
         }
     }
 
@@ -110,6 +125,9 @@ impl Migrate for AnyConnection {
 
             #[cfg(feature = "mssql")]
             AnyConnectionKind::Mssql(_conn) => unimplemented!(),
+
+            #[cfg(feature = "odbc")]
+            AnyConnectionKind::Odbc(_conn) => unimplemented!(),
         }
     }
 
@@ -133,6 +151,12 @@ impl Migrate for AnyConnection {
                 let _ = migration;
                 unimplemented!()
             }
+
+            #[cfg(feature = "odbc")]
+            AnyConnectionKind::Odbc(_conn) => {
+                let _ = migration;
+                unimplemented!()
+            }
         }
     }
 
@@ -149,6 +173,9 @@ impl Migrate for AnyConnection {
 
             #[cfg(feature = "mssql")]
             AnyConnectionKind::Mssql(_conn) => unimplemented!(),
+
+            #[cfg(feature = "odbc")]
+            AnyConnectionKind::Odbc(_conn) => unimplemented!(),
         }
     }
 
@@ -165,6 +192,9 @@ impl Migrate for AnyConnection {
 
             #[cfg(feature = "mssql")]
             AnyConnectionKind::Mssql(_conn) => unimplemented!(),
+
+            #[cfg(feature = "odbc")]
+            AnyConnectionKind::Odbc(_conn) => unimplemented!(),
         }
     }
 
@@ -181,6 +211,9 @@ impl Migrate for AnyConnection {
 
             #[cfg(feature = "mssql")]
             AnyConnectionKind::Mssql(_conn) => unimplemented!(),
+
+            #[cfg(feature = "odbc")]
+            AnyConnectionKind::Odbc(_conn) => unimplemented!(),
         }
     }
 
@@ -203,6 +236,12 @@ impl Migrate for AnyConnection {
                 let _ = migration;
                 unimplemented!()
             }
+
+            #[cfg(feature = "odbc")]
+            AnyConnectionKind::Odbc(_conn) => {
+                let _ = migration;
+                unimplemented!()
+            }
         }
     }
 
@@ -222,6 +261,12 @@ impl Migrate for AnyConnection {
 
             #[cfg(feature = "mssql")]
             AnyConnectionKind::Mssql(_conn) => {
+                let _ = migration;
+                unimplemented!()
+            }
+
+            #[cfg(feature = "odbc")]
+            AnyConnectionKind::Odbc(_conn) => {
                 let _ = migration;
                 unimplemented!()
             }
