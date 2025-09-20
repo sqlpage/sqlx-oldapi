@@ -162,7 +162,7 @@ async fn it_can_bind_many_params_dynamically() -> anyhow::Result<()> {
         if i != 0 {
             sql.push_str(", ");
         }
-        sql.push_str("?");
+        sql.push('?');
     }
 
     let stmt = (&mut conn).prepare(&sql).await?;

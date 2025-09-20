@@ -1,158 +1,114 @@
 use crate::type_info::TypeInfo;
+use odbc_api::DataType;
 use std::fmt::{Display, Formatter, Result as FmtResult};
-
-/// ODBC data type enum based on the ODBC API DataType
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "offline", derive(serde::Serialize, serde::Deserialize))]
-pub enum OdbcDataType {
-    BigInt,
-    Binary,
-    Bit,
-    Char,
-    Date,
-    Decimal,
-    Double,
-    Float,
-    Integer,
-    LongVarbinary,
-    LongVarchar,
-    Numeric,
-    Real,
-    SmallInt,
-    Time,
-    Timestamp,
-    TinyInt,
-    Varbinary,
-    Varchar,
-    WChar,
-    WLongVarchar,
-    WVarchar,
-    Unknown,
-}
 
 /// Type information for an ODBC type.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "offline", derive(serde::Serialize, serde::Deserialize))]
 pub struct OdbcTypeInfo {
-    pub(crate) data_type: OdbcDataType,
-    pub(crate) precision: Option<u32>,
-    pub(crate) scale: Option<u16>,
-    pub(crate) length: Option<u32>,
+    #[cfg_attr(feature = "offline", serde(skip))]
+    pub(crate) data_type: DataType,
 }
 
 impl OdbcTypeInfo {
     /// Create a new OdbcTypeInfo with the given data type
-    pub const fn new(data_type: OdbcDataType) -> Self {
-        Self {
-            data_type,
-            precision: None,
-            scale: None,
-            length: None,
-        }
-    }
-
-    /// Create a new OdbcTypeInfo with precision
-    pub const fn with_precision(data_type: OdbcDataType, precision: u32) -> Self {
-        Self {
-            data_type,
-            precision: Some(precision),
-            scale: None,
-            length: None,
-        }
-    }
-
-    /// Create a new OdbcTypeInfo with precision and scale
-    pub const fn with_precision_and_scale(data_type: OdbcDataType, precision: u32, scale: u16) -> Self {
-        Self {
-            data_type,
-            precision: Some(precision),
-            scale: Some(scale),
-            length: None,
-        }
-    }
-
-    /// Create a new OdbcTypeInfo with length
-    pub const fn with_length(data_type: OdbcDataType, length: u32) -> Self {
-        Self {
-            data_type,
-            precision: None,
-            scale: None,
-            length: Some(length),
-        }
+    pub const fn new(data_type: DataType) -> Self {
+        Self { data_type }
     }
 
     /// Get the underlying data type
-    pub const fn data_type(&self) -> OdbcDataType {
+    pub const fn data_type(&self) -> DataType {
         self.data_type
-    }
-
-    /// Get the precision if any
-    pub const fn precision(&self) -> Option<u32> {
-        self.precision
-    }
-
-    /// Get the scale if any
-    pub const fn scale(&self) -> Option<u16> {
-        self.scale
-    }
-
-    /// Get the length if any
-    pub const fn length(&self) -> Option<u32> {
-        self.length
     }
 }
 
-impl OdbcDataType {
+/// Extension trait for DataType with helper methods
+pub trait DataTypeExt {
     /// Get the display name for this data type
-    pub const fn name(self) -> &'static str {
+    fn name(self) -> &'static str;
+
+    /// Check if this is a character/string type
+    fn accepts_character_data(self) -> bool;
+
+    /// Check if this is a binary type
+    fn accepts_binary_data(self) -> bool;
+
+    /// Check if this is a numeric type
+    fn accepts_numeric_data(self) -> bool;
+
+    /// Check if this is a date/time type
+    fn accepts_datetime_data(self) -> bool;
+}
+
+impl DataTypeExt for DataType {
+    fn name(self) -> &'static str {
         match self {
-            OdbcDataType::BigInt => "BIGINT",
-            OdbcDataType::Binary => "BINARY",
-            OdbcDataType::Bit => "BIT",
-            OdbcDataType::Char => "CHAR",
-            OdbcDataType::Date => "DATE",
-            OdbcDataType::Decimal => "DECIMAL",
-            OdbcDataType::Double => "DOUBLE",
-            OdbcDataType::Float => "FLOAT",
-            OdbcDataType::Integer => "INTEGER",
-            OdbcDataType::LongVarbinary => "LONGVARBINARY",
-            OdbcDataType::LongVarchar => "LONGVARCHAR",
-            OdbcDataType::Numeric => "NUMERIC",
-            OdbcDataType::Real => "REAL",
-            OdbcDataType::SmallInt => "SMALLINT",
-            OdbcDataType::Time => "TIME",
-            OdbcDataType::Timestamp => "TIMESTAMP",
-            OdbcDataType::TinyInt => "TINYINT",
-            OdbcDataType::Varbinary => "VARBINARY",
-            OdbcDataType::Varchar => "VARCHAR",
-            OdbcDataType::WChar => "WCHAR",
-            OdbcDataType::WLongVarchar => "WLONGVARCHAR",
-            OdbcDataType::WVarchar => "WVARCHAR",
-            OdbcDataType::Unknown => "UNKNOWN",
+            DataType::BigInt => "BIGINT",
+            DataType::Binary { .. } => "BINARY",
+            DataType::Bit => "BIT",
+            DataType::Char { .. } => "CHAR",
+            DataType::Date => "DATE",
+            DataType::Decimal { .. } => "DECIMAL",
+            DataType::Double => "DOUBLE",
+            DataType::Float { .. } => "FLOAT",
+            DataType::Integer => "INTEGER",
+            DataType::LongVarbinary { .. } => "LONGVARBINARY",
+            DataType::LongVarchar { .. } => "LONGVARCHAR",
+            DataType::Numeric { .. } => "NUMERIC",
+            DataType::Real => "REAL",
+            DataType::SmallInt => "SMALLINT",
+            DataType::Time { .. } => "TIME",
+            DataType::Timestamp { .. } => "TIMESTAMP",
+            DataType::TinyInt => "TINYINT",
+            DataType::Varbinary { .. } => "VARBINARY",
+            DataType::Varchar { .. } => "VARCHAR",
+            DataType::WChar { .. } => "WCHAR",
+            DataType::WLongVarchar { .. } => "WLONGVARCHAR",
+            DataType::WVarchar { .. } => "WVARCHAR",
+            DataType::Unknown => "UNKNOWN",
+            DataType::Other { .. } => "OTHER",
         }
     }
 
-    /// Check if this is a character/string type
-    pub const fn is_character_type(self) -> bool {
-        matches!(self, OdbcDataType::Char | OdbcDataType::Varchar | OdbcDataType::LongVarchar |
-                      OdbcDataType::WChar | OdbcDataType::WVarchar | OdbcDataType::WLongVarchar)
+    fn accepts_character_data(self) -> bool {
+        matches!(
+            self,
+            DataType::Char { .. }
+                | DataType::Varchar { .. }
+                | DataType::LongVarchar { .. }
+                | DataType::WChar { .. }
+                | DataType::WVarchar { .. }
+                | DataType::WLongVarchar { .. }
+        )
     }
 
-    /// Check if this is a binary type
-    pub const fn is_binary_type(self) -> bool {
-        matches!(self, OdbcDataType::Binary | OdbcDataType::Varbinary | OdbcDataType::LongVarbinary)
+    fn accepts_binary_data(self) -> bool {
+        matches!(
+            self,
+            DataType::Binary { .. } | DataType::Varbinary { .. } | DataType::LongVarbinary { .. }
+        )
     }
 
-    /// Check if this is a numeric type
-    pub const fn is_numeric_type(self) -> bool {
-        matches!(self, OdbcDataType::TinyInt | OdbcDataType::SmallInt | OdbcDataType::Integer |
-                      OdbcDataType::BigInt | OdbcDataType::Real | OdbcDataType::Float |
-                      OdbcDataType::Double | OdbcDataType::Decimal | OdbcDataType::Numeric)
+    fn accepts_numeric_data(self) -> bool {
+        matches!(
+            self,
+            DataType::TinyInt
+                | DataType::SmallInt
+                | DataType::Integer
+                | DataType::BigInt
+                | DataType::Real
+                | DataType::Float { .. }
+                | DataType::Double
+                | DataType::Decimal { .. }
+                | DataType::Numeric { .. }
+        )
     }
 
-    /// Check if this is a date/time type
-    pub const fn is_datetime_type(self) -> bool {
-        matches!(self, OdbcDataType::Date | OdbcDataType::Time | OdbcDataType::Timestamp)
+    fn accepts_datetime_data(self) -> bool {
+        matches!(
+            self,
+            DataType::Date | DataType::Time { .. } | DataType::Timestamp { .. }
+        )
     }
 }
 
@@ -160,7 +116,7 @@ impl TypeInfo for OdbcTypeInfo {
     fn is_null(&self) -> bool {
         false
     }
-    
+
     fn name(&self) -> &str {
         self.data_type.name()
     }
@@ -178,27 +134,50 @@ impl Display for OdbcTypeInfo {
 
 // Provide some common type constants
 impl OdbcTypeInfo {
-    pub const BIGINT: Self = Self::new(OdbcDataType::BigInt);
-    pub const BINARY: Self = Self::new(OdbcDataType::Binary);
-    pub const BIT: Self = Self::new(OdbcDataType::Bit);
-    pub const CHAR: Self = Self::new(OdbcDataType::Char);
-    pub const DATE: Self = Self::new(OdbcDataType::Date);
-    pub const DECIMAL: Self = Self::new(OdbcDataType::Decimal);
-    pub const DOUBLE: Self = Self::new(OdbcDataType::Double);
-    pub const FLOAT: Self = Self::new(OdbcDataType::Float);
-    pub const INTEGER: Self = Self::new(OdbcDataType::Integer);
-    pub const LONGVARBINARY: Self = Self::new(OdbcDataType::LongVarbinary);
-    pub const LONGVARCHAR: Self = Self::new(OdbcDataType::LongVarchar);
-    pub const NUMERIC: Self = Self::new(OdbcDataType::Numeric);
-    pub const REAL: Self = Self::new(OdbcDataType::Real);
-    pub const SMALLINT: Self = Self::new(OdbcDataType::SmallInt);
-    pub const TIME: Self = Self::new(OdbcDataType::Time);
-    pub const TIMESTAMP: Self = Self::new(OdbcDataType::Timestamp);
-    pub const TINYINT: Self = Self::new(OdbcDataType::TinyInt);
-    pub const VARBINARY: Self = Self::new(OdbcDataType::Varbinary);
-    pub const VARCHAR: Self = Self::new(OdbcDataType::Varchar);
-    pub const WCHAR: Self = Self::new(OdbcDataType::WChar);
-    pub const WLONGVARCHAR: Self = Self::new(OdbcDataType::WLongVarchar);
-    pub const WVARCHAR: Self = Self::new(OdbcDataType::WVarchar);
-    pub const UNKNOWN: Self = Self::new(OdbcDataType::Unknown);
+    pub const BIGINT: Self = Self::new(DataType::BigInt);
+    pub const BIT: Self = Self::new(DataType::Bit);
+    pub const DATE: Self = Self::new(DataType::Date);
+    pub const DOUBLE: Self = Self::new(DataType::Double);
+    pub const INTEGER: Self = Self::new(DataType::Integer);
+    pub const REAL: Self = Self::new(DataType::Real);
+    pub const SMALLINT: Self = Self::new(DataType::SmallInt);
+    pub const TINYINT: Self = Self::new(DataType::TinyInt);
+    pub const UNKNOWN: Self = Self::new(DataType::Unknown);
+
+    // For types with parameters, use constructor functions
+    pub const fn varchar(length: Option<std::num::NonZeroUsize>) -> Self {
+        Self::new(DataType::Varchar { length })
+    }
+
+    pub const fn varbinary(length: Option<std::num::NonZeroUsize>) -> Self {
+        Self::new(DataType::Varbinary { length })
+    }
+
+    pub const fn char(length: Option<std::num::NonZeroUsize>) -> Self {
+        Self::new(DataType::Char { length })
+    }
+
+    pub const fn binary(length: Option<std::num::NonZeroUsize>) -> Self {
+        Self::new(DataType::Binary { length })
+    }
+
+    pub const fn float(precision: usize) -> Self {
+        Self::new(DataType::Float { precision })
+    }
+
+    pub const fn decimal(precision: usize, scale: i16) -> Self {
+        Self::new(DataType::Decimal { precision, scale })
+    }
+
+    pub const fn numeric(precision: usize, scale: i16) -> Self {
+        Self::new(DataType::Numeric { precision, scale })
+    }
+
+    pub const fn time(precision: i16) -> Self {
+        Self::new(DataType::Time { precision })
+    }
+
+    pub const fn timestamp(precision: i16) -> Self {
+        Self::new(DataType::Timestamp { precision })
+    }
 }

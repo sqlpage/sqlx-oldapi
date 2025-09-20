@@ -6,73 +6,12 @@ use futures_intrusive::sync::Mutex;
 
 use crate::error::Error;
 use crate::odbc::{
-    OdbcArgumentValue, OdbcColumn, OdbcConnectOptions, OdbcQueryResult, OdbcRow, OdbcTypeInfo, OdbcDataType,
+    OdbcArgumentValue, OdbcColumn, OdbcConnectOptions, OdbcQueryResult, OdbcRow, OdbcTypeInfo,
 };
 #[allow(unused_imports)]
 use crate::row::Row as SqlxRow;
 use either::Either;
-use odbc_api::{Cursor, CursorRow, IntoParameter, ResultSetMetadata, DataType};
-
-/// Map ODBC API DataType to our OdbcDataType
-fn map_odbc_data_type(data_type: DataType) -> OdbcTypeInfo {
-    let odbc_data_type = match data_type {
-        DataType::BigInt => OdbcDataType::BigInt,
-        DataType::Binary { .. } => OdbcDataType::Binary,
-        DataType::Bit => OdbcDataType::Bit,
-        DataType::Char { .. } => OdbcDataType::Char,
-        DataType::Date => OdbcDataType::Date,
-        DataType::Decimal { .. } => OdbcDataType::Decimal,
-        DataType::Double => OdbcDataType::Double,
-        DataType::Float { .. } => OdbcDataType::Float,
-        DataType::Integer => OdbcDataType::Integer,
-        DataType::LongVarbinary { .. } => OdbcDataType::LongVarbinary,
-        DataType::LongVarchar { .. } => OdbcDataType::LongVarchar,
-        DataType::Numeric { .. } => OdbcDataType::Numeric,
-        DataType::Real => OdbcDataType::Real,
-        DataType::SmallInt => OdbcDataType::SmallInt,
-        DataType::Time { .. } => OdbcDataType::Time,
-        DataType::Timestamp { .. } => OdbcDataType::Timestamp,
-        DataType::TinyInt => OdbcDataType::TinyInt,
-        DataType::Varbinary { .. } => OdbcDataType::Varbinary,
-        DataType::Varchar { .. } => OdbcDataType::Varchar,
-        DataType::WChar { .. } => OdbcDataType::WChar,
-        DataType::WLongVarchar { .. } => OdbcDataType::WLongVarchar,
-        DataType::WVarchar { .. } => OdbcDataType::WVarchar,
-        DataType::Other { .. } => OdbcDataType::Unknown,
-        DataType::Unknown => OdbcDataType::Unknown,
-    };
-    
-    // Extract precision, scale, and length information where available
-    match data_type {
-        DataType::Decimal { precision, scale } => {
-            OdbcTypeInfo::with_precision_and_scale(odbc_data_type, precision as u32, scale as u16)
-        },
-        DataType::Numeric { precision, scale } => {
-            OdbcTypeInfo::with_precision_and_scale(odbc_data_type, precision as u32, scale as u16)
-        },
-        DataType::Char { length } | DataType::Varchar { length } | DataType::WChar { length } | DataType::WVarchar { length } => {
-            if let Some(len) = length {
-                OdbcTypeInfo::with_length(odbc_data_type, len.get() as u32)
-            } else {
-                OdbcTypeInfo::new(odbc_data_type)
-            }
-        },
-        DataType::Binary { length } | DataType::Varbinary { length } => {
-            if let Some(len) = length {
-                OdbcTypeInfo::with_length(odbc_data_type, len.get() as u32)
-            } else {
-                OdbcTypeInfo::new(odbc_data_type)
-            }
-        },
-        DataType::Float { precision } => {
-            OdbcTypeInfo::with_precision(odbc_data_type, precision as u32)
-        },
-        DataType::Time { precision } | DataType::Timestamp { precision } => {
-            OdbcTypeInfo::with_precision(odbc_data_type, precision as u32)
-        },
-        _ => OdbcTypeInfo::new(odbc_data_type),
-    }
-}
+use odbc_api::{Cursor, CursorRow, IntoParameter, ResultSetMetadata};
 
 #[derive(Debug)]
 pub(crate) struct ConnectionWorker {
@@ -384,7 +323,7 @@ where
             let name = String::from_utf8(cd.name).unwrap_or_else(|_| format!("col{}", i - 1));
             columns.push(OdbcColumn {
                 name,
-                type_info: map_odbc_data_type(cd.data_type),
+                type_info: OdbcTypeInfo::new(cd.data_type),
                 ordinal: (i - 1) as usize,
             });
         }
@@ -403,7 +342,7 @@ where
     loop {
         match cursor.next_row() {
             Ok(Some(mut row)) => {
-                let values = collect_row_values(&mut row, columns.len())?;
+                let values = collect_row_values(&mut row, columns)?;
                 let _ = tx.send(Ok(Either::Right(OdbcRow {
                     columns: columns.to_vec(),
                     values,
@@ -418,31 +357,20 @@ where
 
 fn collect_row_values(
     row: &mut CursorRow<'_>,
-    num_cols: usize,
+    columns: &[OdbcColumn],
 ) -> Result<Vec<(OdbcTypeInfo, Option<Vec<u8>>)>, Error> {
-    let mut values: Vec<(OdbcTypeInfo, Option<Vec<u8>>)> = Vec::with_capacity(num_cols);
-    for i in 1..=num_cols {
+    let mut values: Vec<(OdbcTypeInfo, Option<Vec<u8>>)> = Vec::with_capacity(columns.len());
+    for (i, column) in columns.iter().enumerate() {
+        let col_idx = (i + 1) as u16;
         let mut buf = Vec::new();
-        match row.get_text(i as u16, &mut buf) {
-            Ok(true) => values.push((
-                OdbcTypeInfo::VARCHAR,
-                Some(buf),
-            )),
-            Ok(false) => values.push((
-                OdbcTypeInfo::VARCHAR,
-                None,
-            )),
+        match row.get_text(col_idx, &mut buf) {
+            Ok(true) => values.push((column.type_info.clone(), Some(buf))),
+            Ok(false) => values.push((column.type_info.clone(), None)),
             Err(_) => {
                 let mut bin = Vec::new();
-                match row.get_binary(i as u16, &mut bin) {
-                    Ok(true) => values.push((
-                        OdbcTypeInfo::VARBINARY,
-                        Some(bin),
-                    )),
-                    Ok(false) => values.push((
-                        OdbcTypeInfo::VARBINARY,
-                        None,
-                    )),
+                match row.get_binary(col_idx, &mut bin) {
+                    Ok(true) => values.push((column.type_info.clone(), Some(bin))),
+                    Ok(false) => values.push((column.type_info.clone(), None)),
                     Err(e) => return Err(Error::from(e)),
                 }
             }
