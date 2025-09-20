@@ -12,8 +12,8 @@ mod query_result;
 mod row;
 mod statement;
 mod transaction;
-mod r#type;
 mod type_info;
+pub mod types;
 mod value;
 
 pub use arguments::{OdbcArgumentValue, OdbcArguments};
