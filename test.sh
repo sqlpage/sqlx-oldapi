@@ -13,4 +13,4 @@ DATABASE_URL='sqlite://./tests/sqlite/sqlite.db' cargo test --features any,sqlit
 
 # Copy odbc config from tests/odbc.ini to ~/.odbc.ini
 docker compose -f tests/docker-compose.yml run -it -p 5432:5432 --name postgres_16_no_ssl postgres_16_no_ssl
-DATABASE_URL='DSN=SQLX_PG_55432;UID=postgres;PWD=password' cargo test --no-default-features --features odbc,macros,runtime-tokio-rustls --test odbc
+DATABASE_URL='DSN=SQLX_PG_5432;UID=postgres;PWD=password' cargo test --no-default-features --features any,odbc,all-types,macros,runtime-tokio-rustls --test odbc

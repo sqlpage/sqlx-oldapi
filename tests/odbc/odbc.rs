@@ -424,3 +424,242 @@ async fn it_handles_mixed_null_and_values() -> anyhow::Result<()> {
     assert!(null_str.is_null());
     Ok(())
 }
+
+#[tokio::test]
+async fn it_handles_unsigned_integers() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+    
+    // Test unsigned integer types
+    let mut s = conn.fetch("SELECT 255 AS u8_val, 65535 AS u16_val, 4294967295 AS u32_val");
+    let row = s.try_next().await?.expect("row expected");
+
+    let u8_val = row.try_get_raw(0)?.to_owned().decode::<u8>();
+    let u16_val = row.try_get_raw(1)?.to_owned().decode::<u16>();
+    let u32_val = row.try_get_raw(2)?.to_owned().decode::<u32>();
+
+    assert_eq!(u8_val, 255);
+    assert_eq!(u16_val, 65535);
+    assert_eq!(u32_val, 4294967295);
+    Ok(())
+}
+
+#[tokio::test]
+async fn it_handles_slice_types() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+    
+    // Test slice types
+    let test_data = b"Hello, ODBC!";
+    let stmt = (&mut conn).prepare("SELECT ? AS slice_data").await?;
+    let row = stmt
+        .query()
+        .bind(&test_data[..])
+        .fetch_one(&mut conn)
+        .await?;
+
+    let result = row.try_get_raw(0)?.to_owned().decode::<Vec<u8>>();
+    assert_eq!(result, test_data);
+    Ok(())
+}
+
+#[cfg(feature = "uuid")]
+#[tokio::test]
+async fn it_handles_uuid() -> anyhow::Result<()> {
+    use sqlx_oldapi::types::Uuid;
+    let mut conn = new::<Odbc>().await?;
+    
+    // Use a fixed UUID for testing
+    let test_uuid = Uuid::nil();
+    let uuid_str = test_uuid.to_string();
+    
+    // Test UUID as string
+    let stmt = (&mut conn).prepare("SELECT ? AS uuid_data").await?;
+    let row = stmt
+        .query()
+        .bind(&uuid_str)
+        .fetch_one(&mut conn)
+        .await?;
+
+    let result = row.try_get_raw(0)?.to_owned().decode::<Uuid>();
+    assert_eq!(result, test_uuid);
+    
+    // Test with a specific UUID string
+    let specific_uuid_str = "550e8400-e29b-41d4-a716-446655440000";
+    let stmt = (&mut conn).prepare("SELECT ? AS uuid_data").await?;
+    let row = stmt
+        .query()
+        .bind(specific_uuid_str)
+        .fetch_one(&mut conn)
+        .await?;
+
+    let result = row.try_get_raw(0)?.to_owned().decode::<Uuid>();
+    let expected_uuid: Uuid = specific_uuid_str.parse()?;
+    assert_eq!(result, expected_uuid);
+    
+    Ok(())
+}
+
+#[cfg(feature = "json")]
+#[tokio::test]
+async fn it_handles_json() -> anyhow::Result<()> {
+    use serde_json::{json, Value};
+    let mut conn = new::<Odbc>().await?;
+    
+    let test_json = json!({
+        "name": "John",
+        "age": 30,
+        "active": true
+    });
+    let json_str = test_json.to_string();
+    
+    let stmt = (&mut conn).prepare("SELECT ? AS json_data").await?;
+    let row = stmt
+        .query()
+        .bind(&json_str)
+        .fetch_one(&mut conn)
+        .await?;
+
+    let result: Value = row.try_get_raw(0)?.to_owned().decode();
+    assert_eq!(result, test_json);
+    Ok(())
+}
+
+#[cfg(feature = "bigdecimal")]
+#[tokio::test]
+async fn it_handles_bigdecimal() -> anyhow::Result<()> {
+    use sqlx_oldapi::types::BigDecimal;
+    use std::str::FromStr;
+    let mut conn = new::<Odbc>().await?;
+    
+    let test_decimal = BigDecimal::from_str("123.456789")?;
+    let decimal_str = test_decimal.to_string();
+    
+    let stmt = (&mut conn).prepare("SELECT ? AS decimal_data").await?;
+    let row = stmt
+        .query()
+        .bind(&decimal_str)
+        .fetch_one(&mut conn)
+        .await?;
+
+    let result = row.try_get_raw(0)?.to_owned().decode::<BigDecimal>();
+    assert_eq!(result, test_decimal);
+    Ok(())
+}
+
+#[cfg(feature = "decimal")]
+#[tokio::test]
+async fn it_handles_rust_decimal() -> anyhow::Result<()> {
+    use sqlx_oldapi::types::Decimal;
+    let mut conn = new::<Odbc>().await?;
+    
+    let test_decimal = "123.456789".parse::<Decimal>()?;
+    let decimal_str = test_decimal.to_string();
+    
+    let stmt = (&mut conn).prepare("SELECT ? AS decimal_data").await?;
+    let row = stmt
+        .query()
+        .bind(&decimal_str)
+        .fetch_one(&mut conn)
+        .await?;
+
+    let result = row.try_get_raw(0)?.to_owned().decode::<Decimal>();
+    assert_eq!(result, test_decimal);
+    Ok(())
+}
+
+#[cfg(feature = "chrono")]
+#[tokio::test]
+async fn it_handles_chrono_datetime() -> anyhow::Result<()> {
+    use sqlx_oldapi::types::chrono::{NaiveDate, NaiveDateTime, NaiveTime};
+    let mut conn = new::<Odbc>().await?;
+    
+    // Test that chrono types work for encoding and basic handling
+    // We'll test encode/decode through the Type and Encode implementations
+    
+    // Create chrono objects
+    let test_date = NaiveDate::from_ymd_opt(2023, 12, 25).unwrap();
+    let test_time = NaiveTime::from_hms_opt(14, 30, 0).unwrap();
+    let test_datetime = NaiveDateTime::new(test_date, test_time);
+    
+    // Test that we can encode chrono types (by storing them as strings)
+    let stmt = (&mut conn).prepare("SELECT ? AS date_data").await?;
+    let row = stmt
+        .query()
+        .bind(test_date)
+        .fetch_one(&mut conn)
+        .await?;
+
+    // Decode as string and verify format
+    let result_str = row.try_get_raw(0)?.to_owned().decode::<String>();
+    assert_eq!(result_str, "2023-12-25");
+    
+    // Test time encoding
+    let stmt = (&mut conn).prepare("SELECT ? AS time_data").await?;
+    let row = stmt
+        .query()
+        .bind(test_time)
+        .fetch_one(&mut conn)
+        .await?;
+
+    let result_str = row.try_get_raw(0)?.to_owned().decode::<String>();
+    assert_eq!(result_str, "14:30:00");
+    
+    // Test datetime encoding
+    let stmt = (&mut conn).prepare("SELECT ? AS datetime_data").await?;
+    let row = stmt
+        .query()
+        .bind(test_datetime)
+        .fetch_one(&mut conn)
+        .await?;
+
+    let result_str = row.try_get_raw(0)?.to_owned().decode::<String>();
+    assert_eq!(result_str, "2023-12-25 14:30:00");
+    
+    Ok(())
+}
+
+#[tokio::test]
+async fn it_handles_type_compatibility_edge_cases() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+    
+    // Test that small integers can decode to larger types
+    let mut s = conn.fetch("SELECT 127 AS small_int");
+    let row = s.try_next().await?.expect("row expected");
+
+    // Should be able to decode as most integer types (some may not be compatible due to specific type mapping)
+    let as_i8 = row.try_get_raw(0)?.to_owned().decode::<i8>();
+    let as_i16 = row.try_get_raw(0)?.to_owned().decode::<i16>();
+    let as_i32 = row.try_get_raw(0)?.to_owned().decode::<i32>();
+    let as_i64 = row.try_get_raw(0)?.to_owned().decode::<i64>();
+    let as_u8 = row.try_get_raw(0)?.to_owned().decode::<u8>();
+    let as_u16 = row.try_get_raw(0)?.to_owned().decode::<u16>();
+    let as_u32 = row.try_get_raw(0)?.to_owned().decode::<u32>();
+    // Note: u64 may not be compatible with all integer types from databases
+
+    assert_eq!(as_i8, 127);
+    assert_eq!(as_i16, 127);
+    assert_eq!(as_i32, 127);
+    assert_eq!(as_i64, 127);
+    assert_eq!(as_u8, 127);
+    assert_eq!(as_u16, 127);
+    assert_eq!(as_u32, 127);
+    
+    Ok(())
+}
+
+#[tokio::test]
+async fn it_handles_numeric_precision() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+    
+    // Test high precision floating point
+    let sql = format!(
+        "SELECT {} AS high_precision",
+        std::f64::consts::PI
+    );
+    let mut s = conn.fetch(sql.as_str());
+    let row = s.try_next().await?.expect("row expected");
+
+    let result = row.try_get_raw(0)?.to_owned().decode::<f64>();
+    assert!((result - std::f64::consts::PI).abs() < 1e-10);
+    
+    Ok(())
+}

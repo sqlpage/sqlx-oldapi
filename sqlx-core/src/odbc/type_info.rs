@@ -143,6 +143,8 @@ impl OdbcTypeInfo {
     pub const SMALLINT: Self = Self::new(DataType::SmallInt);
     pub const TINYINT: Self = Self::new(DataType::TinyInt);
     pub const UNKNOWN: Self = Self::new(DataType::Unknown);
+    pub const TIME: Self = Self::new(DataType::Time { precision: 0 });
+    pub const TIMESTAMP: Self = Self::new(DataType::Timestamp { precision: 0 });
 
     // For types with parameters, use constructor functions
     pub const fn varchar(length: Option<std::num::NonZeroUsize>) -> Self {
