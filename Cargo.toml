@@ -192,6 +192,11 @@ name = "any-pool"
 path = "tests/any/pool.rs"
 required-features = ["any"]
 
+[[test]]
+name = "any-odbc"
+path = "tests/any/odbc.rs"
+required-features = ["any", "odbc"]
+
 #
 # Migrations
 #

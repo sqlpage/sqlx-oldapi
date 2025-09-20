@@ -36,7 +36,7 @@ impl<'q> Encode<'q, Odbc> for Decimal {
 
 impl<'r> Decode<'r, Odbc> for Decimal {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        let s = String::decode(value)?;
+        let s = <String as Decode<'r, Odbc>>::decode(value)?;
         Ok(Decimal::from_str(&s)?)
     }
 }

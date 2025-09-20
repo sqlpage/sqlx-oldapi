@@ -21,6 +21,9 @@ use crate::sqlite::SqliteRow;
 #[cfg(feature = "mssql")]
 use crate::mssql::MssqlRow;
 
+#[cfg(feature = "odbc")]
+use crate::odbc::OdbcRow;
+
 pub struct AnyRow {
     pub(crate) kind: AnyRowKind,
     pub(crate) columns: Vec<AnyColumn>,
@@ -40,6 +43,9 @@ pub(crate) enum AnyRowKind {
 
     #[cfg(feature = "mssql")]
     Mssql(MssqlRow),
+
+    #[cfg(feature = "odbc")]
+    Odbc(OdbcRow),
 }
 
 impl Row for AnyRow {
@@ -70,6 +76,9 @@ impl Row for AnyRow {
 
             #[cfg(feature = "mssql")]
             AnyRowKind::Mssql(row) => row.try_get_raw(index).map(Into::into),
+
+            #[cfg(feature = "odbc")]
+            AnyRowKind::Odbc(row) => row.try_get_raw(index).map(Into::into),
         }
     }
 
@@ -110,6 +119,9 @@ where
 
             #[cfg(feature = "mssql")]
             AnyRowKind::Mssql(row) => self.index(row),
+
+            #[cfg(feature = "odbc")]
+            AnyRowKind::Odbc(row) => self.index(row),
         }
     }
 }

@@ -84,6 +84,6 @@ impl<'r> Decode<'r, Odbc> for f64 {
 
 impl<'r> Decode<'r, Odbc> for f32 {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        Ok(f64::decode(value)? as f32)
+        Ok(<f64 as Decode<'r, Odbc>>::decode(value)? as f32)
     }
 }

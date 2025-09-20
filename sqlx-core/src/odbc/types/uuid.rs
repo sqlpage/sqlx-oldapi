@@ -39,7 +39,7 @@ impl<'r> Decode<'r, Odbc> for Uuid {
             let s = std::str::from_utf8(bytes)?;
             return Ok(Uuid::from_str(s)?);
         }
-        let s = String::decode(value)?;
+        let s = <String as Decode<'r, Odbc>>::decode(value)?;
         Ok(Uuid::from_str(&s)?)
     }
 }

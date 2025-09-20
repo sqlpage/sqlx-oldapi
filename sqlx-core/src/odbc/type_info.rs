@@ -183,3 +183,10 @@ impl OdbcTypeInfo {
         Self::new(DataType::Timestamp { precision })
     }
 }
+
+#[cfg(feature = "any")]
+impl From<OdbcTypeInfo> for crate::any::AnyTypeInfo {
+    fn from(info: OdbcTypeInfo) -> Self {
+        crate::any::AnyTypeInfo(crate::any::type_info::AnyTypeInfoKind::Odbc(info))
+    }
+}

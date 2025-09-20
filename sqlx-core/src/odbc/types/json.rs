@@ -28,7 +28,7 @@ impl<'q> Encode<'q, Odbc> for Value {
 
 impl<'r> Decode<'r, Odbc> for Value {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        let s = String::decode(value)?;
+        let s = <String as Decode<'r, Odbc>>::decode(value)?;
         Ok(serde_json::from_str(&s)?)
     }
 }

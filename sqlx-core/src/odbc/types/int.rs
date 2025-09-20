@@ -236,46 +236,46 @@ impl<'r> Decode<'r, Odbc> for i64 {
 
 impl<'r> Decode<'r, Odbc> for i32 {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        Ok(i64::decode(value)? as i32)
+        Ok(<i64 as Decode<'r, Odbc>>::decode(value)? as i32)
     }
 }
 
 impl<'r> Decode<'r, Odbc> for i16 {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        Ok(i64::decode(value)? as i16)
+        Ok(<i64 as Decode<'r, Odbc>>::decode(value)? as i16)
     }
 }
 
 impl<'r> Decode<'r, Odbc> for i8 {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        Ok(i64::decode(value)? as i8)
+        Ok(<i64 as Decode<'r, Odbc>>::decode(value)? as i8)
     }
 }
 
 impl<'r> Decode<'r, Odbc> for u8 {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        let i = i64::decode(value)?;
+        let i = <i64 as Decode<'r, Odbc>>::decode(value)?;
         Ok(u8::try_from(i)?)
     }
 }
 
 impl<'r> Decode<'r, Odbc> for u16 {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        let i = i64::decode(value)?;
+        let i = <i64 as Decode<'r, Odbc>>::decode(value)?;
         Ok(u16::try_from(i)?)
     }
 }
 
 impl<'r> Decode<'r, Odbc> for u32 {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        let i = i64::decode(value)?;
+        let i = <i64 as Decode<'r, Odbc>>::decode(value)?;
         Ok(u32::try_from(i)?)
     }
 }
 
 impl<'r> Decode<'r, Odbc> for u64 {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        let i = i64::decode(value)?;
+        let i = <i64 as Decode<'r, Odbc>>::decode(value)?;
         Ok(u64::try_from(i)?)
     }
 }

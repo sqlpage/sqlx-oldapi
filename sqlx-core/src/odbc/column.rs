@@ -22,6 +22,16 @@ impl Column for OdbcColumn {
     }
 }
 
+#[cfg(feature = "any")]
+impl From<OdbcColumn> for crate::any::AnyColumn {
+    fn from(col: OdbcColumn) -> Self {
+        crate::any::AnyColumn {
+            kind: crate::any::column::AnyColumnKind::Odbc(col.clone()),
+            type_info: crate::any::AnyTypeInfo::from(col.type_info),
+        }
+    }
+}
+
 mod private {
     use super::OdbcColumn;
     use crate::column::private_column::Sealed;

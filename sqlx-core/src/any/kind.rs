@@ -14,6 +14,9 @@ pub enum AnyKind {
 
     #[cfg(feature = "mssql")]
     Mssql,
+
+    #[cfg(feature = "odbc")]
+    Odbc,
 }
 
 impl FromStr for AnyKind {
@@ -59,6 +62,16 @@ impl FromStr for AnyKind {
             #[cfg(not(feature = "mssql"))]
             _ if url.starts_with("mssql:") || url.starts_with("sqlserver:") => {
                 Err(Error::Configuration("database URL has the scheme of a MSSQL database but the `mssql` feature is not enabled".into()))
+            }
+
+            #[cfg(feature = "odbc")]
+            _ if url.starts_with("odbc:") => {
+                Ok(AnyKind::Odbc)
+            }
+
+            #[cfg(not(feature = "odbc"))]
+            _ if url.starts_with("odbc:") => {
+                Err(Error::Configuration("database URL has the scheme of an ODBC database but the `odbc` feature is not enabled".into()))
             }
 
             _ => Err(Error::Configuration(format!("unrecognized database url: {:?}", url).into()))

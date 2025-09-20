@@ -37,8 +37,36 @@ impl Row for OdbcRow {
     }
 }
 
+impl ColumnIndex<OdbcRow> for &str {
+    fn index(&self, row: &OdbcRow) -> Result<usize, Error> {
+        row.columns
+            .iter()
+            .position(|col| col.name == *self)
+            .ok_or_else(|| Error::ColumnNotFound((*self).into()))
+    }
+}
+
 mod private {
     use super::OdbcRow;
     use crate::row::private_row::Sealed;
     impl Sealed for OdbcRow {}
+}
+
+#[cfg(feature = "any")]
+impl From<OdbcRow> for crate::any::AnyRow {
+    fn from(row: OdbcRow) -> Self {
+        let columns = row
+            .columns
+            .iter()
+            .map(|col| crate::any::AnyColumn {
+                kind: crate::any::column::AnyColumnKind::Odbc(col.clone()),
+                type_info: crate::any::AnyTypeInfo::from(col.type_info.clone()),
+            })
+            .collect();
+
+        crate::any::AnyRow {
+            kind: crate::any::row::AnyRowKind::Odbc(row),
+            columns,
+        }
+    }
 }

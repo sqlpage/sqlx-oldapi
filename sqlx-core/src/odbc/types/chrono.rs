@@ -154,42 +154,42 @@ impl<'q> Encode<'q, Odbc> for DateTime<Local> {
 
 impl<'r> Decode<'r, Odbc> for NaiveDate {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        let s = String::decode(value)?;
+        let s = <String as Decode<'r, Odbc>>::decode(value)?;
         Ok(s.parse()?)
     }
 }
 
 impl<'r> Decode<'r, Odbc> for NaiveTime {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        let s = String::decode(value)?;
+        let s = <String as Decode<'r, Odbc>>::decode(value)?;
         Ok(s.parse()?)
     }
 }
 
 impl<'r> Decode<'r, Odbc> for NaiveDateTime {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        let s = String::decode(value)?;
+        let s = <String as Decode<'r, Odbc>>::decode(value)?;
         Ok(s.parse()?)
     }
 }
 
 impl<'r> Decode<'r, Odbc> for DateTime<Utc> {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        let s = String::decode(value)?;
+        let s = <String as Decode<'r, Odbc>>::decode(value)?;
         Ok(s.parse()?)
     }
 }
 
 impl<'r> Decode<'r, Odbc> for DateTime<FixedOffset> {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        let s = String::decode(value)?;
+        let s = <String as Decode<'r, Odbc>>::decode(value)?;
         Ok(s.parse()?)
     }
 }
 
 impl<'r> Decode<'r, Odbc> for DateTime<Local> {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        let s = String::decode(value)?;
+        let s = <String as Decode<'r, Odbc>>::decode(value)?;
         Ok(s.parse::<DateTime<Utc>>()?.with_timezone(&Local))
     }
 }

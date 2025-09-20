@@ -46,3 +46,31 @@ impl ColumnIndex<OdbcStatement<'_>> for &'_ str {
             .ok_or_else(|| Error::ColumnNotFound((*self).into()))
     }
 }
+
+#[cfg(feature = "any")]
+impl<'q> From<OdbcStatement<'q>> for crate::any::AnyStatement<'q> {
+    fn from(stmt: OdbcStatement<'q>) -> Self {
+        let mut column_names = crate::HashMap::<crate::ext::ustr::UStr, usize>::default();
+
+        // First build the columns and collect names
+        let columns: Vec<_> = stmt
+            .columns
+            .into_iter()
+            .enumerate()
+            .map(|(index, col)| {
+                column_names.insert(crate::ext::ustr::UStr::new(&col.name), index);
+                crate::any::AnyColumn {
+                    kind: crate::any::column::AnyColumnKind::Odbc(col.clone()),
+                    type_info: crate::any::AnyTypeInfo::from(col.type_info),
+                }
+            })
+            .collect();
+
+        crate::any::AnyStatement {
+            sql: stmt.sql,
+            parameters: Some(either::Either::Right(stmt.parameters)),
+            columns,
+            column_names: std::sync::Arc::new(column_names),
+        }
+    }
+}
