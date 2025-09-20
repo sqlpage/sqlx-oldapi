@@ -223,3 +223,10 @@ macro_rules! Postgres_query_for_test_prepared_type {
         "SELECT ({0} is not distinct from $1)::int4, {0}, $2"
     };
 }
+
+#[macro_export]
+macro_rules! Odbc_query_for_test_prepared_type {
+    () => {
+        "SELECT CASE WHEN {0} = ? THEN 1 ELSE 0 END, {0}, ?"
+    };
+}

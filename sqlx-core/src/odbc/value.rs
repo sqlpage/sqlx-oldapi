@@ -306,8 +306,8 @@ mod decimal_decode {
 #[cfg(feature = "uuid")]
 mod uuid_decode {
     use super::*;
-    use uuid::Uuid;
     use std::str::FromStr;
+    use uuid::Uuid;
 
     impl<'r> Decode<'r, Odbc> for Uuid {
         fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
