@@ -33,20 +33,20 @@ jobs:
         run: |
           cargo clippy --manifest-path sqlx-core/Cargo.toml \
             --no-default-features \
-            --features offline,all-databases,all-types,migrate,odbc,runtime-${{ matrix.runtime }}-${{ matrix.tls }} \
+            --features offline,all-databases,all-types,migrate,runtime-${{ matrix.runtime }}-${{ matrix.tls }} \
             -- -D warnings
       - name: Run clippy for root with all features
         run: |
           cargo clippy \
             --no-default-features \
-            --features offline,all-databases,all-types,migrate,odbc,runtime-${{ matrix.runtime }}-${{ matrix.tls }},macros \
+            --features offline,all-databases,all-types,migrate,runtime-${{ matrix.runtime }}-${{ matrix.tls }},macros \
             -- -D warnings
       - name: Run clippy for all targets
         run: |
           cargo clippy \
             --no-default-features \
             --all-targets \
-            --features offline,all-databases,migrate,odbc,runtime-${{ matrix.runtime }}-${{ matrix.tls }} \
+            --features offline,all-databases,migrate,runtime-${{ matrix.runtime }}-${{ matrix.tls }} \
             -- -D warnings
 
   test:
@@ -74,7 +74,7 @@ jobs:
       - run:
           cargo test
             --manifest-path sqlx-core/Cargo.toml
-            --features offline,all-databases,all-types,odbc,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
+            --features offline,all-databases,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
 
   cli:
     name: CLI Binaries
