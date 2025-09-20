@@ -1,12 +1,16 @@
-use crate::odbc::{Odbc, OdbcTypeInfo, OdbcDataType};
+use crate::odbc::{DataTypeExt, Odbc, OdbcTypeInfo};
 use crate::types::Type;
+use odbc_api::DataType;
 
 impl Type<Odbc> for i32 {
     fn type_info() -> OdbcTypeInfo {
         OdbcTypeInfo::INTEGER
     }
     fn compatible(ty: &OdbcTypeInfo) -> bool {
-        matches!(ty.data_type(), OdbcDataType::Integer | OdbcDataType::SmallInt | OdbcDataType::TinyInt)
+        matches!(
+            ty.data_type(),
+            DataType::Integer | DataType::SmallInt | DataType::TinyInt | DataType::BigInt
+        ) || ty.data_type().accepts_character_data() // Allow parsing from strings
     }
 }
 
@@ -15,7 +19,15 @@ impl Type<Odbc> for i64 {
         OdbcTypeInfo::BIGINT
     }
     fn compatible(ty: &OdbcTypeInfo) -> bool {
-        matches!(ty.data_type(), OdbcDataType::BigInt | OdbcDataType::Integer)
+        matches!(
+            ty.data_type(),
+            DataType::BigInt
+                | DataType::Integer
+                | DataType::SmallInt
+                | DataType::TinyInt
+                | DataType::Numeric { .. }
+                | DataType::Decimal { .. }
+        ) || ty.data_type().accepts_character_data() // Allow parsing from strings
     }
 }
 
@@ -24,43 +36,65 @@ impl Type<Odbc> for f64 {
         OdbcTypeInfo::DOUBLE
     }
     fn compatible(ty: &OdbcTypeInfo) -> bool {
-        matches!(ty.data_type(), OdbcDataType::Double | OdbcDataType::Float | OdbcDataType::Real)
+        matches!(
+            ty.data_type(),
+            DataType::Double
+                | DataType::Float { .. }
+                | DataType::Real
+                | DataType::Numeric { .. }
+                | DataType::Decimal { .. }
+                | DataType::Integer
+                | DataType::BigInt
+                | DataType::SmallInt
+                | DataType::TinyInt
+        ) || ty.data_type().accepts_character_data() // Allow parsing from strings
     }
 }
 
 impl Type<Odbc> for f32 {
     fn type_info() -> OdbcTypeInfo {
-        OdbcTypeInfo::FLOAT
+        OdbcTypeInfo::float(24) // Standard float precision
     }
     fn compatible(ty: &OdbcTypeInfo) -> bool {
-        matches!(ty.data_type(), OdbcDataType::Float | OdbcDataType::Real)
+        matches!(
+            ty.data_type(),
+            DataType::Float { .. }
+                | DataType::Real
+                | DataType::Double
+                | DataType::Numeric { .. }
+                | DataType::Decimal { .. }
+                | DataType::Integer
+                | DataType::BigInt
+                | DataType::SmallInt
+                | DataType::TinyInt
+        ) || ty.data_type().accepts_character_data() // Allow parsing from strings
     }
 }
 
 impl Type<Odbc> for String {
     fn type_info() -> OdbcTypeInfo {
-        OdbcTypeInfo::VARCHAR
+        OdbcTypeInfo::varchar(None)
     }
     fn compatible(ty: &OdbcTypeInfo) -> bool {
-        ty.data_type().is_character_type()
+        ty.data_type().accepts_character_data()
     }
 }
 
 impl Type<Odbc> for &str {
     fn type_info() -> OdbcTypeInfo {
-        OdbcTypeInfo::VARCHAR
+        OdbcTypeInfo::varchar(None)
     }
     fn compatible(ty: &OdbcTypeInfo) -> bool {
-        ty.data_type().is_character_type()
+        ty.data_type().accepts_character_data()
     }
 }
 
 impl Type<Odbc> for Vec<u8> {
     fn type_info() -> OdbcTypeInfo {
-        OdbcTypeInfo::VARBINARY
+        OdbcTypeInfo::varbinary(None)
     }
     fn compatible(ty: &OdbcTypeInfo) -> bool {
-        ty.data_type().is_binary_type()
+        ty.data_type().accepts_binary_data()
     }
 }
 
@@ -69,7 +103,10 @@ impl Type<Odbc> for i16 {
         OdbcTypeInfo::SMALLINT
     }
     fn compatible(ty: &OdbcTypeInfo) -> bool {
-        matches!(ty.data_type(), OdbcDataType::SmallInt | OdbcDataType::TinyInt)
+        matches!(
+            ty.data_type(),
+            DataType::SmallInt | DataType::TinyInt | DataType::Integer | DataType::BigInt
+        ) || ty.data_type().accepts_character_data() // Allow parsing from strings
     }
 }
 
@@ -78,7 +115,10 @@ impl Type<Odbc> for i8 {
         OdbcTypeInfo::TINYINT
     }
     fn compatible(ty: &OdbcTypeInfo) -> bool {
-        matches!(ty.data_type(), OdbcDataType::TinyInt)
+        matches!(
+            ty.data_type(),
+            DataType::TinyInt | DataType::SmallInt | DataType::Integer | DataType::BigInt
+        ) || ty.data_type().accepts_character_data() // Allow parsing from strings
     }
 }
 
@@ -87,9 +127,11 @@ impl Type<Odbc> for bool {
         OdbcTypeInfo::BIT
     }
     fn compatible(ty: &OdbcTypeInfo) -> bool {
-        matches!(ty.data_type(), OdbcDataType::Bit | OdbcDataType::TinyInt)
+        matches!(
+            ty.data_type(),
+            DataType::Bit | DataType::TinyInt | DataType::SmallInt | DataType::Integer
+        ) || ty.data_type().accepts_character_data() // Allow parsing from strings
     }
 }
 
 // Option<T> blanket impl is provided in core types; do not re-implement here.
-
