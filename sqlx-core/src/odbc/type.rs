@@ -164,10 +164,8 @@ impl Type<Odbc> for u32 {
         OdbcTypeInfo::INTEGER
     }
     fn compatible(ty: &OdbcTypeInfo) -> bool {
-        matches!(
-            ty.data_type(),
-            DataType::Integer | DataType::BigInt
-        ) || ty.data_type().accepts_character_data() // Allow parsing from strings
+        matches!(ty.data_type(), DataType::Integer | DataType::BigInt)
+            || ty.data_type().accepts_character_data() // Allow parsing from strings
     }
 }
 
@@ -178,7 +176,10 @@ impl Type<Odbc> for u64 {
     fn compatible(ty: &OdbcTypeInfo) -> bool {
         matches!(
             ty.data_type(),
-            DataType::BigInt | DataType::Integer | DataType::Numeric { .. } | DataType::Decimal { .. }
+            DataType::BigInt
+                | DataType::Integer
+                | DataType::Numeric { .. }
+                | DataType::Decimal { .. }
         ) || ty.data_type().accepts_character_data() // Allow parsing from strings
     }
 }
@@ -213,7 +214,8 @@ mod chrono_types {
             OdbcTypeInfo::TIME
         }
         fn compatible(ty: &OdbcTypeInfo) -> bool {
-            matches!(ty.data_type(), DataType::Time { .. }) || ty.data_type().accepts_character_data()
+            matches!(ty.data_type(), DataType::Time { .. })
+                || ty.data_type().accepts_character_data()
         }
     }
 
@@ -222,7 +224,8 @@ mod chrono_types {
             OdbcTypeInfo::TIMESTAMP
         }
         fn compatible(ty: &OdbcTypeInfo) -> bool {
-            matches!(ty.data_type(), DataType::Timestamp { .. }) || ty.data_type().accepts_character_data()
+            matches!(ty.data_type(), DataType::Timestamp { .. })
+                || ty.data_type().accepts_character_data()
         }
     }
 
@@ -231,7 +234,8 @@ mod chrono_types {
             OdbcTypeInfo::TIMESTAMP
         }
         fn compatible(ty: &OdbcTypeInfo) -> bool {
-            matches!(ty.data_type(), DataType::Timestamp { .. }) || ty.data_type().accepts_character_data()
+            matches!(ty.data_type(), DataType::Timestamp { .. })
+                || ty.data_type().accepts_character_data()
         }
     }
 
@@ -240,7 +244,8 @@ mod chrono_types {
             OdbcTypeInfo::TIMESTAMP
         }
         fn compatible(ty: &OdbcTypeInfo) -> bool {
-            matches!(ty.data_type(), DataType::Timestamp { .. }) || ty.data_type().accepts_character_data()
+            matches!(ty.data_type(), DataType::Timestamp { .. })
+                || ty.data_type().accepts_character_data()
         }
     }
 
@@ -249,7 +254,8 @@ mod chrono_types {
             OdbcTypeInfo::TIMESTAMP
         }
         fn compatible(ty: &OdbcTypeInfo) -> bool {
-            matches!(ty.data_type(), DataType::Timestamp { .. }) || ty.data_type().accepts_character_data()
+            matches!(ty.data_type(), DataType::Timestamp { .. })
+                || ty.data_type().accepts_character_data()
         }
     }
 }
@@ -281,7 +287,10 @@ mod bigdecimal_types {
         fn compatible(ty: &OdbcTypeInfo) -> bool {
             matches!(
                 ty.data_type(),
-                DataType::Numeric { .. } | DataType::Decimal { .. } | DataType::Double | DataType::Float { .. }
+                DataType::Numeric { .. }
+                    | DataType::Decimal { .. }
+                    | DataType::Double
+                    | DataType::Float { .. }
             ) || ty.data_type().accepts_character_data()
         }
     }
@@ -299,7 +308,10 @@ mod decimal_types {
         fn compatible(ty: &OdbcTypeInfo) -> bool {
             matches!(
                 ty.data_type(),
-                DataType::Numeric { .. } | DataType::Decimal { .. } | DataType::Double | DataType::Float { .. }
+                DataType::Numeric { .. }
+                    | DataType::Decimal { .. }
+                    | DataType::Double
+                    | DataType::Float { .. }
             ) || ty.data_type().accepts_character_data()
         }
     }
@@ -312,7 +324,8 @@ mod uuid_types {
 
     impl Type<Odbc> for Uuid {
         fn type_info() -> OdbcTypeInfo {
-            OdbcTypeInfo::varchar(Some(std::num::NonZeroUsize::new(36).unwrap())) // UUID string length
+            OdbcTypeInfo::varchar(Some(std::num::NonZeroUsize::new(36).unwrap()))
+            // UUID string length
         }
         fn compatible(ty: &OdbcTypeInfo) -> bool {
             ty.data_type().accepts_character_data() || ty.data_type().accepts_binary_data()
