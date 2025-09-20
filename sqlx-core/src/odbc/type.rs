@@ -94,7 +94,8 @@ impl Type<Odbc> for Vec<u8> {
         OdbcTypeInfo::varbinary(None)
     }
     fn compatible(ty: &OdbcTypeInfo) -> bool {
-        ty.data_type().accepts_binary_data()
+        ty.data_type().accepts_binary_data() || ty.data_type().accepts_character_data()
+        // Allow decoding from character types too
     }
 }
 

@@ -228,3 +228,199 @@ async fn it_binds_null_string_parameter() -> anyhow::Result<()> {
     assert!(b.is_null());
     Ok(())
 }
+
+#[tokio::test]
+async fn it_handles_different_integer_types() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+
+    // Test various integer sizes
+    let mut s = conn.fetch(
+        "SELECT 127 AS tiny, 32767 AS small, 2147483647 AS regular, 9223372036854775807 AS big",
+    );
+    let row = s.try_next().await?.expect("row expected");
+
+    let tiny = row.try_get_raw(0)?.to_owned().decode::<i8>();
+    let small = row.try_get_raw(1)?.to_owned().decode::<i16>();
+    let regular = row.try_get_raw(2)?.to_owned().decode::<i32>();
+    let big = row.try_get_raw(3)?.to_owned().decode::<i64>();
+
+    assert_eq!(tiny, 127);
+    assert_eq!(small, 32767);
+    assert_eq!(regular, 2147483647);
+    assert_eq!(big, 9223372036854775807);
+    Ok(())
+}
+
+#[tokio::test]
+async fn it_handles_negative_integers() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+
+    let mut s = conn.fetch(
+        "SELECT -128 AS tiny, -32768 AS small, -2147483648 AS regular, -9223372036854775808 AS big",
+    );
+    let row = s.try_next().await?.expect("row expected");
+
+    let tiny = row.try_get_raw(0)?.to_owned().decode::<i8>();
+    let small = row.try_get_raw(1)?.to_owned().decode::<i16>();
+    let regular = row.try_get_raw(2)?.to_owned().decode::<i32>();
+    let big = row.try_get_raw(3)?.to_owned().decode::<i64>();
+
+    assert_eq!(tiny, -128);
+    assert_eq!(small, -32768);
+    assert_eq!(regular, -2147483648);
+    assert_eq!(big, -9223372036854775808);
+    Ok(())
+}
+
+#[tokio::test]
+async fn it_handles_different_float_types() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+
+    let sql = format!(
+        "SELECT {} AS f32_val, {} AS f64_val, 1.23456789 AS precise_val",
+        std::f32::consts::PI,
+        std::f64::consts::E
+    );
+    let mut s = conn.fetch(sql.as_str());
+    let row = s.try_next().await?.expect("row expected");
+
+    let f32_val = row.try_get_raw(0)?.to_owned().decode::<f32>();
+    let f64_val = row.try_get_raw(1)?.to_owned().decode::<f64>();
+    let precise_val = row.try_get_raw(2)?.to_owned().decode::<f64>();
+
+    assert!((f32_val - std::f32::consts::PI).abs() < 1e-5);
+    assert!((f64_val - std::f64::consts::E).abs() < 1e-10);
+    assert!((precise_val - 1.23456789).abs() < 1e-8);
+    Ok(())
+}
+
+#[tokio::test]
+async fn it_handles_boolean_values() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+
+    // Test boolean-like values - some databases represent booleans as 1/0
+    let mut s = conn.fetch("SELECT 1 AS true_val, 0 AS false_val");
+    let row = s.try_next().await?.expect("row expected");
+
+    let true_val = row.try_get_raw(0)?.to_owned().decode::<bool>();
+    let false_val = row.try_get_raw(1)?.to_owned().decode::<bool>();
+
+    assert!(true_val);
+    assert!(!false_val);
+    Ok(())
+}
+
+#[tokio::test]
+async fn it_handles_zero_and_special_numbers() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+
+    let mut s = conn.fetch("SELECT 0 AS zero, 0.0 AS zero_float");
+    let row = s.try_next().await?.expect("row expected");
+
+    let zero = row.try_get_raw(0)?.to_owned().decode::<i32>();
+    let zero_float = row.try_get_raw(1)?.to_owned().decode::<f64>();
+
+    assert_eq!(zero, 0);
+    assert_eq!(zero_float, 0.0);
+    Ok(())
+}
+
+#[tokio::test]
+async fn it_handles_string_variations() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+
+    let mut s = conn.fetch("SELECT '' AS empty, ' ' AS space, 'Hello, World!' AS greeting, 'Unicode: 🦀 Rust' AS unicode");
+    let row = s.try_next().await?.expect("row expected");
+
+    let empty = row.try_get_raw(0)?.to_owned().decode::<String>();
+    let space = row.try_get_raw(1)?.to_owned().decode::<String>();
+    let greeting = row.try_get_raw(2)?.to_owned().decode::<String>();
+    let unicode = row.try_get_raw(3)?.to_owned().decode::<String>();
+
+    assert_eq!(empty, "");
+    assert_eq!(space, " ");
+    assert_eq!(greeting, "Hello, World!");
+    assert_eq!(unicode, "Unicode: 🦀 Rust");
+    Ok(())
+}
+
+#[tokio::test]
+async fn it_handles_type_coercion_from_strings() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+
+    // Test that numeric values returned as strings can be parsed
+    let sql = format!(
+        "SELECT '42' AS str_int, '{}' AS str_float, '1' AS str_bool",
+        std::f64::consts::PI
+    );
+    let mut s = conn.fetch(sql.as_str());
+    let row = s.try_next().await?.expect("row expected");
+
+    let str_int = row.try_get_raw(0)?.to_owned().decode::<i32>();
+    let str_float = row.try_get_raw(1)?.to_owned().decode::<f64>();
+    let str_bool = row.try_get_raw(2)?.to_owned().decode::<bool>();
+
+    assert_eq!(str_int, 42);
+    assert!((str_float - std::f64::consts::PI).abs() < 1e-10);
+    assert!(str_bool);
+    Ok(())
+}
+
+#[tokio::test]
+async fn it_handles_large_strings() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+
+    // Test a moderately large string
+    let large_string = "a".repeat(1000);
+    let stmt = (&mut conn).prepare("SELECT ? AS large_str").await?;
+    let row = stmt
+        .query()
+        .bind(&large_string)
+        .fetch_one(&mut conn)
+        .await?;
+
+    let result = row.try_get_raw(0)?.to_owned().decode::<String>();
+    assert_eq!(result, large_string);
+    assert_eq!(result.len(), 1000);
+    Ok(())
+}
+
+#[tokio::test]
+async fn it_handles_binary_data() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+
+    // Test binary data - use UTF-8 safe bytes for PostgreSQL compatibility
+    let binary_data = vec![65u8, 66, 67, 68, 69]; // "ABCDE" in ASCII
+    let stmt = (&mut conn).prepare("SELECT ? AS binary_data").await?;
+    let row = stmt.query().bind(&binary_data).fetch_one(&mut conn).await?;
+
+    let result = row.try_get_raw(0)?.to_owned().decode::<Vec<u8>>();
+    assert_eq!(result, binary_data);
+    Ok(())
+}
+
+#[tokio::test]
+async fn it_handles_mixed_null_and_values() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+
+    let stmt = (&mut conn).prepare("SELECT ?, ?, ?, ?").await?;
+    let row = stmt
+        .query()
+        .bind(42_i32)
+        .bind(Option::<i32>::None)
+        .bind("hello")
+        .bind(Option::<String>::None)
+        .fetch_one(&mut conn)
+        .await?;
+
+    let int_val = row.try_get_raw(0)?.to_owned().decode::<i32>();
+    let null_int = row.try_get_raw(1)?.to_owned();
+    let str_val = row.try_get_raw(2)?.to_owned().decode::<String>();
+    let null_str = row.try_get_raw(3)?.to_owned();
+
+    assert_eq!(int_val, 42);
+    assert!(null_int.is_null());
+    assert_eq!(str_val, "hello");
+    assert!(null_str.is_null());
+    Ok(())
+}
