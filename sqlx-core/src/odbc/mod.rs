@@ -25,7 +25,7 @@ pub use query_result::OdbcQueryResult;
 pub use row::OdbcRow;
 pub use statement::OdbcStatement;
 pub use transaction::OdbcTransactionManager;
-pub use type_info::OdbcTypeInfo;
+pub use type_info::{OdbcTypeInfo, OdbcDataType};
 pub use value::{OdbcValue, OdbcValueRef};
 
 /// An alias for [`Pool`][crate::pool::Pool], specialized for ODBC.
