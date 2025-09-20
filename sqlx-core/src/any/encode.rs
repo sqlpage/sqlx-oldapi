@@ -45,7 +45,10 @@ macro_rules! impl_any_encode {
 
                     #[cfg(feature = "odbc")]
                     crate::any::arguments::AnyArgumentBufferKind::Odbc(args, _) => {
-                        let _ = self.encode_by_ref(&mut args.values);
+                        let _ = <$ty as crate::encode::Encode<'q, crate::odbc::Odbc>>::encode_by_ref(
+                            self,
+                            &mut args.values,
+                        );
                     }
                 }
 
