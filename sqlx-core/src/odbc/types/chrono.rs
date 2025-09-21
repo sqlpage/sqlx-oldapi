@@ -212,22 +212,22 @@ impl<'r> Decode<'r, Odbc> for DateTime<Utc> {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
         let s = <String as Decode<'r, Odbc>>::decode(value)?;
         let s_trimmed = s.trim();
-        
+
         // First try to parse as a UTC timestamp with timezone
         if let Ok(dt) = s_trimmed.parse::<DateTime<Utc>>() {
             return Ok(dt);
         }
-        
+
         // If that fails, try to parse as a naive datetime and convert to UTC
         if let Ok(naive_dt) = NaiveDateTime::parse_from_str(s_trimmed, "%Y-%m-%d %H:%M:%S") {
             return Ok(DateTime::<Utc>::from_naive_utc_and_offset(naive_dt, Utc));
         }
-        
+
         // Finally, try chrono's default naive datetime parser
         if let Ok(naive_dt) = s_trimmed.parse::<NaiveDateTime>() {
             return Ok(DateTime::<Utc>::from_naive_utc_and_offset(naive_dt, Utc));
         }
-        
+
         Err(format!("Cannot parse '{}' as DateTime<Utc>", s_trimmed).into())
     }
 }
@@ -236,22 +236,22 @@ impl<'r> Decode<'r, Odbc> for DateTime<FixedOffset> {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
         let s = <String as Decode<'r, Odbc>>::decode(value)?;
         let s_trimmed = s.trim();
-        
+
         // First try to parse as a timestamp with timezone/offset
         if let Ok(dt) = s_trimmed.parse::<DateTime<FixedOffset>>() {
             return Ok(dt);
         }
-        
+
         // If that fails, try to parse as a naive datetime and assume UTC (zero offset)
         if let Ok(naive_dt) = NaiveDateTime::parse_from_str(s_trimmed, "%Y-%m-%d %H:%M:%S") {
             return Ok(DateTime::<Utc>::from_naive_utc_and_offset(naive_dt, Utc).fixed_offset());
         }
-        
+
         // Finally, try chrono's default naive datetime parser
         if let Ok(naive_dt) = s_trimmed.parse::<NaiveDateTime>() {
             return Ok(DateTime::<Utc>::from_naive_utc_and_offset(naive_dt, Utc).fixed_offset());
         }
-        
+
         Err(format!("Cannot parse '{}' as DateTime<FixedOffset>", s_trimmed).into())
     }
 }
