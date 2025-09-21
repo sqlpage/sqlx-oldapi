@@ -60,11 +60,11 @@ impl<'c> Executor<'c> for &'c mut OdbcConnection {
         'c: 'e,
     {
         Box::pin(async move {
-            // Basic statement metadata: no parameter/column info without executing
+            let (_, columns, parameters) = self.worker.prepare(sql).await?;
             Ok(OdbcStatement {
                 sql: Cow::Borrowed(sql),
-                columns: Vec::new(),
-                parameters: 0,
+                columns,
+                parameters,
             })
         })
     }
