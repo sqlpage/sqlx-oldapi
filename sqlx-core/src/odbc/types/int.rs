@@ -108,91 +108,91 @@ impl Type<Odbc> for u64 {
 }
 
 impl<'q> Encode<'q, Odbc> for i32 {
-    fn encode(self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+    fn encode(self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
         buf.push(OdbcArgumentValue::Int(self as i64));
         crate::encode::IsNull::No
     }
 
-    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
         buf.push(OdbcArgumentValue::Int(*self as i64));
         crate::encode::IsNull::No
     }
 }
 
 impl<'q> Encode<'q, Odbc> for i64 {
-    fn encode(self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+    fn encode(self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
         buf.push(OdbcArgumentValue::Int(self));
         crate::encode::IsNull::No
     }
 
-    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
         buf.push(OdbcArgumentValue::Int(*self));
         crate::encode::IsNull::No
     }
 }
 
 impl<'q> Encode<'q, Odbc> for i16 {
-    fn encode(self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+    fn encode(self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
         buf.push(OdbcArgumentValue::Int(self as i64));
         crate::encode::IsNull::No
     }
 
-    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
         buf.push(OdbcArgumentValue::Int(*self as i64));
         crate::encode::IsNull::No
     }
 }
 
 impl<'q> Encode<'q, Odbc> for i8 {
-    fn encode(self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+    fn encode(self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
         buf.push(OdbcArgumentValue::Int(self as i64));
         crate::encode::IsNull::No
     }
 
-    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
         buf.push(OdbcArgumentValue::Int(*self as i64));
         crate::encode::IsNull::No
     }
 }
 
 impl<'q> Encode<'q, Odbc> for u8 {
-    fn encode(self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+    fn encode(self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
         buf.push(OdbcArgumentValue::Int(self as i64));
         crate::encode::IsNull::No
     }
 
-    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
         buf.push(OdbcArgumentValue::Int(*self as i64));
         crate::encode::IsNull::No
     }
 }
 
 impl<'q> Encode<'q, Odbc> for u16 {
-    fn encode(self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+    fn encode(self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
         buf.push(OdbcArgumentValue::Int(self as i64));
         crate::encode::IsNull::No
     }
 
-    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
         buf.push(OdbcArgumentValue::Int(*self as i64));
         crate::encode::IsNull::No
     }
 }
 
 impl<'q> Encode<'q, Odbc> for u32 {
-    fn encode(self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+    fn encode(self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
         buf.push(OdbcArgumentValue::Int(self as i64));
         crate::encode::IsNull::No
     }
 
-    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
         buf.push(OdbcArgumentValue::Int(*self as i64));
         crate::encode::IsNull::No
     }
 }
 
 impl<'q> Encode<'q, Odbc> for u64 {
-    fn encode(self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+    fn encode(self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
         match i64::try_from(self) {
             Ok(value) => {
                 buf.push(OdbcArgumentValue::Int(value));
@@ -206,7 +206,7 @@ impl<'q> Encode<'q, Odbc> for u64 {
         }
     }
 
-    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
         match i64::try_from(*self) {
             Ok(value) => {
                 buf.push(OdbcArgumentValue::Int(value));

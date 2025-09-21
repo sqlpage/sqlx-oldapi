@@ -39,7 +39,7 @@ pub trait OdbcExecutor<'c>: Executor<'c, Database = Odbc> {}
 impl<'c, T: Executor<'c, Database = Odbc>> OdbcExecutor<'c> for T {}
 
 // NOTE: required due to the lack of lazy normalization
-impl_into_arguments_for_arguments!(crate::odbc::OdbcArguments<'q>);
+impl_into_arguments_for_arguments!(crate::odbc::OdbcArguments);
 impl_executor_for_pool_connection!(Odbc, OdbcConnection, OdbcRow);
 impl_executor_for_transaction!(Odbc, OdbcRow);
 impl_column_index_for_row!(OdbcRow);

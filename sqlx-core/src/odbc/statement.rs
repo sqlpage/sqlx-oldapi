@@ -34,7 +34,7 @@ impl<'q> Statement<'q> for OdbcStatement<'q> {
     }
 
     // ODBC arguments placeholder
-    impl_statement_query!(crate::odbc::OdbcArguments<'_>);
+    impl_statement_query!(crate::odbc::OdbcArguments);
 }
 
 impl ColumnIndex<OdbcStatement<'_>> for &'_ str {

@@ -23,24 +23,24 @@ impl Type<Odbc> for &str {
 }
 
 impl<'q> Encode<'q, Odbc> for String {
-    fn encode(self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+    fn encode(self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
         buf.push(OdbcArgumentValue::Text(self));
         crate::encode::IsNull::No
     }
 
-    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
         buf.push(OdbcArgumentValue::Text(self.clone()));
         crate::encode::IsNull::No
     }
 }
 
 impl<'q> Encode<'q, Odbc> for &'q str {
-    fn encode(self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+    fn encode(self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
         buf.push(OdbcArgumentValue::Text(self.to_owned()));
         crate::encode::IsNull::No
     }
 
-    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
         buf.push(OdbcArgumentValue::Text((*self).to_owned()));
         crate::encode::IsNull::No
     }

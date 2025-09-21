@@ -25,24 +25,24 @@ impl Type<Odbc> for &[u8] {
 }
 
 impl<'q> Encode<'q, Odbc> for Vec<u8> {
-    fn encode(self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+    fn encode(self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
         buf.push(OdbcArgumentValue::Bytes(self));
         crate::encode::IsNull::No
     }
 
-    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
         buf.push(OdbcArgumentValue::Bytes(self.clone()));
         crate::encode::IsNull::No
     }
 }
 
 impl<'q> Encode<'q, Odbc> for &'q [u8] {
-    fn encode(self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+    fn encode(self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
         buf.push(OdbcArgumentValue::Bytes(self.to_vec()));
         crate::encode::IsNull::No
     }
 
-    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
         buf.push(OdbcArgumentValue::Bytes(self.to_vec()));
         crate::encode::IsNull::No
     }
