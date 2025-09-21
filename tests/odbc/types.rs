@@ -103,6 +103,12 @@ test_type!(uuid<sqlx_oldapi::types::Uuid>(Odbc,
     "'00000000-0000-0000-0000-000000000000'" == sqlx_oldapi::types::Uuid::nil()
 ));
 
+// Extra UUID decoding edge cases (ODBC may return padded strings)
+#[cfg(feature = "uuid")]
+test_type!(uuid_padded<sqlx_oldapi::types::Uuid>(Odbc,
+    "'550e8400-e29b-41d4-a716-446655440000  '" == sqlx_oldapi::types::Uuid::parse_str("550e8400-e29b-41d4-a716-446655440000").unwrap()
+));
+
 #[cfg(feature = "json")]
 mod json_tests {
     use super::*;
@@ -154,6 +160,11 @@ mod chrono_tests {
     test_type!(chrono_datetime<NaiveDateTime>(Odbc,
         "'2023-12-25 14:30:00'" == NaiveDate::from_ymd_opt(2023, 12, 25).unwrap().and_hms_opt(14, 30, 0).unwrap(),
         "'2019-01-02 05:10:20'" == NaiveDate::from_ymd_opt(2019, 1, 2).unwrap().and_hms_opt(5, 10, 20).unwrap()
+    ));
+
+    // Extra chrono decoding edge case (padded timestamp string)
+    test_type!(chrono_datetime_padded<NaiveDateTime>(Odbc,
+        "'2023-12-25 14:30:00   '" == NaiveDate::from_ymd_opt(2023, 12, 25).unwrap().and_hms_opt(14, 30, 0).unwrap()
     ));
 
     test_type!(chrono_datetime_utc<DateTime<Utc>>(Odbc,

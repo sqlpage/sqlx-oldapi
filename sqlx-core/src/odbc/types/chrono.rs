@@ -11,7 +11,9 @@ impl Type<Odbc> for NaiveDate {
         OdbcTypeInfo::DATE
     }
     fn compatible(ty: &OdbcTypeInfo) -> bool {
-        matches!(ty.data_type(), DataType::Date) || ty.data_type().accepts_character_data()
+        matches!(ty.data_type(), DataType::Date)
+            || ty.data_type().accepts_character_data()
+            || matches!(ty.data_type(), DataType::Other { .. } | DataType::Unknown)
     }
 }
 
@@ -20,7 +22,9 @@ impl Type<Odbc> for NaiveTime {
         OdbcTypeInfo::TIME
     }
     fn compatible(ty: &OdbcTypeInfo) -> bool {
-        matches!(ty.data_type(), DataType::Time { .. }) || ty.data_type().accepts_character_data()
+        matches!(ty.data_type(), DataType::Time { .. })
+            || ty.data_type().accepts_character_data()
+            || matches!(ty.data_type(), DataType::Other { .. } | DataType::Unknown)
     }
 }
 
@@ -31,6 +35,7 @@ impl Type<Odbc> for NaiveDateTime {
     fn compatible(ty: &OdbcTypeInfo) -> bool {
         matches!(ty.data_type(), DataType::Timestamp { .. })
             || ty.data_type().accepts_character_data()
+            || matches!(ty.data_type(), DataType::Other { .. } | DataType::Unknown)
     }
 }
 
@@ -41,6 +46,7 @@ impl Type<Odbc> for DateTime<Utc> {
     fn compatible(ty: &OdbcTypeInfo) -> bool {
         matches!(ty.data_type(), DataType::Timestamp { .. })
             || ty.data_type().accepts_character_data()
+            || matches!(ty.data_type(), DataType::Other { .. } | DataType::Unknown)
     }
 }
 
@@ -51,6 +57,7 @@ impl Type<Odbc> for DateTime<FixedOffset> {
     fn compatible(ty: &OdbcTypeInfo) -> bool {
         matches!(ty.data_type(), DataType::Timestamp { .. })
             || ty.data_type().accepts_character_data()
+            || matches!(ty.data_type(), DataType::Other { .. } | DataType::Unknown)
     }
 }
 
@@ -61,6 +68,7 @@ impl Type<Odbc> for DateTime<Local> {
     fn compatible(ty: &OdbcTypeInfo) -> bool {
         matches!(ty.data_type(), DataType::Timestamp { .. })
             || ty.data_type().accepts_character_data()
+            || matches!(ty.data_type(), DataType::Other { .. } | DataType::Unknown)
     }
 }
 
@@ -168,8 +176,18 @@ impl<'r> Decode<'r, Odbc> for NaiveTime {
 
 impl<'r> Decode<'r, Odbc> for NaiveDateTime {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        let s = <String as Decode<'r, Odbc>>::decode(value)?;
-        Ok(s.parse()?)
+        let mut s = <String as Decode<'r, Odbc>>::decode(value)?;
+        // Some ODBC drivers (e.g. PostgreSQL) may include trailing spaces or NULs
+        // in textual representations of timestamps. Trim them before parsing.
+        if s.ends_with('\u{0}') {
+            s = s.trim_end_matches('\u{0}').to_string();
+        }
+        let s_trimmed = s.trim();
+        // Try strict format first, then fall back to Chrono's FromStr
+        if let Ok(dt) = NaiveDateTime::parse_from_str(s_trimmed, "%Y-%m-%d %H:%M:%S") {
+            return Ok(dt);
+        }
+        Ok(s_trimmed.parse()?)
     }
 }
 

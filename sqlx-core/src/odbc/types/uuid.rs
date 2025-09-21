@@ -12,7 +12,12 @@ impl Type<Odbc> for Uuid {
         // UUID string length
     }
     fn compatible(ty: &OdbcTypeInfo) -> bool {
-        ty.data_type().accepts_character_data() || ty.data_type().accepts_binary_data()
+        ty.data_type().accepts_character_data()
+            || ty.data_type().accepts_binary_data()
+            || matches!(
+                ty.data_type(),
+                odbc_api::DataType::Other { .. } | odbc_api::DataType::Unknown
+            )
     }
 }
 
@@ -32,14 +37,13 @@ impl<'r> Decode<'r, Odbc> for Uuid {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
         if let Some(bytes) = value.blob {
             if bytes.len() == 16 {
-                // Binary UUID format
                 return Ok(Uuid::from_bytes(bytes.try_into()?));
             }
-            // Try as string
-            let s = std::str::from_utf8(bytes)?;
+            // Some drivers may return UUIDs as ASCII/UTF-8 bytes
+            let s = std::str::from_utf8(bytes)?.trim();
             return Ok(Uuid::from_str(s)?);
         }
         let s = <String as Decode<'r, Odbc>>::decode(value)?;
-        Ok(Uuid::from_str(&s)?)
+        Ok(Uuid::from_str(s.trim())?)
     }
 }
