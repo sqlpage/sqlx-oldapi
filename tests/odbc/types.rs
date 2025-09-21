@@ -105,7 +105,7 @@ test_type!(uuid<sqlx_oldapi::types::Uuid>(Odbc,
 
 // Extra UUID decoding edge cases (ODBC may return padded strings)
 #[cfg(feature = "uuid")]
-test_type!(uuid_padded<sqlx_oldapi::types::Uuid>(Odbc,
+test_decode_type!(uuid_padded<sqlx_oldapi::types::Uuid>(Odbc,
     "'550e8400-e29b-41d4-a716-446655440000  '" == sqlx_oldapi::types::Uuid::parse_str("550e8400-e29b-41d4-a716-446655440000").unwrap()
 ));
 
