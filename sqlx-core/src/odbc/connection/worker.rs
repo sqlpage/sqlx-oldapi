@@ -80,6 +80,16 @@ impl ConnectionWorker {
         send_command_and_await(&self.command_tx, Command::Shutdown { tx }, rx).await
     }
 
+    pub(crate) fn shutdown_sync(&mut self) {
+        // Send shutdown command without waiting for response
+        // Use try_send to avoid any potential blocking in Drop
+        let (tx, _rx) = oneshot::channel();
+        let _ = self.command_tx.try_send(Command::Shutdown { tx });
+
+        // Don't aggressively drop the channel to avoid SendError panics
+        // The worker thread will exit when it processes the Shutdown command
+    }
+
     pub(crate) async fn begin(&mut self) -> Result<(), Error> {
         let (tx, rx) = oneshot::channel();
         send_transaction_command(&self.command_tx, Command::Begin { tx }, rx).await
@@ -156,11 +166,12 @@ fn worker_thread_main(
     }
 
     // Process commands
-    for cmd in rx {
+    while let Ok(cmd) = rx.recv() {
         if !process_command(cmd, &conn) {
             break;
         }
     }
+    // Channel disconnected or shutdown command received, worker thread exits
 }
 
 fn establish_connection(options: &OdbcConnectOptions) -> Result<OdbcConnection, Error> {
