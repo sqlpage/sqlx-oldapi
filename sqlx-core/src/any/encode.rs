@@ -60,99 +60,66 @@ macro_rules! impl_any_encode {
     };
 }
 
-// This macro generates the trait and impl based on which features are enabled
-macro_rules! define_any_encode {
-    (
-        // List all possible feature combinations with their corresponding database lists
-        $(
-            #[cfg($($cfg:tt)*)]
-            [$($db:ident),* $(,)?]
-        ),* $(,)?
-    ) => {
-        $(
-            #[cfg($($cfg)*)]
-            pub trait AnyEncode<'q>: $(Encode<'q, $db> + Type<$db> +)* Send {}
+// Macro to generate all feature combinations
+macro_rules! for_all_feature_combinations {
+    // Entry point
+    ( $callback:ident ) => {
+        for_all_feature_combinations!(@parse_databases [
+            ("postgres", Postgres),
+            ("mysql", MySql),
+            ("mssql", Mssql),
+            ("sqlite", Sqlite),
+            ("odbc", Odbc)
+        ] $callback);
+    };
 
-            #[cfg($($cfg)*)]
-            impl<'q, T> AnyEncode<'q> for T
-            where
-                T: $(Encode<'q, $db> + Type<$db> +)* Send
-            {}
-        )*
+    // Convert the database list format to tokens suitable for recursion
+    (@parse_databases [ $(($feat:literal, $ty:ident)),* ] $callback:ident) => {
+        for_all_feature_combinations!(@recurse [] [] [$( ($feat, $ty) )*] $callback);
+    };
+
+    // Recursive case: process each database
+    (@recurse [$($yes:tt)*] [$($no:tt)*] [($feat:literal, $ty:ident) $($rest:tt)*] $callback:ident) => {
+        // Include this database
+        for_all_feature_combinations!(@recurse
+            [$($yes)* ($feat, $ty)]
+            [$($no)*]
+            [$($rest)*]
+            $callback
+        );
+
+        // Exclude this database
+        for_all_feature_combinations!(@recurse
+            [$($yes)*]
+            [$($no)* $feat]
+            [$($rest)*]
+            $callback
+        );
+    };
+
+    // Base case: no more databases, generate the implementation if we have at least one
+    (@recurse [$(($feat:literal, $ty:ident))+] [$($no:literal)*] [] $callback:ident) => {
+        #[cfg(all($(feature = $feat),+ $(, not(feature = $no))*))]
+        $callback! { $($ty),+ }
+    };
+    
+    // Base case: no databases selected, skip
+    (@recurse [] [$($no:literal)*] [] $callback:ident) => {
+        // Don't generate anything for zero databases
     };
 }
 
-// Define all combinations in a more compact, maintainable format
-define_any_encode! {
-    // 5 databases
-    #[cfg(all(feature = "postgres", feature = "mysql", feature = "mssql", feature = "sqlite", feature = "odbc"))]
-    [Postgres, MySql, Mssql, Sqlite, Odbc],
+// Callback macro that generates the actual trait and impl
+macro_rules! impl_any_encode_for_databases {
+    ($($db:ident),+) => {
+        pub trait AnyEncode<'q>: $(Encode<'q, $db> + Type<$db> +)+ Send {}
 
-    // 4 databases (5 combinations) - missing one each
-    #[cfg(all(not(feature = "postgres"), feature = "mysql", feature = "mssql", feature = "sqlite", feature = "odbc"))]
-    [MySql, Mssql, Sqlite, Odbc],
-    #[cfg(all(feature = "postgres", not(feature = "mysql"), feature = "mssql", feature = "sqlite", feature = "odbc"))]
-    [Postgres, Mssql, Sqlite, Odbc],
-    #[cfg(all(feature = "postgres", feature = "mysql", not(feature = "mssql"), feature = "sqlite", feature = "odbc"))]
-    [Postgres, MySql, Sqlite, Odbc],
-    #[cfg(all(feature = "postgres", feature = "mysql", feature = "mssql", not(feature = "sqlite"), feature = "odbc"))]
-    [Postgres, MySql, Mssql, Odbc],
-    #[cfg(all(feature = "postgres", feature = "mysql", feature = "mssql", feature = "sqlite", not(feature = "odbc")))]
-    [Postgres, MySql, Mssql, Sqlite],
-
-    // 3 databases (10 combinations)
-    #[cfg(all(not(any(feature = "postgres", feature = "mysql")), feature = "mssql", feature = "sqlite", feature = "odbc"))]
-    [Mssql, Sqlite, Odbc],
-    #[cfg(all(not(any(feature = "postgres", feature = "mssql")), feature = "mysql", feature = "sqlite", feature = "odbc"))]
-    [MySql, Sqlite, Odbc],
-    #[cfg(all(not(any(feature = "postgres", feature = "sqlite")), feature = "mysql", feature = "mssql", feature = "odbc"))]
-    [MySql, Mssql, Odbc],
-    #[cfg(all(not(any(feature = "postgres", feature = "odbc")), feature = "mysql", feature = "mssql", feature = "sqlite"))]
-    [MySql, Mssql, Sqlite],
-    #[cfg(all(not(any(feature = "mysql", feature = "mssql")), feature = "postgres", feature = "sqlite", feature = "odbc"))]
-    [Postgres, Sqlite, Odbc],
-    #[cfg(all(not(any(feature = "mysql", feature = "sqlite")), feature = "postgres", feature = "mssql", feature = "odbc"))]
-    [Postgres, Mssql, Odbc],
-    #[cfg(all(not(any(feature = "mysql", feature = "odbc")), feature = "postgres", feature = "mssql", feature = "sqlite"))]
-    [Postgres, Mssql, Sqlite],
-    #[cfg(all(not(any(feature = "mssql", feature = "sqlite")), feature = "postgres", feature = "mysql", feature = "odbc"))]
-    [Postgres, MySql, Odbc],
-    #[cfg(all(not(any(feature = "mssql", feature = "odbc")), feature = "postgres", feature = "mysql", feature = "sqlite"))]
-    [Postgres, MySql, Sqlite],
-    #[cfg(all(not(any(feature = "sqlite", feature = "odbc")), feature = "postgres", feature = "mysql", feature = "mssql"))]
-    [Postgres, MySql, Mssql],
-
-    // 2 databases (10 combinations)
-    #[cfg(all(feature = "postgres", feature = "mysql", not(any(feature = "mssql", feature = "sqlite", feature = "odbc"))))]
-    [Postgres, MySql],
-    #[cfg(all(feature = "postgres", feature = "mssql", not(any(feature = "mysql", feature = "sqlite", feature = "odbc"))))]
-    [Postgres, Mssql],
-    #[cfg(all(feature = "postgres", feature = "sqlite", not(any(feature = "mysql", feature = "mssql", feature = "odbc"))))]
-    [Postgres, Sqlite],
-    #[cfg(all(feature = "postgres", feature = "odbc", not(any(feature = "mysql", feature = "mssql", feature = "sqlite"))))]
-    [Postgres, Odbc],
-    #[cfg(all(feature = "mysql", feature = "mssql", not(any(feature = "postgres", feature = "sqlite", feature = "odbc"))))]
-    [MySql, Mssql],
-    #[cfg(all(feature = "mysql", feature = "sqlite", not(any(feature = "postgres", feature = "mssql", feature = "odbc"))))]
-    [MySql, Sqlite],
-    #[cfg(all(feature = "mysql", feature = "odbc", not(any(feature = "postgres", feature = "mssql", feature = "sqlite"))))]
-    [MySql, Odbc],
-    #[cfg(all(feature = "mssql", feature = "sqlite", not(any(feature = "postgres", feature = "mysql", feature = "odbc"))))]
-    [Mssql, Sqlite],
-    #[cfg(all(feature = "mssql", feature = "odbc", not(any(feature = "postgres", feature = "mysql", feature = "sqlite"))))]
-    [Mssql, Odbc],
-    #[cfg(all(feature = "sqlite", feature = "odbc", not(any(feature = "postgres", feature = "mysql", feature = "mssql"))))]
-    [Sqlite, Odbc],
-
-    // 1 database (5 combinations)
-    #[cfg(all(feature = "postgres", not(any(feature = "mysql", feature = "mssql", feature = "sqlite", feature = "odbc"))))]
-    [Postgres],
-    #[cfg(all(feature = "mysql", not(any(feature = "postgres", feature = "mssql", feature = "sqlite", feature = "odbc"))))]
-    [MySql],
-    #[cfg(all(feature = "mssql", not(any(feature = "postgres", feature = "mysql", feature = "sqlite", feature = "odbc"))))]
-    [Mssql],
-    #[cfg(all(feature = "sqlite", not(any(feature = "postgres", feature = "mysql", feature = "mssql", feature = "odbc"))))]
-    [Sqlite],
-    #[cfg(all(feature = "odbc", not(any(feature = "postgres", feature = "mysql", feature = "mssql", feature = "sqlite"))))]
-    [Odbc],
+        impl<'q, T> AnyEncode<'q> for T
+        where
+            T: $(Encode<'q, $db> + Type<$db> +)+ Send
+        {}
+    };
 }
+
+// Generate all combinations
+for_all_feature_combinations!(impl_any_encode_for_databases);
