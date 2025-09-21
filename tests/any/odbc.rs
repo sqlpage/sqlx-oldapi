@@ -384,14 +384,13 @@ async fn it_accepts_standard_odbc_connection_strings() -> anyhow::Result<()> {
 
     for conn_str in non_odbc_cases {
         let kind_result = AnyKind::from_str(conn_str);
-        match kind_result {
-            Ok(kind) => assert_ne!(
+        if let Ok(kind) = kind_result {
+            assert_ne!(
                 kind,
                 AnyKind::Odbc,
                 "Incorrectly identified '{}' as ODBC",
                 conn_str
-            ),
-            Err(_) => {} // Expected for unrecognized formats
+            )
         }
     }
 
