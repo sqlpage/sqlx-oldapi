@@ -1,6 +1,6 @@
 #![allow(clippy::approx_constant)]
 use sqlx_oldapi::odbc::Odbc;
-use sqlx_test::test_type;
+use sqlx_test::{test_decode_type, test_type};
 
 // Basic null test
 test_type!(null<Option<i32>>(Odbc,
@@ -163,7 +163,7 @@ mod chrono_tests {
     ));
 
     // Extra chrono decoding edge case (padded timestamp string)
-    test_type!(chrono_datetime_padded<NaiveDateTime>(Odbc,
+    test_decode_type!(chrono_datetime_padded<NaiveDateTime>(Odbc,
         "'2023-12-25 14:30:00   '" == NaiveDate::from_ymd_opt(2023, 12, 25).unwrap().and_hms_opt(14, 30, 0).unwrap()
     ));
 
