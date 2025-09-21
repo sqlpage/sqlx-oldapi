@@ -73,7 +73,7 @@ test_type!(u64(
 // Floating point types
 test_type!(f32(
     Odbc,
-    "3.14159" == 3.14159_f32,
+    "3.125" == 3.125_f32, // Use power-of-2 fractions for exact representation
     "0.0" == 0.0_f32,
     "-2.5" == -2.5_f32
 ));
