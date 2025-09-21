@@ -12,6 +12,15 @@ use crate::row::Row as SqlxRow;
 use either::Either;
 use odbc_api::{Cursor, CursorRow, IntoParameter, ResultSetMetadata};
 
+// Type aliases for commonly used types
+type OdbcConnection = odbc_api::Connection<'static>;
+type TransactionResult = Result<(), Error>;
+type TransactionSender = oneshot::Sender<TransactionResult>;
+type ExecuteResult = Result<Either<OdbcQueryResult, OdbcRow>, Error>;
+type ExecuteSender = flume::Sender<ExecuteResult>;
+type PrepareResult = Result<(u64, Vec<OdbcColumn>, usize), Error>;
+type PrepareSender = oneshot::Sender<PrepareResult>;
+
 #[derive(Debug)]
 pub(crate) struct ConnectionWorker {
     command_tx: flume::Sender<Command>,
@@ -25,22 +34,22 @@ enum Command {
         tx: oneshot::Sender<()>,
     },
     Begin {
-        tx: oneshot::Sender<Result<(), Error>>,
+        tx: TransactionSender,
     },
     Commit {
-        tx: oneshot::Sender<Result<(), Error>>,
+        tx: TransactionSender,
     },
     Rollback {
-        tx: oneshot::Sender<Result<(), Error>>,
+        tx: TransactionSender,
     },
     Execute {
         sql: Box<str>,
         args: Option<OdbcArguments>,
-        tx: flume::Sender<Result<Either<OdbcQueryResult, OdbcRow>, Error>>,
+        tx: ExecuteSender,
     },
     Prepare {
         sql: Box<str>,
-        tx: oneshot::Sender<Result<(u64, Vec<OdbcColumn>, usize), Error>>,
+        tx: PrepareSender,
     },
 }
 
@@ -59,35 +68,27 @@ impl ConnectionWorker {
 
     pub(crate) async fn ping(&mut self) -> Result<(), Error> {
         let (tx, rx) = oneshot::channel();
-        self.send_command(Command::Ping { tx }).await?;
-        rx.await.map_err(|_| Error::WorkerCrashed)
+        send_command_and_await(&self.command_tx, Command::Ping { tx }, rx).await
     }
 
     pub(crate) async fn shutdown(&mut self) -> Result<(), Error> {
         let (tx, rx) = oneshot::channel();
-        self.send_command(Command::Shutdown { tx }).await?;
-        rx.await.map_err(|_| Error::WorkerCrashed)
+        send_command_and_await(&self.command_tx, Command::Shutdown { tx }, rx).await
     }
 
     pub(crate) async fn begin(&mut self) -> Result<(), Error> {
         let (tx, rx) = oneshot::channel();
-        self.send_command(Command::Begin { tx }).await?;
-        rx.await.map_err(|_| Error::WorkerCrashed)??;
-        Ok(())
+        send_transaction_command(&self.command_tx, Command::Begin { tx }, rx).await
     }
 
     pub(crate) async fn commit(&mut self) -> Result<(), Error> {
         let (tx, rx) = oneshot::channel();
-        self.send_command(Command::Commit { tx }).await?;
-        rx.await.map_err(|_| Error::WorkerCrashed)??;
-        Ok(())
+        send_transaction_command(&self.command_tx, Command::Commit { tx }, rx).await
     }
 
     pub(crate) async fn rollback(&mut self) -> Result<(), Error> {
         let (tx, rx) = oneshot::channel();
-        self.send_command(Command::Rollback { tx }).await?;
-        rx.await.map_err(|_| Error::WorkerCrashed)??;
-        Ok(())
+        send_transaction_command(&self.command_tx, Command::Rollback { tx }, rx).await
     }
 
     pub(crate) async fn execute_stream(
@@ -96,12 +97,14 @@ impl ConnectionWorker {
         args: Option<OdbcArguments>,
     ) -> Result<flume::Receiver<Result<Either<OdbcQueryResult, OdbcRow>, Error>>, Error> {
         let (tx, rx) = flume::bounded(64);
-        self.send_command(Command::Execute {
-            sql: sql.into(),
-            args,
-            tx,
-        })
-        .await?;
+        self.command_tx
+            .send_async(Command::Execute {
+                sql: sql.into(),
+                args,
+                tx,
+            })
+            .await
+            .map_err(|_| Error::WorkerCrashed)?;
         Ok(rx)
     }
 
@@ -110,19 +113,15 @@ impl ConnectionWorker {
         sql: &str,
     ) -> Result<(u64, Vec<OdbcColumn>, usize), Error> {
         let (tx, rx) = oneshot::channel();
-        self.send_command(Command::Prepare {
-            sql: sql.into(),
-            tx,
-        })
-        .await?;
-        rx.await.map_err(|_| Error::WorkerCrashed)?
-    }
-
-    async fn send_command(&mut self, cmd: Command) -> Result<(), Error> {
-        self.command_tx
-            .send_async(cmd)
-            .await
-            .map_err(|_| Error::WorkerCrashed)
+        send_command_and_await(
+            &self.command_tx,
+            Command::Prepare {
+                sql: sql.into(),
+                tx,
+            },
+            rx,
+        )
+        .await?
     }
 }
 
@@ -160,9 +159,7 @@ fn worker_thread_main(
     }
 }
 
-fn establish_connection(
-    options: &OdbcConnectOptions,
-) -> Result<odbc_api::Connection<'static>, Error> {
+fn establish_connection(options: &OdbcConnectOptions) -> Result<OdbcConnection, Error> {
     // Create environment and connect. We leak the environment to extend its lifetime
     // to 'static, as ODBC connection borrows it. This is acceptable for long-lived
     // process and mirrors SQLite approach to background workers.
@@ -170,16 +167,62 @@ fn establish_connection(
         odbc_api::Environment::new().map_err(|e| Error::Configuration(e.to_string().into()))?,
     ));
 
-    env.connect_with_connection_string(options.connection_string(), Default::default())
-        .map_err(|e| Error::Configuration(e.to_string().into()))
+    let conn = env
+        .connect_with_connection_string(options.connection_string(), Default::default())
+        .map_err(|e| Error::Configuration(e.to_string().into()))?;
+
+    Ok(conn)
 }
 
-fn process_command(cmd: Command, conn: &odbc_api::Connection<'static>) -> bool {
+// Utility functions for channel operations
+fn send_result<T: std::fmt::Debug>(tx: oneshot::Sender<T>, result: T) {
+    tx.send(result).expect("The odbc worker thread has crashed");
+}
+
+fn send_stream_result(tx: &ExecuteSender, result: ExecuteResult) {
+    tx.send(result).expect("The odbc worker thread has crashed");
+}
+
+async fn send_command_and_await<T>(
+    command_tx: &flume::Sender<Command>,
+    cmd: Command,
+    rx: oneshot::Receiver<T>,
+) -> Result<T, Error> {
+    command_tx
+        .send_async(cmd)
+        .await
+        .map_err(|_| Error::WorkerCrashed)?;
+    rx.await.map_err(|_| Error::WorkerCrashed)
+}
+
+async fn send_transaction_command(
+    command_tx: &flume::Sender<Command>,
+    cmd: Command,
+    rx: oneshot::Receiver<TransactionResult>,
+) -> Result<(), Error> {
+    send_command_and_await(command_tx, cmd, rx).await??;
+    Ok(())
+}
+
+// Utility functions for transaction operations
+fn execute_transaction_operation<F>(
+    conn: &OdbcConnection,
+    operation: F,
+    operation_name: &str,
+) -> TransactionResult
+where
+    F: FnOnce(&OdbcConnection) -> Result<(), odbc_api::Error>,
+{
+    operation(conn)
+        .map_err(|e| Error::Protocol(format!("Failed to {} transaction: {}", operation_name, e)))
+}
+
+fn process_command(cmd: Command, conn: &OdbcConnection) -> bool {
     match cmd {
         Command::Ping { tx } => handle_ping(conn, tx),
-        Command::Begin { tx } => handle_transaction(conn, "BEGIN", tx),
-        Command::Commit { tx } => handle_transaction(conn, "COMMIT", tx),
-        Command::Rollback { tx } => handle_transaction(conn, "ROLLBACK", tx),
+        Command::Begin { tx } => handle_begin(conn, tx),
+        Command::Commit { tx } => handle_commit(conn, tx),
+        Command::Rollback { tx } => handle_rollback(conn, tx),
         Command::Shutdown { tx } => {
             let _ = tx.send(());
             return false; // Signal to exit the loop
@@ -191,34 +234,44 @@ fn process_command(cmd: Command, conn: &odbc_api::Connection<'static>) -> bool {
 }
 
 // Command handlers
-fn handle_ping(conn: &odbc_api::Connection<'static>, tx: oneshot::Sender<()>) {
+fn handle_ping(conn: &OdbcConnection, tx: oneshot::Sender<()>) {
     let _ = conn.execute("SELECT 1", (), None);
-    let _ = tx.send(());
+    send_result(tx, ());
 }
 
-fn handle_transaction(
-    conn: &odbc_api::Connection<'static>,
-    sql: &str,
-    tx: oneshot::Sender<Result<(), Error>>,
-) {
-    let result = execute_simple(conn, sql);
-    let _ = tx.send(result);
+fn handle_begin(conn: &OdbcConnection, tx: TransactionSender) {
+    let result = execute_transaction_operation(conn, |c| c.set_autocommit(false), "begin");
+    send_result(tx, result);
+}
+
+fn handle_commit(conn: &OdbcConnection, tx: TransactionSender) {
+    let result = execute_transaction_operation(
+        conn,
+        |c| c.commit().and_then(|_| c.set_autocommit(true)),
+        "commit",
+    );
+    send_result(tx, result);
+}
+
+fn handle_rollback(conn: &OdbcConnection, tx: TransactionSender) {
+    let result = execute_transaction_operation(
+        conn,
+        |c| c.rollback().and_then(|_| c.set_autocommit(true)),
+        "rollback",
+    );
+    send_result(tx, result);
 }
 
 fn handle_execute(
-    conn: &odbc_api::Connection<'static>,
+    conn: &OdbcConnection,
     sql: Box<str>,
     args: Option<OdbcArguments>,
-    tx: flume::Sender<Result<Either<OdbcQueryResult, OdbcRow>, Error>>,
+    tx: ExecuteSender,
 ) {
     execute_sql(conn, &sql, args, &tx);
 }
 
-fn handle_prepare(
-    conn: &odbc_api::Connection<'static>,
-    sql: Box<str>,
-    tx: oneshot::Sender<Result<(u64, Vec<OdbcColumn>, usize), Error>>,
-) {
+fn handle_prepare(conn: &OdbcConnection, sql: Box<str>, tx: PrepareSender) {
     let result = match conn.prepare(&sql) {
         Ok(mut prepared) => {
             let columns = collect_columns(&mut prepared);
@@ -228,11 +281,11 @@ fn handle_prepare(
         Err(e) => Err(Error::from(e)),
     };
 
-    let _ = tx.send(result);
+    send_result(tx, result);
 }
 
 // Helper functions
-fn execute_simple(conn: &odbc_api::Connection<'static>, sql: &str) -> Result<(), Error> {
+fn execute_simple(conn: &OdbcConnection, sql: &str) -> Result<(), Error> {
     match conn.execute(sql, (), None) {
         Ok(_) => Ok(()),
         Err(e) => Err(Error::Configuration(e.to_string().into())),
@@ -240,12 +293,7 @@ fn execute_simple(conn: &odbc_api::Connection<'static>, sql: &str) -> Result<(),
 }
 
 // SQL execution functions
-fn execute_sql(
-    conn: &odbc_api::Connection<'static>,
-    sql: &str,
-    args: Option<OdbcArguments>,
-    tx: &flume::Sender<Result<Either<OdbcQueryResult, OdbcRow>, Error>>,
-) {
+fn execute_sql(conn: &OdbcConnection, sql: &str, args: Option<OdbcArguments>, tx: &ExecuteSender) {
     let params = prepare_parameters(args);
 
     if params.is_empty() {
@@ -273,12 +321,8 @@ fn to_param(arg: OdbcArgumentValue) -> Box<dyn odbc_api::parameter::InputParamet
 }
 
 // Dispatch functions
-fn dispatch_execute<P>(
-    conn: &odbc_api::Connection<'static>,
-    sql: &str,
-    params: P,
-    tx: &flume::Sender<Result<Either<OdbcQueryResult, OdbcRow>, Error>>,
-) where
+fn dispatch_execute<P>(conn: &OdbcConnection, sql: &str, params: P, tx: &ExecuteSender)
+where
     P: odbc_api::ParameterCollectionRef,
 {
     match conn.execute(sql, params, None) {
@@ -288,10 +332,8 @@ fn dispatch_execute<P>(
     }
 }
 
-fn handle_cursor<C>(
-    cursor: &mut C,
-    tx: &flume::Sender<Result<Either<OdbcQueryResult, OdbcRow>, Error>>,
-) where
+fn handle_cursor<C>(cursor: &mut C, tx: &ExecuteSender)
+where
     C: Cursor + ResultSetMetadata,
 {
     let columns = collect_columns(cursor);
@@ -304,12 +346,12 @@ fn handle_cursor<C>(
     send_empty_result(tx);
 }
 
-fn send_empty_result(tx: &flume::Sender<Result<Either<OdbcQueryResult, OdbcRow>, Error>>) {
-    let _ = tx.send(Ok(Either::Left(OdbcQueryResult { rows_affected: 0 })));
+fn send_empty_result(tx: &ExecuteSender) {
+    send_stream_result(tx, Ok(Either::Left(OdbcQueryResult { rows_affected: 0 })));
 }
 
-fn send_error(tx: &flume::Sender<Result<Either<OdbcQueryResult, OdbcRow>, Error>>, error: Error) {
-    let _ = tx.send(Err(error));
+fn send_error(tx: &ExecuteSender, error: Error) {
+    send_stream_result(tx, Err(error));
 }
 
 // Metadata and row processing
@@ -342,11 +384,7 @@ fn decode_column_name(name_bytes: Vec<u8>, index: u16) -> String {
     String::from_utf8(name_bytes).unwrap_or_else(|_| format!("col{}", index - 1))
 }
 
-fn stream_rows<C>(
-    cursor: &mut C,
-    columns: &[OdbcColumn],
-    tx: &flume::Sender<Result<Either<OdbcQueryResult, OdbcRow>, Error>>,
-) -> Result<(), Error>
+fn stream_rows<C>(cursor: &mut C, columns: &[OdbcColumn], tx: &ExecuteSender) -> Result<(), Error>
 where
     C: Cursor,
 {
