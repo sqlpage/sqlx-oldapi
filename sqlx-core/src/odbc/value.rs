@@ -2,6 +2,7 @@ use crate::odbc::{Odbc, OdbcTypeInfo};
 use crate::value::{Value, ValueRef};
 use std::borrow::Cow;
 
+#[derive(Debug)]
 pub struct OdbcValueRef<'r> {
     pub(crate) type_info: OdbcTypeInfo,
     pub(crate) is_null: bool,
