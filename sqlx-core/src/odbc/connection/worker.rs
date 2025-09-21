@@ -1,3 +1,4 @@
+use std::sync::OnceLock;
 use std::thread;
 
 use futures_channel::oneshot;
@@ -20,6 +21,9 @@ type ExecuteResult = Result<Either<OdbcQueryResult, OdbcRow>, Error>;
 type ExecuteSender = flume::Sender<ExecuteResult>;
 type PrepareResult = Result<(u64, Vec<OdbcColumn>, usize), Error>;
 type PrepareSender = oneshot::Sender<PrepareResult>;
+
+// Shared ODBC environment - initialized once, used by all connections
+static ODBC_ENV: OnceLock<&'static odbc_api::Environment> = OnceLock::new();
 
 #[derive(Debug)]
 pub(crate) struct ConnectionWorker {
@@ -160,12 +164,13 @@ fn worker_thread_main(
 }
 
 fn establish_connection(options: &OdbcConnectOptions) -> Result<OdbcConnection, Error> {
-    // Create environment and connect. We leak the environment to extend its lifetime
-    // to 'static, as ODBC connection borrows it. This is acceptable for long-lived
-    // process and mirrors SQLite approach to background workers.
-    let env = Box::leak(Box::new(
-        odbc_api::Environment::new().map_err(|e| Error::Configuration(e.to_string().into()))?,
-    ));
+    // Get or create the shared ODBC environment
+    // This ensures thread-safe initialization and prevents concurrent environment creation issues
+    let env = ODBC_ENV.get_or_init(|| {
+        Box::leak(Box::new(
+            odbc_api::Environment::new().expect("Failed to create ODBC environment"),
+        ))
+    });
 
     let conn = env
         .connect_with_connection_string(options.connection_string(), Default::default())
