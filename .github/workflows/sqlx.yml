@@ -378,13 +378,15 @@ jobs:
           cargo test --no-default-features --features odbc,all-types,runtime-tokio-rustls -- --test odbc-types
         env:
           DATABASE_URL: DSN=SQLX_PG_5432;UID=postgres;PWD=password
+      - name: Detect SQLite ODBC driver name
+        id: detect_sqlite
+        run: |
+          if odbcinst -q -d | grep -q '^\[SQLite3\]'; then echo "driver=SQLite3" >> $GITHUB_OUTPUT; elif odbcinst -q -d | grep -q '^\[SQLite\]'; then echo "driver=SQLite" >> $GITHUB_OUTPUT; else echo 'No SQLite ODBC driver installed'; exit 1; fi
       - name: Run ODBC tests (SQLite driver)
         run: |
-          set -e
-          if odbcinst -q -d | grep -q '^\[SQLite3\]'; then SQLITE_DRIVER=SQLite3; elif odbcinst -q -d | grep -q '^\[SQLite\]'; then SQLITE_DRIVER=SQLite; else echo 'No SQLite ODBC driver installed'; exit 1; fi
-          echo "Using SQLite ODBC driver: ${SQLITE_DRIVER}"
+          echo "Using SQLite ODBC driver: ${{ steps.detect_sqlite.outputs.driver }}"
           cargo test --no-default-features --features any,odbc,macros,all-types,runtime-tokio-rustls -- --test any-odbc
           cargo test --no-default-features --features odbc,all-types,runtime-tokio-rustls -- --test odbc
           cargo test --no-default-features --features odbc,all-types,runtime-tokio-rustls -- --test odbc-types
         env:
-          DATABASE_URL: Driver={${{ env.SQLITE_DRIVER }}};Database=./tests/odbc/sqlite.db
+          DATABASE_URL: Driver={${{ steps.detect_sqlite.outputs.driver }}};Database=./tests/odbc/sqlite.db
