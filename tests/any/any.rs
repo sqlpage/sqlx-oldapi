@@ -140,7 +140,21 @@ async fn it_pings() -> anyhow::Result<()> {
 }
 
 #[sqlx_macros::test]
-async fn it_executes_with_pool() -> anyhow::Result<()> {
+async fn it_executes_one_statement_with_pool() -> anyhow::Result<()> {
+    let pool = sqlx_test::pool::<Any>().await?;
+
+    let rows = pool.fetch_all("SELECT 1").await?;
+
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].try_get::<u16, _>(0)?, 1);
+
+    Ok(())
+}
+
+/// ODBC does not support multiple statements in a single query
+#[cfg(not(feature = "odbc"))]
+#[sqlx_macros::test]
+async fn it_executes_two_statements_with_pool() -> anyhow::Result<()> {
     let pool = sqlx_test::pool::<Any>().await?;
 
     let rows = pool.fetch_all("SELECT 1; SElECT 2").await?;
