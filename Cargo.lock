@@ -4209,6 +4209,7 @@ dependencies = [
  "anyhow",
  "async-std",
  "dotenvy",
+ "either",
  "env_logger",
  "futures",
  "hex",

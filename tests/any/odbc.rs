@@ -1,6 +1,6 @@
 #![allow(clippy::approx_constant)]
 use sqlx_oldapi::any::{AnyConnection, AnyRow};
-use sqlx_oldapi::{Connection, Executor, Row};
+use sqlx_oldapi::{Column, Connection, Executor, Row, Statement};
 
 #[cfg(feature = "odbc")]
 async fn odbc_conn() -> anyhow::Result<AnyConnection> {

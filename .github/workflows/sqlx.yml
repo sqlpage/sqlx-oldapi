@@ -373,7 +373,7 @@ jobs:
             -- -D warnings
       - name: Run ODBC tests (PostgreSQL DSN)
         run: |
-          cargo test --no-default-features --features any,odbc,macros,all-types,runtime-tokio-rustls -- --test any-odbc
+          cargo test --no-default-features --features any,odbc,macros,all-types,runtime-tokio-rustls any_odbc
           cargo test --no-default-features --features odbc,all-types,runtime-tokio-rustls -- --test odbc
           cargo test --no-default-features --features odbc,all-types,runtime-tokio-rustls -- --test odbc-types
         env:
@@ -385,7 +385,7 @@ jobs:
       - name: Run ODBC tests (SQLite driver)
         run: |
           echo "Using SQLite ODBC driver: ${{ steps.detect_sqlite.outputs.driver }}"
-          cargo test --no-default-features --features any,odbc,macros,all-types,runtime-tokio-rustls -- --test any-odbc
+          cargo test --no-default-features --features any,odbc,macros,all-types,runtime-tokio-rustls any_odbc
           cargo test --no-default-features --features odbc,all-types,runtime-tokio-rustls -- --test odbc
           cargo test --no-default-features --features odbc,all-types,runtime-tokio-rustls -- --test odbc-types
         env:
