@@ -373,9 +373,9 @@ jobs:
             -- -D warnings
       - name: Run ODBC tests (PostgreSQL DSN)
         run: |
-          cargo test --no-default-features --features any,odbc,macros,all-types,runtime-tokio-rustls any_odbc
-          cargo test --no-default-features --features odbc,all-types,runtime-tokio-rustls -- --test odbc
-          cargo test --no-default-features --features odbc,all-types,runtime-tokio-rustls -- --test odbc-types
+          cargo test --no-default-features --features any,odbc,macros,all-types,runtime-tokio-rustls any_odbc -- --test-threads=1
+          cargo test --no-default-features --features odbc,all-types,runtime-tokio-rustls -- --test odbc --test-threads=1
+          cargo test --no-default-features --features odbc,all-types,runtime-tokio-rustls -- --test odbc-types --test-threads=1
         env:
           DATABASE_URL: DSN=SQLX_PG_5432;UID=postgres;PWD=password
       - name: Detect SQLite ODBC driver name
@@ -385,8 +385,8 @@ jobs:
       - name: Run ODBC tests (SQLite driver)
         run: |
           echo "Using SQLite ODBC driver: ${{ steps.detect_sqlite.outputs.driver }}"
-          cargo test --no-default-features --features any,odbc,macros,all-types,runtime-tokio-rustls any_odbc
-          cargo test --no-default-features --features odbc,all-types,runtime-tokio-rustls -- --test odbc
-          cargo test --no-default-features --features odbc,all-types,runtime-tokio-rustls -- --test odbc-types
+          cargo test --no-default-features --features any,odbc,macros,all-types,runtime-tokio-rustls any_odbc -- --test-threads=1
+          cargo test --no-default-features --features odbc,all-types,runtime-tokio-rustls -- --test odbc --test-threads=1
+          cargo test --no-default-features --features odbc,all-types,runtime-tokio-rustls -- --test odbc-types --test-threads=1
         env:
           DATABASE_URL: Driver={${{ steps.detect_sqlite.outputs.driver }}};Database=./tests/odbc/sqlite.db
