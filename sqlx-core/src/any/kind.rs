@@ -65,16 +65,26 @@ impl FromStr for AnyKind {
             }
 
             #[cfg(feature = "odbc")]
-            _ if url.starts_with("odbc:") => {
+            _ if url.starts_with("odbc:") || Self::is_odbc_connection_string(url) => {
                 Ok(AnyKind::Odbc)
             }
 
             #[cfg(not(feature = "odbc"))]
-            _ if url.starts_with("odbc:") => {
+            _ if url.starts_with("odbc:") || Self::is_odbc_connection_string(url) => {
                 Err(Error::Configuration("database URL has the scheme of an ODBC database but the `odbc` feature is not enabled".into()))
             }
 
             _ => Err(Error::Configuration(format!("unrecognized database url: {:?}", url).into()))
         }
+    }
+}
+
+impl AnyKind {
+    fn is_odbc_connection_string(s: &str) -> bool {
+        let s_upper = s.to_uppercase();
+        s_upper.starts_with("DSN=")
+            || s_upper.starts_with("DRIVER=")
+            || s_upper.starts_with("FILEDSN=")
+            || (s_upper.contains("DRIVER=") && s_upper.contains(';'))
     }
 }

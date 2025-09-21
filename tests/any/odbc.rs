@@ -6,7 +6,8 @@ use sqlx_oldapi::{Column, Connection, Executor, Row, Statement};
 async fn odbc_conn() -> anyhow::Result<AnyConnection> {
     let url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set for ODBC tests");
 
-    // Ensure the URL starts with "odbc:"
+    // The "odbc:" prefix is now optional - standard ODBC connection strings
+    // like "DSN=mydsn" or "Driver={SQL Server};..." are automatically detected
     let url = if !url.starts_with("odbc:") {
         format!("odbc:{}", url)
     } else {
@@ -338,5 +339,61 @@ async fn it_matches_any_kind_odbc() -> anyhow::Result<()> {
     assert_eq!(conn.kind(), AnyKind::Odbc);
 
     conn.close().await?;
+    Ok(())
+}
+
+#[cfg(feature = "odbc")]
+#[sqlx_macros::test]
+async fn it_accepts_standard_odbc_connection_strings() -> anyhow::Result<()> {
+    use sqlx_oldapi::any::AnyKind;
+    use std::str::FromStr;
+
+    // Test various standard ODBC connection string formats
+    let test_cases = vec![
+        "DSN=mydsn",
+        "DSN=mydsn;UID=user;PWD=pass",
+        "Driver={SQL Server};Server=localhost;Database=test",
+        "Driver={ODBC Driver 17 for SQL Server};Server=localhost;Database=test",
+        "FILEDSN=myfile.dsn",
+        "odbc:DSN=mydsn", // Still support the odbc: prefix
+        "odbc:Driver={SQL Server};Server=localhost",
+    ];
+
+    for conn_str in test_cases {
+        let kind_result = AnyKind::from_str(conn_str);
+
+        // If ODBC feature is enabled, these should parse as ODBC
+        match kind_result {
+            Ok(kind) => assert_eq!(
+                kind,
+                AnyKind::Odbc,
+                "Failed to identify '{}' as ODBC",
+                conn_str
+            ),
+            Err(e) => panic!("Failed to parse '{}' as ODBC: {}", conn_str, e),
+        }
+    }
+
+    // Test non-ODBC connection strings don't match
+    let non_odbc_cases = vec![
+        "postgres://localhost/db",
+        "mysql://localhost/db",
+        "sqlite:memory:",
+        "random string without equals",
+    ];
+
+    for conn_str in non_odbc_cases {
+        let kind_result = AnyKind::from_str(conn_str);
+        match kind_result {
+            Ok(kind) => assert_ne!(
+                kind,
+                AnyKind::Odbc,
+                "Incorrectly identified '{}' as ODBC",
+                conn_str
+            ),
+            Err(_) => {} // Expected for unrecognized formats
+        }
+    }
+
     Ok(())
 }
