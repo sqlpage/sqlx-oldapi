@@ -339,37 +339,8 @@ jobs:
         env:
           DATABASE_URL: mssql://sa:Password123!@localhost/sqlx
 
-  odbc-sqlite:
-    name: ODBC (SQLite)
-    runs-on: ubuntu-22.04
-    needs: check
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-        with:
-          prefix-key: v1-sqlx
-          shared-key: odbc-sqlite
-          save-if: ${{ false }}
-      - name: Install ODBC drivers (SQLite)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y unixodbc odbcinst libsqliteodbc
-          odbcinst -q -d || true
-      - name: Build with ODBC feature
-        run: |
-          cargo build --manifest-path sqlx-core/Cargo.toml \
-            --no-default-features \
-            --features odbc,runtime-tokio-rustls
-      - name: Run ODBC SQLite tests
-        run: |
-          cargo test \
-            --no-default-features \
-            --features odbc,runtime-tokio-rustls \
-            --test odbc-sqlite
-
   odbc:
-    name: ODBC (PostgreSQL via unixODBC)
+    name: ODBC (PostgreSQL and SQLite)
     runs-on: ubuntu-22.04
     needs: check
     steps:
@@ -384,10 +355,10 @@ jobs:
         run: |
           docker compose -f tests/docker-compose.yml run -d -p 5432:5432 --name postgres_16_no_ssl postgres_16_no_ssl
           docker exec postgres_16_no_ssl bash -c "until pg_isready; do sleep 1; done"
-      - name: Install unixODBC and PostgreSQL ODBC driver
+      - name: Install unixODBC and ODBC drivers (PostgreSQL, SQLite)
         run: |
           sudo apt-get update
-          sudo apt-get install -y unixodbc odbcinst odbcinst1debian2 odbc-postgresql
+          sudo apt-get install -y unixodbc odbcinst odbcinst1debian2 odbc-postgresql libsqliteodbc
           odbcinst -j
       - name: Configure system/user DSN for PostgreSQL
         run: |
@@ -405,3 +376,8 @@ jobs:
           cargo test --no-default-features --features any,odbc,macros,all-types,runtime-tokio-rustls -- --test odbc
         env:
           DATABASE_URL: DSN=SQLX_PG_5432;UID=postgres;PWD=password
+      - name: Run ODBC tests (SQLite driver)
+        run: |
+          cargo test --no-default-features --features any,odbc,macros,all-types,runtime-tokio-rustls -- --test odbc
+        env:
+          DATABASE_URL: Driver={SQLite3 ODBC Driver};Database=./tests/odbc/sqlite.db

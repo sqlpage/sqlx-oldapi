@@ -48,7 +48,10 @@ impl FromStr for OdbcConnectOptions {
             format!("DSN={}", t)
         };
 
-        Ok(Self { conn_str, log_settings: LogSettings::default() })
+        Ok(Self {
+            conn_str,
+            log_settings: LogSettings::default(),
+        })
     }
 }
 
