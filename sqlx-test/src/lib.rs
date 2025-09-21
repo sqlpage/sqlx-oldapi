@@ -227,6 +227,7 @@ macro_rules! Postgres_query_for_test_prepared_type {
 #[macro_export]
 macro_rules! Odbc_query_for_test_prepared_type {
     () => {
-        "SELECT CASE WHEN {0} = ? THEN 1 ELSE 0 END, {0}, ?"
+        // Most ODBC drivers support standard SQL syntax for NULL-safe comparison
+        "SELECT CASE WHEN {0} IS NOT DISTINCT FROM ? THEN 1 ELSE 0 END, {0}, ?"
     };
 }
