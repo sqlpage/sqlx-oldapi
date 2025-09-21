@@ -1,4 +1,25 @@
 //! ODBC database driver (via `odbc-api`).
+//!
+//! ## Connection Strings
+//!
+//! When using the `Any` connection type, SQLx accepts standard ODBC connection strings:
+//!
+//! ```text
+//! // DSN-based connection
+//! DSN=MyDataSource;UID=myuser;PWD=mypassword
+//!
+//! // Driver-based connection
+//! Driver={ODBC Driver 17 for SQL Server};Server=localhost;Database=test
+//!
+//! // File DSN
+//! FILEDSN=/path/to/myfile.dsn
+//! ```
+//!
+//! The `odbc:` URL scheme prefix is optional but still supported for backward compatibility:
+//!
+//! ```text
+//! odbc:DSN=MyDataSource
+//! ```
 
 use crate::executor::Executor;
 
