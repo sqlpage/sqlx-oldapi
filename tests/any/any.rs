@@ -146,7 +146,7 @@ async fn it_executes_one_statement_with_pool() -> anyhow::Result<()> {
     let rows = pool.fetch_all("SELECT 1").await?;
 
     assert_eq!(rows.len(), 1);
-    assert_eq!(rows[0].try_get::<u16, _>(0)?, 1);
+    assert_eq!(rows[0].try_get::<i32, _>(0)?, 1);
 
     Ok(())
 }
