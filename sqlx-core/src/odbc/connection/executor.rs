@@ -22,13 +22,9 @@ impl<'c> Executor<'c> for &'c mut OdbcConnection {
         E: Execute<'q, Self::Database> + 'q,
     {
         let sql = query.sql().to_string();
-        let mut args = query.take_arguments();
+        let args = query.take_arguments();
         Box::pin(try_stream! {
-            let rx = if let Some(a) = args.take() {
-                self.worker.execute_stream_with_args(&sql, a.values).await?
-            } else {
-                self.worker.execute_stream(&sql).await?
-            };
+            let rx = self.worker.execute_stream(&sql, args).await?;
             while let Ok(item) = rx.recv_async().await {
                 r#yield!(item?);
             }

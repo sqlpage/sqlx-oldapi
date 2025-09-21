@@ -6,7 +6,8 @@ use futures_intrusive::sync::Mutex;
 
 use crate::error::Error;
 use crate::odbc::{
-    OdbcArgumentValue, OdbcColumn, OdbcConnectOptions, OdbcQueryResult, OdbcRow, OdbcTypeInfo,
+    OdbcArgumentValue, OdbcArguments, OdbcColumn, OdbcConnectOptions, OdbcQueryResult, OdbcRow,
+    OdbcTypeInfo,
 };
 #[allow(unused_imports)]
 use crate::row::Row as SqlxRow;
@@ -42,11 +43,7 @@ enum Command {
     },
     Execute {
         sql: Box<str>,
-        tx: flume::Sender<Result<Either<OdbcQueryResult, OdbcRow>, Error>>,
-    },
-    ExecuteWithArgs {
-        sql: Box<str>,
-        args: Vec<OdbcArgumentValue>,
+        args: Option<OdbcArguments>,
         tx: flume::Sender<Result<Either<OdbcQueryResult, OdbcRow>, Error>>,
     },
 }
@@ -112,13 +109,8 @@ impl ConnectionWorker {
                             let _ = tx.send(());
                             return;
                         }
-                        Command::Execute { sql, tx } => {
-                            with_conn(&shared, |conn| execute_sql(conn, &sql, &tx));
-                        }
-                        Command::ExecuteWithArgs { sql, args, tx } => {
-                            with_conn(&shared, |conn| {
-                                execute_sql_with_params(conn, &sql, args, &tx)
-                            });
+                        Command::Execute { sql, args, tx } => {
+                            with_conn(&shared, |conn| execute_sql(conn, &sql, args, &tx));
                         }
                     }
                 }
@@ -178,26 +170,11 @@ impl ConnectionWorker {
     pub(crate) async fn execute_stream(
         &mut self,
         sql: &str,
+        args: Option<OdbcArguments>,
     ) -> Result<flume::Receiver<Result<Either<OdbcQueryResult, OdbcRow>, Error>>, Error> {
         let (tx, rx) = flume::bounded(64);
         self.command_tx
             .send_async(Command::Execute {
-                sql: sql.into(),
-                tx,
-            })
-            .await
-            .map_err(|_| Error::WorkerCrashed)?;
-        Ok(rx)
-    }
-
-    pub(crate) async fn execute_stream_with_args(
-        &mut self,
-        sql: &str,
-        args: Vec<OdbcArgumentValue>,
-    ) -> Result<flume::Receiver<Result<Either<OdbcQueryResult, OdbcRow>, Error>>, Error> {
-        let (tx, rx) = flume::bounded(64);
-        self.command_tx
-            .send_async(Command::ExecuteWithArgs {
                 sql: sql.into(),
                 args,
                 tx,
@@ -232,32 +209,10 @@ fn exec_simple(shared: &Shared, sql: &str) -> Result<(), Error> {
 fn execute_sql(
     conn: &odbc_api::Connection<'static>,
     sql: &str,
+    args: Option<OdbcArguments>,
     tx: &flume::Sender<Result<Either<OdbcQueryResult, OdbcRow>, Error>>,
 ) {
-    match conn.execute(sql, (), None) {
-        Ok(Some(mut cursor)) => {
-            let columns = collect_columns(&mut cursor);
-            if let Err(e) = stream_rows(&mut cursor, &columns, tx) {
-                let _ = tx.send(Err(e));
-                return;
-            }
-            let _ = tx.send(Ok(Either::Left(OdbcQueryResult { rows_affected: 0 })));
-        }
-        Ok(None) => {
-            let _ = tx.send(Ok(Either::Left(OdbcQueryResult { rows_affected: 0 })));
-        }
-        Err(e) => {
-            let _ = tx.send(Err(Error::from(e)));
-        }
-    }
-}
-
-fn execute_sql_with_params(
-    conn: &odbc_api::Connection<'static>,
-    sql: &str,
-    args: Vec<OdbcArgumentValue>,
-    tx: &flume::Sender<Result<Either<OdbcQueryResult, OdbcRow>, Error>>,
-) {
+    let args = args.map(|a| a.values).unwrap_or_default();
     if args.is_empty() {
         dispatch_execute(conn, sql, (), tx);
         return;
@@ -265,7 +220,7 @@ fn execute_sql_with_params(
 
     let mut params: Vec<Box<dyn odbc_api::parameter::InputParameter>> =
         Vec::with_capacity(args.len());
-    for a in dbg!(args) {
+    for a in args {
         params.push(to_param(a));
     }
     dispatch_execute(conn, sql, &params[..], tx);
