@@ -343,6 +343,7 @@ jobs:
     name: ODBC (PostgreSQL and SQLite)
     runs-on: ubuntu-22.04
     needs: check
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
