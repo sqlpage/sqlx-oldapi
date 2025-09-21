@@ -13,6 +13,7 @@ impl Type<Odbc> for NaiveDate {
     fn compatible(ty: &OdbcTypeInfo) -> bool {
         matches!(ty.data_type(), DataType::Date)
             || ty.data_type().accepts_character_data()
+            || ty.data_type().accepts_numeric_data()
             || matches!(ty.data_type(), DataType::Other { .. } | DataType::Unknown)
     }
 }
@@ -24,6 +25,7 @@ impl Type<Odbc> for NaiveTime {
     fn compatible(ty: &OdbcTypeInfo) -> bool {
         matches!(ty.data_type(), DataType::Time { .. })
             || ty.data_type().accepts_character_data()
+            || ty.data_type().accepts_numeric_data()
             || matches!(ty.data_type(), DataType::Other { .. } | DataType::Unknown)
     }
 }
@@ -35,6 +37,7 @@ impl Type<Odbc> for NaiveDateTime {
     fn compatible(ty: &OdbcTypeInfo) -> bool {
         matches!(ty.data_type(), DataType::Timestamp { .. })
             || ty.data_type().accepts_character_data()
+            || ty.data_type().accepts_numeric_data()
             || matches!(ty.data_type(), DataType::Other { .. } | DataType::Unknown)
     }
 }
@@ -46,6 +49,7 @@ impl Type<Odbc> for DateTime<Utc> {
     fn compatible(ty: &OdbcTypeInfo) -> bool {
         matches!(ty.data_type(), DataType::Timestamp { .. })
             || ty.data_type().accepts_character_data()
+            || ty.data_type().accepts_numeric_data()
             || matches!(ty.data_type(), DataType::Other { .. } | DataType::Unknown)
     }
 }
@@ -57,6 +61,7 @@ impl Type<Odbc> for DateTime<FixedOffset> {
     fn compatible(ty: &OdbcTypeInfo) -> bool {
         matches!(ty.data_type(), DataType::Timestamp { .. })
             || ty.data_type().accepts_character_data()
+            || ty.data_type().accepts_numeric_data()
             || matches!(ty.data_type(), DataType::Other { .. } | DataType::Unknown)
     }
 }
@@ -163,6 +168,18 @@ impl<'q> Encode<'q, Odbc> for DateTime<Local> {
 impl<'r> Decode<'r, Odbc> for NaiveDate {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
         let s = <String as Decode<'r, Odbc>>::decode(value)?;
+        // Accept YYYYMMDD (some SQLite ODBC configs) as a date as well
+        if s.len() == 8 && s.chars().all(|c| c.is_ascii_digit()) {
+            if let (Ok(y), Ok(m), Ok(d)) = (
+                s[0..4].parse::<i32>(),
+                s[4..6].parse::<u32>(),
+                s[6..8].parse::<u32>(),
+            ) {
+                if let Some(date) = NaiveDate::from_ymd_opt(y, m, d) {
+                    return Ok(date.and_hms_opt(0, 0, 0).unwrap());
+                }
+            }
+        }
         Ok(s.parse()?)
     }
 }
