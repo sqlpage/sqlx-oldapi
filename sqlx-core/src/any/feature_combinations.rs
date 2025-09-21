@@ -32,5 +32,3 @@ macro_rules! for_all_feature_combinations {
     // Base case: none selected (skip)
     (@recurse [] [ $( $nfeat:literal )* ] [] $callback:ident ) => {};
 }
-
-
