@@ -373,11 +373,18 @@ jobs:
             -- -D warnings
       - name: Run ODBC tests (PostgreSQL DSN)
         run: |
-          cargo test --no-default-features --features any,odbc,macros,all-types,runtime-tokio-rustls -- --test odbc
+          cargo test --no-default-features --features any,odbc,macros,all-types,runtime-tokio-rustls -- --test any-odbc
+          cargo test --no-default-features --features odbc,all-types,runtime-tokio-rustls -- --test odbc
+          cargo test --no-default-features --features odbc,all-types,runtime-tokio-rustls -- --test odbc-types
         env:
           DATABASE_URL: DSN=SQLX_PG_5432;UID=postgres;PWD=password
       - name: Run ODBC tests (SQLite driver)
         run: |
-          cargo test --no-default-features --features any,odbc,macros,all-types,runtime-tokio-rustls -- --test odbc
+          set -e
+          if odbcinst -q -d | grep -q '^\[SQLite3\]'; then SQLITE_DRIVER=SQLite3; elif odbcinst -q -d | grep -q '^\[SQLite\]'; then SQLITE_DRIVER=SQLite; else echo 'No SQLite ODBC driver installed'; exit 1; fi
+          echo "Using SQLite ODBC driver: ${SQLITE_DRIVER}"
+          cargo test --no-default-features --features any,odbc,macros,all-types,runtime-tokio-rustls -- --test any-odbc
+          cargo test --no-default-features --features odbc,all-types,runtime-tokio-rustls -- --test odbc
+          cargo test --no-default-features --features odbc,all-types,runtime-tokio-rustls -- --test odbc-types
         env:
-          DATABASE_URL: Driver={SQLite3 ODBC Driver};Database=./tests/odbc/sqlite.db
+          DATABASE_URL: Driver={${{ env.SQLITE_DRIVER }}};Database=./tests/odbc/sqlite.db
