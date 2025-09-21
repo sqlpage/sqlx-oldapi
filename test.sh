@@ -11,6 +11,7 @@ DATABASE_URL='mysql://root:password@localhost/sqlx' cargo test --features any,my
 DATABASE_URL='sqlite://./tests/sqlite/sqlite.db' cargo test --features any,sqlite,macros,all-types,runtime-actix-rustls --
 
 
-# Copy odbc config from tests/odbc.ini to ~/.odbc.ini
-docker compose -f tests/docker-compose.yml run -it -p 5432:5432 --name postgres_16_no_ssl postgres_16_no_ssl
+# Copy odbc config from tests/odbc.ini to ~/.odbc.ini and run ODBC tests against Postgres
+cp tests/odbc.ini ~/.odbc.ini
+docker compose -f tests/docker-compose.yml run -d -p 5432:5432 --name postgres_16_no_ssl postgres_16_no_ssl
 DATABASE_URL='DSN=SQLX_PG_5432;UID=postgres;PWD=password' cargo test --no-default-features --features any,odbc,all-types,macros,runtime-tokio-rustls --test odbc

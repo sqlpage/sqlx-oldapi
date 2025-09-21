@@ -14,7 +14,6 @@ jobs:
       - uses: actions/checkout@v4
       - run: cargo fmt --all -- --check
 
-
   check:
     name: Check
     runs-on: ubuntu-22.04
@@ -55,15 +54,15 @@ jobs:
     strategy:
       matrix:
         runtime: [
-          # Disabled because of https://github.com/rust-lang/cargo/issues/12964
-          # async-std,
-          # actix,
-          tokio
-        ]
+            # Disabled because of https://github.com/rust-lang/cargo/issues/12964
+            # async-std,
+            # actix,
+            tokio,
+          ]
         tls: [
-          # native-tls,
-          rustls
-        ]
+            # native-tls,
+            rustls,
+          ]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -71,10 +70,9 @@ jobs:
         with:
           prefix-key: v1-sqlx
           save-if: ${{ false }}
-      - run:
-          cargo test
-            --manifest-path sqlx-core/Cargo.toml
-            --features offline,all-databases,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
+      - run: cargo test
+          --manifest-path sqlx-core/Cargo.toml
+          --features offline,all-databases,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
 
   cli:
     name: CLI Binaries
@@ -92,9 +90,9 @@ jobs:
             target: x86_64-pc-windows-msvc
             bin: target/debug/cargo-sqlx.exe
           # FIXME: macOS build fails because of missing pin-project-internal
-#          - os: macOS-latest
-#            target: x86_64-apple-darwin
-#            bin: target/debug/cargo-sqlx
+    #          - os: macOS-latest
+    #            target: x86_64-apple-darwin
+    #            bin: target/debug/cargo-sqlx
 
     steps:
       - uses: actions/checkout@v4
@@ -103,17 +101,15 @@ jobs:
         with:
           prefix-key: v1-sqlx
           save-if: ${{ github.ref == 'refs/heads/main' }}
-      - run:
-          cargo build
-            --manifest-path sqlx-cli/Cargo.toml
-            --bin cargo-sqlx
-            ${{ matrix.args }}
+      - run: cargo build
+          --manifest-path sqlx-cli/Cargo.toml
+          --bin cargo-sqlx
+          ${{ matrix.args }}
 
       - uses: actions/upload-artifact@v4
         with:
           name: cargo-sqlx-${{ matrix.target }}
           path: ${{ matrix.bin }}
-
 
   sqlite:
     name: SQLite
@@ -138,12 +134,11 @@ jobs:
             --no-default-features \
             --features sqlite,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }},macros,migrate \
             -- -D warnings
-      - run:
-          cargo test
-            --no-default-features
-            --features any,macros,migrate,sqlite,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
-            --
-            --test-threads=1
+      - run: cargo test
+          --no-default-features
+          --features any,macros,migrate,sqlite,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
+          --
+          --test-threads=1
         env:
           DATABASE_URL: sqlite://tests/sqlite/sqlite.db
           RUSTFLAGS: --cfg sqlite_ipaddr
@@ -345,7 +340,7 @@ jobs:
           DATABASE_URL: mssql://sa:Password123!@localhost/sqlx
 
   odbc:
-    name: ODBC (SQLite ODBC)
+    name: ODBC (PostgreSQL via unixODBC)
     runs-on: ubuntu-22.04
     needs: check
     steps:
@@ -356,23 +351,28 @@ jobs:
           prefix-key: v1-sqlx
           shared-key: odbc
           save-if: ${{ github.ref == 'refs/heads/main' }}
-      - name: Install unixODBC and SQLite ODBC
+      - name: Start Postgres (no SSL)
+        run: |
+          docker compose -f tests/docker-compose.yml run -d -p 5432:5432 --name postgres_16_no_ssl postgres_16_no_ssl
+          docker exec postgres_16_no_ssl bash -c "until pg_isready; do sleep 1; done"
+      - name: Install unixODBC and PostgreSQL ODBC driver
         run: |
           sudo apt-get update
-          sudo apt-get install -y unixodbc odbcinst odbcinst1debian2 odbc-sqlite3 sqlite3
-          # Configure a system DSN named SQLX_ODBC using SQLite3 driver
-          echo '[SQLite3]\nDescription=SQLite ODBC Driver\nDriver=libsqlite3odbc.so\nSetup=libsqlite3odbc.so\nThreading=2\n' | sudo tee -a /etc/odbcinst.ini
-          echo '[SQLX_ODBC]\nDescription=SQLx SQLite DSN\nDriver=SQLite3\nDatabase=${{ github.workspace }}/tests/sqlite/sqlite.db\n' | sudo tee -a /etc/odbc.ini
-          # Sanity check DSN
-          echo 'select 1;' | isql -v SQLX_ODBC || true
+          sudo apt-get install -y unixodbc odbcinst odbcinst1debian2 odbc-postgresql
+          odbcinst -j
+      - name: Configure system/user DSN for PostgreSQL
+        run: |
+          cp tests/odbc.ini ~/.odbc.ini
+          odbcinst -q -s || true
+          echo "select 1;" | isql -v SQLX_PG_5432 || true
       - name: Run clippy for odbc
         run: |
           cargo clippy \
             --no-default-features \
             --features odbc,all-types,runtime-tokio-rustls,macros,migrate \
             -- -D warnings
-      - name: Run ODBC tests (SQLite DSN)
+      - name: Run ODBC tests (PostgreSQL DSN)
         run: |
           cargo test --no-default-features --features any,odbc,macros,all-types,runtime-tokio-rustls -- --test odbc
         env:
-          DATABASE_URL: DSN=SQLX_ODBC
+          DATABASE_URL: DSN=SQLX_PG_5432;UID=postgres;PWD=password
