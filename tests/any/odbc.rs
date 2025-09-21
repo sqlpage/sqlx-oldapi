@@ -246,6 +246,42 @@ async fn it_handles_prepared_statements_via_any_odbc() -> anyhow::Result<()> {
 
 #[cfg(feature = "odbc")]
 #[sqlx_macros::test]
+async fn it_prepares_and_reports_metadata_via_any_odbc() -> anyhow::Result<()> {
+    use either::Either;
+
+    let mut conn = odbc_conn().await?;
+
+    let stmt = conn.prepare("SELECT ? AS a, ? AS b").await?;
+
+    match stmt.parameters() {
+        Some(Either::Right(n)) => assert_eq!(n, 2),
+        Some(Either::Left(_)) => anyhow::bail!("unexpected typed parameters"),
+        None => anyhow::bail!("missing parameters metadata"),
+    }
+
+    let cols = stmt.columns();
+    assert_eq!(cols.len(), 2);
+    assert_eq!(cols[0].name(), "a");
+    assert_eq!(cols[1].name(), "b");
+
+    conn.close().await?;
+    Ok(())
+}
+
+#[cfg(feature = "odbc")]
+#[sqlx_macros::test]
+async fn it_errors_on_wrong_parameter_count_via_any_odbc() -> anyhow::Result<()> {
+    let mut conn = odbc_conn().await?;
+
+    let res = sqlx_oldapi::query("SELECT ? AS value").fetch_one(&mut conn).await;
+    assert!(res.is_err());
+
+    conn.close().await?;
+    Ok(())
+}
+
+#[cfg(feature = "odbc")]
+#[sqlx_macros::test]
 async fn it_handles_transactions_via_any_odbc() -> anyhow::Result<()> {
     use sqlx_oldapi::Connection;
 
