@@ -58,55 +58,6 @@ macro_rules! impl_any_decode {
     };
 }
 
-// Macro to generate all feature combinations
-macro_rules! for_all_feature_combinations {
-    // Entry point
-    ( $callback:ident ) => {
-        for_all_feature_combinations!(@parse_databases [
-            ("postgres", Postgres),
-            ("mysql", MySql),
-            ("mssql", Mssql),
-            ("sqlite", Sqlite),
-            ("odbc", Odbc)
-        ] $callback);
-    };
-
-    // Convert the database list format to tokens suitable for recursion
-    (@parse_databases [ $(($feat:literal, $ty:ident)),* ] $callback:ident) => {
-        for_all_feature_combinations!(@recurse [] [] [$( ($feat, $ty) )*] $callback);
-    };
-
-    // Recursive case: process each database
-    (@recurse [$($yes:tt)*] [$($no:tt)*] [($feat:literal, $ty:ident) $($rest:tt)*] $callback:ident) => {
-        // Include this database
-        for_all_feature_combinations!(@recurse
-            [$($yes)* ($feat, $ty)]
-            [$($no)*]
-            [$($rest)*]
-            $callback
-        );
-
-        // Exclude this database
-        for_all_feature_combinations!(@recurse
-            [$($yes)*]
-            [$($no)* $feat]
-            [$($rest)*]
-            $callback
-        );
-    };
-
-    // Base case: no more databases, generate the implementation if we have at least one
-    (@recurse [$(($feat:literal, $ty:ident))+] [$($no:literal)*] [] $callback:ident) => {
-        #[cfg(all($(feature = $feat),+ $(, not(feature = $no))*))]
-        $callback! { $($ty),+ }
-    };
-    
-    // Base case: no databases selected, skip
-    (@recurse [] [$($no:literal)*] [] $callback:ident) => {
-        // Don't generate anything for zero databases
-    };
-}
-
 // Callback macro that generates the actual trait and impl
 macro_rules! impl_any_decode_for_databases {
     ($($db:ident),+) => {
@@ -120,4 +71,13 @@ macro_rules! impl_any_decode_for_databases {
 }
 
 // Generate all combinations
-for_all_feature_combinations!(impl_any_decode_for_databases);
+for_all_feature_combinations! {
+    entries: [
+        ("postgres", Postgres),
+        ("mysql", MySql),
+        ("mssql", Mssql),
+        ("sqlite", Sqlite),
+        ("odbc", Odbc),
+    ],
+    callback: impl_any_decode_for_databases
+}
