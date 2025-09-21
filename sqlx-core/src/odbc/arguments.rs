@@ -4,22 +4,20 @@ use crate::odbc::Odbc;
 use crate::types::Type;
 
 #[derive(Default)]
-pub struct OdbcArguments<'q> {
-    pub(crate) values: Vec<OdbcArgumentValue<'q>>,
+pub struct OdbcArguments {
+    pub(crate) values: Vec<OdbcArgumentValue>,
 }
 
 #[derive(Debug, Clone)]
-pub enum OdbcArgumentValue<'q> {
+pub enum OdbcArgumentValue {
     Text(String),
     Bytes(Vec<u8>),
     Int(i64),
     Float(f64),
     Null,
-    // Borrowed placeholder to satisfy lifetimes; not used for now
-    Phantom(std::marker::PhantomData<&'q ()>),
 }
 
-impl<'q> Arguments<'q> for OdbcArguments<'q> {
+impl<'q> Arguments<'q> for OdbcArguments {
     type Database = Odbc;
 
     fn reserve(&mut self, additional: usize, _size: usize) {
@@ -48,7 +46,7 @@ where
         }
     }
 
-    fn encode(self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+    fn encode(self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
         match self {
             Some(v) => v.encode(buf),
             None => {
@@ -58,7 +56,7 @@ where
         }
     }
 
-    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
         match self {
             Some(v) => v.encode_by_ref(buf),
             None => {

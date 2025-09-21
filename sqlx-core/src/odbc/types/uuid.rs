@@ -17,12 +17,12 @@ impl Type<Odbc> for Uuid {
 }
 
 impl<'q> Encode<'q, Odbc> for Uuid {
-    fn encode(self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+    fn encode(self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
         buf.push(OdbcArgumentValue::Text(self.to_string()));
         crate::encode::IsNull::No
     }
 
-    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
         buf.push(OdbcArgumentValue::Text(self.to_string()));
         crate::encode::IsNull::No
     }

@@ -65,38 +65,38 @@ impl Type<Odbc> for DateTime<Local> {
 }
 
 impl<'q> Encode<'q, Odbc> for NaiveDate {
-    fn encode(self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+    fn encode(self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
         buf.push(OdbcArgumentValue::Text(self.format("%Y-%m-%d").to_string()));
         crate::encode::IsNull::No
     }
 
-    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
         buf.push(OdbcArgumentValue::Text(self.format("%Y-%m-%d").to_string()));
         crate::encode::IsNull::No
     }
 }
 
 impl<'q> Encode<'q, Odbc> for NaiveTime {
-    fn encode(self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+    fn encode(self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
         buf.push(OdbcArgumentValue::Text(self.format("%H:%M:%S").to_string()));
         crate::encode::IsNull::No
     }
 
-    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
         buf.push(OdbcArgumentValue::Text(self.format("%H:%M:%S").to_string()));
         crate::encode::IsNull::No
     }
 }
 
 impl<'q> Encode<'q, Odbc> for NaiveDateTime {
-    fn encode(self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+    fn encode(self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
         buf.push(OdbcArgumentValue::Text(
             self.format("%Y-%m-%d %H:%M:%S").to_string(),
         ));
         crate::encode::IsNull::No
     }
 
-    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
         buf.push(OdbcArgumentValue::Text(
             self.format("%Y-%m-%d %H:%M:%S").to_string(),
         ));
@@ -105,14 +105,14 @@ impl<'q> Encode<'q, Odbc> for NaiveDateTime {
 }
 
 impl<'q> Encode<'q, Odbc> for DateTime<Utc> {
-    fn encode(self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+    fn encode(self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
         buf.push(OdbcArgumentValue::Text(
             self.format("%Y-%m-%d %H:%M:%S").to_string(),
         ));
         crate::encode::IsNull::No
     }
 
-    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
         buf.push(OdbcArgumentValue::Text(
             self.format("%Y-%m-%d %H:%M:%S").to_string(),
         ));
@@ -121,14 +121,14 @@ impl<'q> Encode<'q, Odbc> for DateTime<Utc> {
 }
 
 impl<'q> Encode<'q, Odbc> for DateTime<FixedOffset> {
-    fn encode(self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+    fn encode(self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
         buf.push(OdbcArgumentValue::Text(
             self.format("%Y-%m-%d %H:%M:%S").to_string(),
         ));
         crate::encode::IsNull::No
     }
 
-    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
         buf.push(OdbcArgumentValue::Text(
             self.format("%Y-%m-%d %H:%M:%S").to_string(),
         ));
@@ -137,14 +137,14 @@ impl<'q> Encode<'q, Odbc> for DateTime<FixedOffset> {
 }
 
 impl<'q> Encode<'q, Odbc> for DateTime<Local> {
-    fn encode(self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+    fn encode(self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
         buf.push(OdbcArgumentValue::Text(
             self.format("%Y-%m-%d %H:%M:%S").to_string(),
         ));
         crate::encode::IsNull::No
     }
 
-    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue<'q>>) -> crate::encode::IsNull {
+    fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
         buf.push(OdbcArgumentValue::Text(
             self.format("%Y-%m-%d %H:%M:%S").to_string(),
         ));

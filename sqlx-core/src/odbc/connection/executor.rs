@@ -1,9 +1,7 @@
 use crate::describe::Describe;
 use crate::error::Error;
 use crate::executor::{Execute, Executor};
-use crate::odbc::{
-    Odbc, OdbcArgumentValue, OdbcConnection, OdbcQueryResult, OdbcRow, OdbcStatement, OdbcTypeInfo,
-};
+use crate::odbc::{Odbc, OdbcConnection, OdbcQueryResult, OdbcRow, OdbcStatement, OdbcTypeInfo};
 use either::Either;
 use futures_core::future::BoxFuture;
 use futures_core::stream::BoxStream;
@@ -17,28 +15,17 @@ impl<'c> Executor<'c> for &'c mut OdbcConnection {
 
     fn fetch_many<'e, 'q: 'e, E>(
         self,
-        mut _query: E,
+        mut query: E,
     ) -> BoxStream<'e, Result<Either<OdbcQueryResult, OdbcRow>, Error>>
     where
         'c: 'e,
         E: Execute<'q, Self::Database> + 'q,
     {
-        let sql = _query.sql().to_string();
-        let mut args = _query.take_arguments();
+        let sql = query.sql().to_string();
+        let mut args = query.take_arguments();
         Box::pin(try_stream! {
-            let rx = if let Some(mut a) = args.take() {
-                let vals: Vec<OdbcArgumentValue<'static>> = std::mem::take(&mut a.values)
-                    .into_iter()
-                    .map(|v| match v {
-                        OdbcArgumentValue::Text(s) => OdbcArgumentValue::Text(s),
-                        OdbcArgumentValue::Bytes(b) => OdbcArgumentValue::Bytes(b),
-                        OdbcArgumentValue::Int(i) => OdbcArgumentValue::Int(i),
-                        OdbcArgumentValue::Float(f) => OdbcArgumentValue::Float(f),
-                        OdbcArgumentValue::Null => OdbcArgumentValue::Null,
-                        OdbcArgumentValue::Phantom(_) => OdbcArgumentValue::Null,
-                    })
-                    .collect();
-                self.worker.execute_stream_with_args(&sql, vals).await?
+            let rx = if let Some(a) = args.take() {
+                self.worker.execute_stream_with_args(&sql, a.values).await?
             } else {
                 self.worker.execute_stream(&sql).await?
             };

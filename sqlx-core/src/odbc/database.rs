@@ -32,9 +32,9 @@ impl<'r> HasValueRef<'r> for Odbc {
 impl<'q> HasArguments<'q> for Odbc {
     type Database = Odbc;
 
-    type Arguments = crate::odbc::OdbcArguments<'q>;
+    type Arguments = crate::odbc::OdbcArguments;
 
-    type ArgumentBuffer = Vec<crate::odbc::OdbcArgumentValue<'q>>;
+    type ArgumentBuffer = Vec<crate::odbc::OdbcArgumentValue>;
 }
 
 impl<'q> HasStatement<'q> for Odbc {

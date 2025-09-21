@@ -46,7 +46,7 @@ enum Command {
     },
     ExecuteWithArgs {
         sql: Box<str>,
-        args: Vec<OdbcArgumentValue<'static>>,
+        args: Vec<OdbcArgumentValue>,
         tx: flume::Sender<Result<Either<OdbcQueryResult, OdbcRow>, Error>>,
     },
 }
@@ -193,7 +193,7 @@ impl ConnectionWorker {
     pub(crate) async fn execute_stream_with_args(
         &mut self,
         sql: &str,
-        args: Vec<OdbcArgumentValue<'static>>,
+        args: Vec<OdbcArgumentValue>,
     ) -> Result<flume::Receiver<Result<Either<OdbcQueryResult, OdbcRow>, Error>>, Error> {
         let (tx, rx) = flume::bounded(64);
         self.command_tx
@@ -255,7 +255,7 @@ fn execute_sql(
 fn execute_sql_with_params(
     conn: &odbc_api::Connection<'static>,
     sql: &str,
-    args: Vec<OdbcArgumentValue<'static>>,
+    args: Vec<OdbcArgumentValue>,
     tx: &flume::Sender<Result<Either<OdbcQueryResult, OdbcRow>, Error>>,
 ) {
     if args.is_empty() {
@@ -271,17 +271,13 @@ fn execute_sql_with_params(
     dispatch_execute(conn, sql, &params[..], tx);
 }
 
-fn to_param(
-    arg: OdbcArgumentValue<'static>,
-) -> Box<dyn odbc_api::parameter::InputParameter + 'static> {
+fn to_param(arg: OdbcArgumentValue) -> Box<dyn odbc_api::parameter::InputParameter + 'static> {
     match arg {
         OdbcArgumentValue::Int(i) => Box::new(i.into_parameter()),
         OdbcArgumentValue::Float(f) => Box::new(f.into_parameter()),
         OdbcArgumentValue::Text(s) => Box::new(s.into_parameter()),
         OdbcArgumentValue::Bytes(b) => Box::new(b.into_parameter()),
-        OdbcArgumentValue::Null | OdbcArgumentValue::Phantom(_) => {
-            Box::new(Option::<String>::None.into_parameter())
-        }
+        OdbcArgumentValue::Null => Box::new(Option::<String>::None.into_parameter()),
     }
 }
 

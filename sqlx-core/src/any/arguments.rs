@@ -48,10 +48,7 @@ pub(crate) enum AnyArgumentBufferKind<'q> {
     ),
 
     #[cfg(feature = "odbc")]
-    Odbc(
-        crate::odbc::OdbcArguments<'q>,
-        std::marker::PhantomData<&'q ()>,
-    ),
+    Odbc(crate::odbc::OdbcArguments, std::marker::PhantomData<&'q ()>),
 }
 
 // control flow inferred type bounds would be fun
@@ -140,7 +137,7 @@ impl<'q> From<AnyArguments<'q>> for crate::postgres::PgArguments {
 
 #[cfg(feature = "odbc")]
 #[allow(irrefutable_let_patterns)]
-impl<'q> From<AnyArguments<'q>> for crate::odbc::OdbcArguments<'q> {
+impl<'q> From<AnyArguments<'q>> for crate::odbc::OdbcArguments {
     fn from(args: AnyArguments<'q>) -> Self {
         let mut buf = AnyArgumentBuffer(AnyArgumentBufferKind::Odbc(
             Default::default(),
