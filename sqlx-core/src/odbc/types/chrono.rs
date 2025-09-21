@@ -176,7 +176,7 @@ impl<'r> Decode<'r, Odbc> for NaiveDate {
                 s[6..8].parse::<u32>(),
             ) {
                 if let Some(date) = NaiveDate::from_ymd_opt(y, m, d) {
-                    return Ok(date.and_hms_opt(0, 0, 0).unwrap());
+                    return Ok(date);
                 }
             }
         }
