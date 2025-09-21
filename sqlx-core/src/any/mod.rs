@@ -3,6 +3,9 @@
 use crate::executor::Executor;
 
 #[macro_use]
+mod feature_combinations;
+
+#[macro_use]
 mod decode;
 
 #[macro_use]
