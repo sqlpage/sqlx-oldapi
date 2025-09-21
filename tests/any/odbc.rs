@@ -273,7 +273,9 @@ async fn it_prepares_and_reports_metadata_via_any_odbc() -> anyhow::Result<()> {
 async fn it_errors_on_wrong_parameter_count_via_any_odbc() -> anyhow::Result<()> {
     let mut conn = odbc_conn().await?;
 
-    let res = sqlx_oldapi::query("SELECT ? AS value").fetch_one(&mut conn).await;
+    let res = sqlx_oldapi::query("SELECT ? AS value")
+        .fetch_one(&mut conn)
+        .await;
     assert!(res.is_err());
 
     conn.close().await?;

@@ -44,7 +44,6 @@ enum Command {
     },
 }
 
-
 impl ConnectionWorker {
     pub async fn establish(options: OdbcConnectOptions) -> Result<Self, Error> {
         let (establish_tx, establish_rx) = oneshot::channel();
@@ -168,18 +167,14 @@ fn establish_connection(
     // to 'static, as ODBC connection borrows it. This is acceptable for long-lived
     // process and mirrors SQLite approach to background workers.
     let env = Box::leak(Box::new(
-        odbc_api::Environment::new()
-            .map_err(|e| Error::Configuration(e.to_string().into()))?,
+        odbc_api::Environment::new().map_err(|e| Error::Configuration(e.to_string().into()))?,
     ));
 
     env.connect_with_connection_string(options.connection_string(), Default::default())
         .map_err(|e| Error::Configuration(e.to_string().into()))
 }
 
-fn process_command(
-    cmd: Command,
-    conn: &odbc_api::Connection<'static>,
-) -> bool {
+fn process_command(cmd: Command, conn: &odbc_api::Connection<'static>) -> bool {
     match cmd {
         Command::Ping { tx } => handle_ping(conn, tx),
         Command::Begin { tx } => handle_transaction(conn, "BEGIN", tx),
@@ -232,7 +227,7 @@ fn handle_prepare(
         }
         Err(e) => Err(Error::from(e)),
     };
-    
+
     let _ = tx.send(result);
 }
 
@@ -244,7 +239,6 @@ fn execute_simple(conn: &odbc_api::Connection<'static>, sql: &str) -> Result<(),
     }
 }
 
-
 // SQL execution functions
 fn execute_sql(
     conn: &odbc_api::Connection<'static>,
@@ -253,14 +247,13 @@ fn execute_sql(
     tx: &flume::Sender<Result<Either<OdbcQueryResult, OdbcRow>, Error>>,
 ) {
     let params = prepare_parameters(args);
-    
+
     if params.is_empty() {
         dispatch_execute(conn, sql, (), tx);
     } else {
         dispatch_execute(conn, sql, &params[..], tx);
     }
 }
-
 
 fn prepare_parameters(
     args: Option<OdbcArguments>,
@@ -295,7 +288,6 @@ fn dispatch_execute<P>(
     }
 }
 
-
 fn handle_cursor<C>(
     cursor: &mut C,
     tx: &flume::Sender<Result<Either<OdbcQueryResult, OdbcRow>, Error>>,
@@ -303,25 +295,20 @@ fn handle_cursor<C>(
     C: Cursor + ResultSetMetadata,
 {
     let columns = collect_columns(cursor);
-    
+
     if let Err(e) = stream_rows(cursor, &columns, tx) {
         send_error(tx, e);
         return;
     }
-    
+
     send_empty_result(tx);
 }
 
-fn send_empty_result(
-    tx: &flume::Sender<Result<Either<OdbcQueryResult, OdbcRow>, Error>>,
-) {
+fn send_empty_result(tx: &flume::Sender<Result<Either<OdbcQueryResult, OdbcRow>, Error>>) {
     let _ = tx.send(Ok(Either::Left(OdbcQueryResult { rows_affected: 0 })));
 }
 
-fn send_error(
-    tx: &flume::Sender<Result<Either<OdbcQueryResult, OdbcRow>, Error>>,
-    error: Error,
-) {
+fn send_error(tx: &flume::Sender<Result<Either<OdbcQueryResult, OdbcRow>, Error>>, error: Error) {
     let _ = tx.send(Err(error));
 }
 
@@ -331,7 +318,7 @@ where
     C: ResultSetMetadata,
 {
     let count = cursor.num_result_cols().unwrap_or(0);
-    
+
     (1..=count)
         .map(|i| create_column(cursor, i as u16))
         .collect()
@@ -343,7 +330,7 @@ where
 {
     let mut cd = odbc_api::ColumnDescription::default();
     let _ = cursor.describe_col(index, &mut cd);
-    
+
     OdbcColumn {
         name: decode_column_name(cd.name, index),
         type_info: OdbcTypeInfo::new(cd.data_type),
@@ -369,7 +356,7 @@ where
             columns: columns.to_vec(),
             values,
         };
-        
+
         if tx.send(Ok(Either::Right(row_data))).is_err() {
             // Receiver dropped, stop processing
             break;
@@ -395,7 +382,7 @@ fn collect_column_value(
     column: &OdbcColumn,
 ) -> Result<(OdbcTypeInfo, Option<Vec<u8>>), Error> {
     let col_idx = (index + 1) as u16;
-    
+
     // Try text first
     match try_get_text(row, col_idx) {
         Ok(value) => Ok((column.type_info.clone(), value)),
@@ -409,10 +396,7 @@ fn collect_column_value(
     }
 }
 
-fn try_get_text(
-    row: &mut CursorRow<'_>,
-    col_idx: u16,
-) -> Result<Option<Vec<u8>>, odbc_api::Error> {
+fn try_get_text(row: &mut CursorRow<'_>, col_idx: u16) -> Result<Option<Vec<u8>>, odbc_api::Error> {
     let mut buf = Vec::new();
     match row.get_text(col_idx, &mut buf)? {
         true => Ok(Some(buf)),
