@@ -1,6 +1,6 @@
 #![allow(clippy::approx_constant)]
 use sqlx_oldapi::odbc::Odbc;
-use sqlx_test::{test_decode_type, test_type};
+use sqlx_test::test_type;
 
 // Basic null test
 test_type!(null<Option<i32>>(Odbc,
@@ -98,16 +98,19 @@ test_type!(string<String>(Odbc,
 
 // Feature-gated types
 #[cfg(feature = "uuid")]
-test_type!(uuid<sqlx_oldapi::types::Uuid>(Odbc,
-    "'550e8400-e29b-41d4-a716-446655440000'" == sqlx_oldapi::types::Uuid::parse_str("550e8400-e29b-41d4-a716-446655440000").unwrap(),
-    "'00000000-0000-0000-0000-000000000000'" == sqlx_oldapi::types::Uuid::nil()
-));
+mod uuid_tests {
+    use super::*;
+    use sqlx_test::test_decode_type;
 
-// Extra UUID decoding edge cases (ODBC may return padded strings)
-#[cfg(feature = "uuid")]
-test_decode_type!(uuid_padded<sqlx_oldapi::types::Uuid>(Odbc,
-    "'550e8400-e29b-41d4-a716-446655440000  '" == sqlx_oldapi::types::Uuid::parse_str("550e8400-e29b-41d4-a716-446655440000").unwrap()
-));
+    test_type!(uuid<sqlx_oldapi::types::Uuid>(Odbc,
+    "'550e8400-e29b-41d4-a716-446655440000'" == sqlx_oldapi::types::Uuid::parse_str("550e8400-e29b-41d4-a716-446655440000").unwrap(),
+        "'00000000-0000-0000-0000-000000000000'" == sqlx_oldapi::types::Uuid::nil()
+    ));
+
+    test_decode_type!(uuid_padded<sqlx_oldapi::types::Uuid>(Odbc,
+        "'550e8400-e29b-41d4-a716-446655440000  '" == sqlx_oldapi::types::Uuid::parse_str("550e8400-e29b-41d4-a716-446655440000").unwrap()
+    ));
+}
 
 #[cfg(feature = "json")]
 mod json_tests {
@@ -144,6 +147,7 @@ mod chrono_tests {
     use sqlx_oldapi::types::chrono::{
         DateTime, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime, Utc,
     };
+    use sqlx_test::test_decode_type;
 
     test_type!(chrono_date<NaiveDate>(Odbc,
         "'2023-12-25'" == NaiveDate::from_ymd_opt(2023, 12, 25).unwrap(),
