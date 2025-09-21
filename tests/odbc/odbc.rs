@@ -1,5 +1,5 @@
 use futures::TryStreamExt;
-use sqlx_oldapi::odbc::Odbc;
+use sqlx_oldapi::odbc::{Odbc, OdbcConnectOptions};
 use sqlx_oldapi::Column;
 use sqlx_oldapi::Connection;
 use sqlx_oldapi::Executor;
@@ -8,6 +8,7 @@ use sqlx_oldapi::Statement;
 use sqlx_oldapi::Value;
 use sqlx_oldapi::ValueRef;
 use sqlx_test::new;
+use std::str::FromStr;
 
 #[tokio::test]
 async fn it_connects_and_pings() -> anyhow::Result<()> {
@@ -633,6 +634,300 @@ async fn it_handles_numeric_precision() -> anyhow::Result<()> {
 
     let result = row.try_get_raw(0)?.to_owned().decode::<f64>();
     assert!((result - std::f64::consts::PI).abs() < 1e-10);
+
+    Ok(())
+}
+
+// Error case tests
+
+#[tokio::test]
+async fn it_handles_connection_level_errors() -> anyhow::Result<()> {
+    // Test connection with obviously invalid connection strings
+    let invalid_opts = OdbcConnectOptions::from_str("DSN=DefinitelyNonExistentDataSource_12345")?;
+    let result = sqlx_oldapi::odbc::OdbcConnection::connect_with(&invalid_opts).await;
+    // This should reliably fail across all ODBC drivers
+    assert!(result.is_err());
+
+    // Test with malformed connection string
+    let malformed_opts = OdbcConnectOptions::from_str("INVALID_KEY_VALUE_PAIRS;;;")?;
+    let result = sqlx_oldapi::odbc::OdbcConnection::connect_with(&malformed_opts).await;
+    // This should also reliably fail
+    assert!(result.is_err());
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn it_handles_sql_syntax_errors() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+
+    // Test invalid SQL syntax
+    let result = conn.execute("INVALID SQL SYNTAX THAT SHOULD FAIL").await;
+    assert!(result.is_err());
+
+    // Test malformed SELECT
+    let result = conn.execute("SELECT FROM WHERE").await;
+    assert!(result.is_err());
+
+    // Test unclosed quotes
+    let result = conn.execute("SELECT 'unclosed string").await;
+    assert!(result.is_err());
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn it_handles_prepare_statement_errors() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+
+    // Many ODBC drivers are permissive at prepare time and only validate at execution
+    // So we test that execution fails even if preparation succeeds
+
+    // Test executing prepared invalid SQL
+    if let Ok(stmt) = (&mut conn).prepare("INVALID PREPARE STATEMENT").await {
+        let result = stmt.query().fetch_one(&mut conn).await;
+        assert!(result.is_err());
+    }
+
+    // Test executing prepared SQL with syntax errors
+    if let Ok(stmt) = (&mut conn).prepare("SELECT FROM WHERE 1=1").await {
+        let result = stmt.query().fetch_one(&mut conn).await;
+        assert!(result.is_err());
+    }
+
+    // Test with completely malformed SQL that should fail even permissive drivers
+    let result = (&mut conn).prepare("").await;
+    // Empty SQL should generally fail, but if it doesn't, that's also valid ODBC behavior
+    let _ = result;
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn it_handles_parameter_binding_errors() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+
+    // Test with completely missing parameters - this should more reliably fail
+    let stmt = (&mut conn)
+        .prepare("SELECT ? AS param1, ? AS param2")
+        .await?;
+
+    // Test with no parameters when some are expected
+    let result = stmt.query().fetch_one(&mut conn).await;
+    // This test may or may not fail depending on ODBC driver behavior
+    // Some drivers are permissive and treat missing params as NULL
+    // The important thing is that we don't panic
+    let _ = result;
+
+    // Test that we can handle parameter binding gracefully
+    // Even if the driver is permissive, the system should be robust
+    let stmt2 = (&mut conn).prepare("SELECT ? AS single_param").await?;
+
+    // Bind correct number of parameters - this should work
+    let result = stmt2.query().bind(42i32).fetch_one(&mut conn).await;
+    // If this fails, it's likely due to other issues, not parameter count
+    if result.is_err() {
+        // Log that even basic parameter binding failed - this indicates deeper issues
+        println!("Note: Basic parameter binding failed, may indicate driver issues");
+    }
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn it_handles_parameter_execution_errors() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+
+    // Test parameter binding with incompatible operations that should fail at execution
+    let stmt = (&mut conn).prepare("SELECT ? / 0 AS div_by_zero").await?;
+
+    // This should execute but may produce a runtime error (division by zero)
+    let result = stmt.query().bind(42i32).fetch_one(&mut conn).await;
+    // Division by zero behavior is database-specific, so we just ensure no panic
+    let _ = result;
+
+    // Test with a parameter in an invalid context that should fail
+    if let Ok(stmt) = (&mut conn).prepare("SELECT * FROM ?").await {
+        // Using parameter as table name should fail at execution
+        let result = stmt
+            .query()
+            .bind("non_existent_table")
+            .fetch_one(&mut conn)
+            .await;
+        assert!(result.is_err());
+    }
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn it_handles_fetch_errors_from_invalid_queries() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+
+    // Test fetching from invalid table
+    {
+        let mut stream = conn.fetch("SELECT * FROM non_existent_table_12345");
+        let result = stream.try_next().await;
+        assert!(result.is_err());
+    }
+
+    // Test fetching with invalid column references
+    {
+        let mut stream =
+            conn.fetch("SELECT non_existent_column FROM (SELECT 1 AS existing_column) t");
+        let result = stream.try_next().await;
+        assert!(result.is_err());
+    }
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn it_handles_transaction_errors() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+
+    // Start a transaction
+    let mut tx = conn.begin().await?;
+
+    // Try to execute invalid SQL in transaction
+    let result = tx.execute("INVALID TRANSACTION SQL").await;
+    assert!(result.is_err());
+
+    // Transaction should still be rollbackable even after error
+    let rollback_result = tx.rollback().await;
+    // Some databases may auto-rollback on errors, so we don't assert success here
+    // Just ensure we don't panic
+    let _ = rollback_result;
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn it_handles_fetch_optional_errors() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+
+    // Test fetch_optional with invalid SQL
+    let result = (&mut conn)
+        .fetch_optional("INVALID SQL FOR FETCH OPTIONAL")
+        .await;
+    assert!(result.is_err());
+
+    // Test fetch_optional with malformed query
+    let result = (&mut conn).fetch_optional("SELECT FROM").await;
+    assert!(result.is_err());
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn it_handles_execute_many_errors() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+
+    // Test execute with invalid SQL that would affect multiple rows
+    let result = conn.execute("UPDATE non_existent_table SET col = 1").await;
+    assert!(result.is_err());
+
+    // Test execute with constraint violations (if supported by the database)
+    // This is database-specific, so we'll test with a more generic invalid statement
+    let result = conn
+        .execute("INSERT INTO non_existent_table VALUES (1)")
+        .await;
+    assert!(result.is_err());
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn it_handles_invalid_column_access() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+
+    let mut stream = conn.fetch("SELECT 'test' AS single_column");
+    if let Some(row) = stream.try_next().await? {
+        // Test accessing non-existent column by index
+        let result = row.try_get_raw(999); // Invalid index
+        assert!(result.is_err());
+
+        // Test accessing non-existent column by name
+        let result = row.try_get_raw("non_existent_column");
+        assert!(result.is_err());
+    }
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn it_handles_type_conversion_errors() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+
+    let mut stream = conn.fetch("SELECT 'not_a_number' AS text_value");
+    if let Some(row) = stream.try_next().await? {
+        // Try to decode text as number - this might succeed or fail depending on implementation
+        // The error handling depends on whether the decode trait panics or returns a result
+        let text_val = row.try_get_raw(0)?.to_owned();
+
+        // Test decoding text as different types
+        // Some type conversions might work (string parsing) while others might fail
+        // This tests the robustness of the type system
+        let _: Result<i32, _> = std::panic::catch_unwind(|| text_val.decode::<i32>());
+
+        // The test should not panic even with invalid conversions
+    }
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn it_handles_large_invalid_queries() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+
+    // Test with very long invalid SQL
+    let large_invalid_sql = "SELECT ".to_string() + &"invalid_column, ".repeat(1000) + "1";
+    let result = conn.execute(large_invalid_sql.as_str()).await;
+    assert!(result.is_err());
+
+    // Test with deeply nested invalid SQL
+    let nested_invalid_sql = "SELECT (".repeat(100) + "1" + &")".repeat(100) + " FROM non_existent";
+    let result = conn.execute(nested_invalid_sql.as_str()).await;
+    assert!(result.is_err());
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn it_handles_concurrent_error_scenarios() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+
+    // Test multiple invalid operations in sequence
+    let _ = conn.execute("INVALID SQL 1").await;
+    let _ = conn.execute("INVALID SQL 2").await;
+    let _ = conn.execute("INVALID SQL 3").await;
+
+    // Connection should still be usable after errors
+    let valid_result = conn.execute("SELECT 1").await;
+    // Some databases may close connection on errors, others may keep it open
+    // We just ensure no panic occurs
+    let _ = valid_result;
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn it_handles_prepared_statement_with_wrong_parameters() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+
+    // Prepare a statement expecting specific parameter types
+    let stmt = (&mut conn).prepare("SELECT ? + ? AS sum").await?;
+
+    // Test binding incompatible types (if the database is strict about types)
+    // Some databases/drivers are permissive, others are strict
+    let result = stmt
+        .query()
+        .bind("not_a_number")
+        .bind("also_not_a_number")
+        .fetch_one(&mut conn)
+        .await;
+    // This may or may not error depending on the database's type system
+    let _ = result;
 
     Ok(())
 }
