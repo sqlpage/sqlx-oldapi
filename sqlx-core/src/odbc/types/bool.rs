@@ -12,7 +12,11 @@ impl Type<Odbc> for bool {
     fn compatible(ty: &OdbcTypeInfo) -> bool {
         matches!(
             ty.data_type(),
-            DataType::Bit | DataType::TinyInt | DataType::SmallInt | DataType::Integer
+            DataType::Bit
+                | DataType::TinyInt
+                | DataType::SmallInt
+                | DataType::Integer
+                | DataType::BigInt
         ) || ty.data_type().accepts_character_data() // Allow parsing from strings
     }
 }
