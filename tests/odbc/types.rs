@@ -1,3 +1,4 @@
+#![allow(clippy::approx_constant)]
 use sqlx_oldapi::odbc::Odbc;
 use sqlx_test::test_type;
 

@@ -1,3 +1,4 @@
+#![allow(clippy::approx_constant)]
 use sqlx_oldapi::any::{AnyConnection, AnyRow};
 use sqlx_oldapi::{Connection, Executor, Row};
 
