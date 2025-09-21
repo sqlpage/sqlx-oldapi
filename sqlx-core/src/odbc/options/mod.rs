@@ -32,11 +32,23 @@ impl FromStr for OdbcConnectOptions {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        // Use full string as ODBC connection string or DSN
-        Ok(Self {
-            conn_str: s.to_owned(),
-            log_settings: LogSettings::default(),
-        })
+        // Accept forms:
+        // - "odbc:DSN=Name;..." -> strip scheme
+        // - "odbc:Name" -> interpret as DSN
+        // - "DSN=Name;..." or full ODBC connection string
+        let mut t = s.trim();
+        if let Some(rest) = t.strip_prefix("odbc:") {
+            t = rest;
+        }
+        let conn_str = if t.contains('=') {
+            // Looks like an ODBC key=value connection string
+            t.to_string()
+        } else {
+            // Bare DSN name
+            format!("DSN={}", t)
+        };
+
+        Ok(Self { conn_str, log_settings: LogSettings::default() })
     }
 }
 
