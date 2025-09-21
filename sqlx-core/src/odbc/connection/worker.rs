@@ -59,9 +59,7 @@ impl ConnectionWorker {
 
         thread::Builder::new()
             .name("sqlx-odbc-conn".into())
-            .spawn(move || {
-                worker_thread_main(options, establish_tx);
-            })?;
+            .spawn(move || worker_thread_main(options, establish_tx))?;
 
         establish_rx.await.map_err(|_| Error::WorkerCrashed)?
     }
