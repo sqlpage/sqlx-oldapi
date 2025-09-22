@@ -367,10 +367,10 @@ jobs:
           odbcinst -q -s || true
           echo "select 1;" | isql -v SQLX_PG_5432 || true
       - name: Run ODBC tests (PostgreSQL DSN)
-        run: cargo test --no-default-features --features any,odbc,macros,all-types,runtime-tokio-rustls -- --test-threads=1
+        run: cargo test --no-default-features --features any,odbc,macros,all-types,runtime-tokio-rustls
         env:
           DATABASE_URL: DSN=SQLX_PG_5432;UID=postgres;PWD=password
       - name: Run ODBC tests (SQLite driver)
-        run: cargo test --no-default-features --features any,odbc,macros,all-types,runtime-tokio-rustls -- --test-threads=1
+        run: cargo test --no-default-features --features any,odbc,macros,all-types,runtime-tokio-rustls
         env:
           DATABASE_URL: Driver={SQLite3};Database=./tests/odbc/sqlite.db
