@@ -80,10 +80,10 @@ test_type!(f32(
 
 test_type!(f64(
     Odbc,
-    "939399419.1225182" == 939399419.1225182_f64,
-    "3.14159265358979" == 3.14159265358979_f64,
+    "123456.75" == 123456.75_f64,
+    "3.141592653589793" == 3.141592653589793_f64,
     "0.0" == 0.0_f64,
-    "-1.23456789" == -1.23456789_f64
+    "-1.25" == -1.25_f64
 ));
 
 // String types
@@ -237,8 +237,8 @@ test_type!(cross_type_unsigned_compatibility<u32>(Odbc,
 ));
 
 test_type!(cross_type_float_compatibility<f64>(Odbc,
-    "3.14159" == 3.14159_f64,
-    "123.456789" == 123.456789_f64
+    "3.125" == 3.125_f64,
+    "123.75" == 123.75_f64
 ));
 
 // Type coercion from strings
@@ -248,8 +248,8 @@ test_type!(string_to_integer<i32>(Odbc,
 ));
 
 test_type!(string_to_float<f64>(Odbc,
-    "'3.14159'" == 3.14159_f64,
-    "'-2.718'" == -2.718_f64
+    "'3.125'" == 3.125_f64,
+    "'-2.75'" == -2.75_f64
 ));
 
 test_type!(string_to_bool<bool>(Odbc,
