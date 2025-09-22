@@ -16,5 +16,8 @@ pub mod decimal;
 #[cfg(feature = "json")]
 pub mod json;
 
+#[cfg(feature = "time")]
+pub mod time;
+
 #[cfg(feature = "uuid")]
 pub mod uuid;

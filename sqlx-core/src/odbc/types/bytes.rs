@@ -14,16 +14,6 @@ impl Type<Odbc> for Vec<u8> {
     }
 }
 
-impl Type<Odbc> for &[u8] {
-    fn type_info() -> OdbcTypeInfo {
-        OdbcTypeInfo::varbinary(None)
-    }
-    fn compatible(ty: &OdbcTypeInfo) -> bool {
-        ty.data_type().accepts_binary_data() || ty.data_type().accepts_character_data()
-        // Allow decoding from character types too
-    }
-}
-
 impl<'q> Encode<'q, Odbc> for Vec<u8> {
     fn encode(self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
         buf.push(OdbcArgumentValue::Bytes(self));
@@ -69,5 +59,14 @@ impl<'r> Decode<'r, Odbc> for &'r [u8] {
             return Ok(text.as_bytes());
         }
         Err("ODBC: cannot decode &[u8]".into())
+    }
+}
+
+impl Type<Odbc> for [u8] {
+    fn type_info() -> OdbcTypeInfo {
+        OdbcTypeInfo::varbinary(None)
+    }
+    fn compatible(ty: &OdbcTypeInfo) -> bool {
+        ty.data_type().accepts_binary_data() || ty.data_type().accepts_character_data()
     }
 }

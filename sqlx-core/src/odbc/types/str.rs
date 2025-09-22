@@ -4,7 +4,7 @@ use crate::error::BoxDynError;
 use crate::odbc::{DataTypeExt, Odbc, OdbcArgumentValue, OdbcTypeInfo, OdbcValueRef};
 use crate::types::Type;
 
-impl Type<Odbc> for String {
+impl Type<Odbc> for str {
     fn type_info() -> OdbcTypeInfo {
         OdbcTypeInfo::varchar(None)
     }
@@ -13,7 +13,7 @@ impl Type<Odbc> for String {
     }
 }
 
-impl Type<Odbc> for &str {
+impl Type<Odbc> for String {
     fn type_info() -> OdbcTypeInfo {
         OdbcTypeInfo::varchar(None)
     }
