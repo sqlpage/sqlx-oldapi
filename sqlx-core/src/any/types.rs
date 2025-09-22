@@ -22,6 +22,7 @@
 
 impl_any_type!(bool);
 
+impl_any_type!(i8);
 impl_any_type!(i16);
 impl_any_type!(i32);
 impl_any_type!(i64);
@@ -29,7 +30,7 @@ impl_any_type!(i64);
 impl_any_type!(f32);
 impl_any_type!(f64);
 
-impl_any_type_skip_odbc!(str);
+impl_any_type!(str);
 impl_any_type!(String);
 
 impl_any_type!(u16);
@@ -40,6 +41,7 @@ impl_any_type!(u64);
 
 impl_any_encode!(bool);
 
+impl_any_encode!(i8);
 impl_any_encode!(i16);
 impl_any_encode!(i32);
 impl_any_encode!(i64);
@@ -58,6 +60,7 @@ impl_any_encode!(u64);
 
 impl_any_decode!(bool);
 
+impl_any_decode!(i8);
 impl_any_decode!(i16);
 impl_any_decode!(i32);
 impl_any_decode!(i64);
@@ -74,7 +77,7 @@ impl_any_decode!(u64);
 
 // Conversions for Blob SQL types
 // Type
-impl_any_type_skip_odbc!([u8]);
+impl_any_type!([u8]);
 impl_any_type!(Vec<u8>);
 
 // Encode
