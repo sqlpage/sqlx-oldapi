@@ -167,16 +167,19 @@ fn worker_thread_main(
     // Establish connection
     let conn = match establish_connection(&options) {
         Ok(conn) => {
-            conn_tx.send(Ok(())).unwrap();
+            let _ = conn_tx.send(Ok(()));
             conn
         }
-        Err(e) => return conn_tx.send(Err(e)).unwrap(),
+        Err(e) => {
+            let _ = conn_tx.send(Err(e));
+            return;
+        }
     };
     // Process commands
     while let Ok(cmd) = command_rx.recv() {
         if let Some(shutdown_tx) = process_command(cmd, &conn) {
             drop(conn);
-            shutdown_tx.send(()).unwrap();
+            let _ = shutdown_tx.send(());
             break;
         }
     }
@@ -197,11 +200,11 @@ fn establish_connection(options: &OdbcConnectOptions) -> Result<OdbcConnection, 
 
 // Utility functions for channel operations
 fn send_result<T: std::fmt::Debug>(tx: oneshot::Sender<T>, result: T) {
-    tx.send(result).expect("The odbc worker thread has crashed");
+    let _ = tx.send(result);
 }
 
 fn send_stream_result(tx: &ExecuteSender, result: ExecuteResult) {
-    tx.send(result).expect("The odbc worker thread has crashed");
+    let _ = tx.send(result);
 }
 
 async fn send_command_and_await<T>(
