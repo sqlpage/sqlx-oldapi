@@ -1,5 +1,6 @@
 use std::thread;
 
+use flume::TrySendError;
 use futures_channel::oneshot;
 
 use crate::error::Error;
@@ -24,6 +25,7 @@ type PrepareSender = oneshot::Sender<PrepareResult>;
 #[derive(Debug)]
 pub(crate) struct ConnectionWorker {
     command_tx: flume::Sender<Command>,
+    join_handle: Option<thread::JoinHandle<()>>,
 }
 
 enum Command {
@@ -53,15 +55,25 @@ enum Command {
     },
 }
 
+impl Drop for ConnectionWorker {
+    fn drop(&mut self) {
+        self.shutdown_sync();
+    }
+}
+
 impl ConnectionWorker {
     pub async fn establish(options: OdbcConnectOptions) -> Result<Self, Error> {
-        let (establish_tx, establish_rx) = oneshot::channel();
-
-        thread::Builder::new()
+        let (command_tx, command_rx) = flume::bounded(64);
+        let (conn_tx, conn_rx) = oneshot::channel();
+        let thread = thread::Builder::new()
             .name("sqlx-odbc-conn".into())
-            .spawn(move || worker_thread_main(options, establish_tx))?;
+            .spawn(move || worker_thread_main(options, command_rx, conn_tx))?;
 
-        establish_rx.await.map_err(|_| Error::WorkerCrashed)?
+        conn_rx.await.map_err(|_| Error::WorkerCrashed)??;
+        Ok(ConnectionWorker {
+            command_tx,
+            join_handle: Some(thread),
+        })
     }
 
     pub(crate) async fn ping(&mut self) -> Result<(), Error> {
@@ -77,11 +89,24 @@ impl ConnectionWorker {
     pub(crate) fn shutdown_sync(&mut self) {
         // Send shutdown command without waiting for response
         // Use try_send to avoid any potential blocking in Drop
-        let (tx, _rx) = oneshot::channel();
-        let _ = self.command_tx.try_send(Command::Shutdown { tx });
 
-        // Don't aggressively drop the channel to avoid SendError panics
-        // The worker thread will exit when it processes the Shutdown command
+        if let Some(join_handle) = self.join_handle.take() {
+            let (mut tx, _rx) = oneshot::channel();
+            while let Err(TrySendError::Full(Command::Shutdown { tx: t })) =
+                self.command_tx.try_send(Command::Shutdown { tx })
+            {
+                tx = t;
+                log::warn!("odbc worker thread queue is full, retrying...");
+                thread::sleep(std::time::Duration::from_millis(10));
+            }
+            if let Err(e) = join_handle.join() {
+                let err = e.downcast_ref::<std::io::Error>();
+                log::error!(
+                    "failed to join worker thread while shutting down: {:?}",
+                    err
+                );
+            }
+        }
     }
 
     pub(crate) async fn begin(&mut self) -> Result<(), Error> {
@@ -136,32 +161,22 @@ impl ConnectionWorker {
 // Worker thread implementation
 fn worker_thread_main(
     options: OdbcConnectOptions,
-    establish_tx: oneshot::Sender<Result<ConnectionWorker, Error>>,
+    command_rx: flume::Receiver<Command>,
+    conn_tx: oneshot::Sender<Result<(), Error>>,
 ) {
-    let (tx, rx) = flume::bounded(64);
-
     // Establish connection
     let conn = match establish_connection(&options) {
-        Ok(conn) => conn,
-        Err(e) => {
-            let _ = establish_tx.send(Err(e));
-            return;
+        Ok(conn) => {
+            conn_tx.send(Ok(())).unwrap();
+            conn
         }
+        Err(e) => return conn_tx.send(Err(e)).unwrap(),
     };
-
-    // Send back the worker handle
-    if establish_tx
-        .send(Ok(ConnectionWorker {
-            command_tx: tx.clone(),
-        }))
-        .is_err()
-    {
-        return;
-    }
-
     // Process commands
-    while let Ok(cmd) = rx.recv() {
-        if !process_command(cmd, &conn) {
+    while let Ok(cmd) = command_rx.recv() {
+        if let Some(shutdown_tx) = process_command(cmd, &conn) {
+            drop(conn);
+            shutdown_tx.send(()).unwrap();
             break;
         }
     }
@@ -223,20 +238,18 @@ where
         .map_err(|e| Error::Protocol(format!("Failed to {} transaction: {}", operation_name, e)))
 }
 
-fn process_command(cmd: Command, conn: &OdbcConnection) -> bool {
+// Returns a shutdown tx if the command is a shutdown command
+fn process_command(cmd: Command, conn: &OdbcConnection) -> Option<oneshot::Sender<()>> {
     match cmd {
         Command::Ping { tx } => handle_ping(conn, tx),
         Command::Begin { tx } => handle_begin(conn, tx),
         Command::Commit { tx } => handle_commit(conn, tx),
         Command::Rollback { tx } => handle_rollback(conn, tx),
-        Command::Shutdown { tx } => {
-            let _ = tx.send(());
-            return false; // Signal to exit the loop
-        }
+        Command::Shutdown { tx } => return Some(tx),
         Command::Execute { sql, args, tx } => handle_execute(conn, sql, args, tx),
         Command::Prepare { sql, tx } => handle_prepare(conn, sql, tx),
     }
-    true
+    None
 }
 
 // Command handlers
