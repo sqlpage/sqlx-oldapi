@@ -9,21 +9,20 @@ on:
 jobs:
   format:
     name: Format
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - run: cargo fmt --all -- --check
 
   check:
     name: Check
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         runtime: [async-std, tokio]
         tls: [native-tls, rustls]
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
           prefix-key: v1-sqlx
@@ -50,7 +49,7 @@ jobs:
 
   test:
     name: Unit Test
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         runtime: [
@@ -65,7 +64,6 @@ jobs:
           ]
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
           prefix-key: v1-sqlx
@@ -96,7 +94,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
           prefix-key: v1-sqlx
@@ -113,7 +110,7 @@ jobs:
 
   sqlite:
     name: SQLite
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         runtime: [async-std, tokio, actix]
@@ -122,7 +119,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: mkdir /tmp/sqlite3-lib && wget -O /tmp/sqlite3-lib/ipaddr.so https://github.com/nalgeon/sqlean/releases/download/0.15.2/ipaddr.so
-      - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
           prefix-key: v1-sqlx
@@ -146,7 +142,7 @@ jobs:
 
   postgres:
     name: Postgres
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         postgres: [14, 10]
@@ -156,7 +152,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: dtolnay/rust-toolchain@stable
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -202,11 +197,10 @@ jobs:
 
   postgres_ssl_client_cert:
     name: Postgres with SSL client cert
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: check
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
           prefix-key: v1-sqlx
@@ -220,7 +214,7 @@ jobs:
 
   mysql:
     name: MySQL
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         mysql: [8, 5_7]
@@ -230,7 +224,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: dtolnay/rust-toolchain@stable
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -265,7 +258,7 @@ jobs:
 
   mariadb:
     name: MariaDB
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         mariadb: [10_6, 10_3]
@@ -275,7 +268,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: dtolnay/rust-toolchain@stable
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -303,7 +295,7 @@ jobs:
 
   mssql:
     name: MSSQL
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         mssql: [2019, 2022]
@@ -313,7 +305,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: dtolnay/rust-toolchain@stable
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -341,12 +332,11 @@ jobs:
 
   odbc:
     name: ODBC (PostgreSQL and SQLite)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: check
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
           prefix-key: v1-sqlx
