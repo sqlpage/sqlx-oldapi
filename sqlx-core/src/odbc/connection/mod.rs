@@ -64,10 +64,3 @@ impl Connection for OdbcConnection {
         false
     }
 }
-
-impl Drop for OdbcConnection {
-    fn drop(&mut self) {
-        // Send shutdown command to worker thread to prevent resource leak
-        self.worker.shutdown_sync();
-    }
-}
