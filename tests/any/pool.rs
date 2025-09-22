@@ -74,7 +74,7 @@ async fn pool_should_be_returned_failed_transactions() -> anyhow::Result<()> {
 #[sqlx_macros::test]
 async fn big_pool() -> anyhow::Result<()> {
     use sqlx_oldapi::Row;
-    
+
     let database_url = dotenvy::var("DATABASE_URL")?;
 
     let pool = Arc::new(
@@ -141,19 +141,15 @@ async fn test_pool_callbacks() -> anyhow::Result<()> {
 
             Box::pin(async move {
                 // Split into separate statements for ODBC drivers that don't support multi-statement execution
-                let create_statement = 
-                    r#"
+                let create_statement = r#"
                     CREATE TEMPORARY TABLE conn_stats(
                         id int primary key,
                         before_acquire_calls int default 0,
                         after_release_calls int default 0 
                     )
                     "#;
-                
-                let insert_statement = format!(
-                    "INSERT INTO conn_stats(id) VALUES ({})",
-                    id
-                );
+
+                let insert_statement = format!("INSERT INTO conn_stats(id) VALUES ({})", id);
 
                 conn.execute(create_statement).await?;
                 conn.execute(&insert_statement[..]).await?;
