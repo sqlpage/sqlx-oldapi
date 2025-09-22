@@ -74,12 +74,14 @@ async fn pool_should_be_returned_failed_transactions() -> anyhow::Result<()> {
 #[sqlx_macros::test]
 async fn big_pool() -> anyhow::Result<()> {
     use sqlx_oldapi::Row;
+    
+    let database_url = dotenvy::var("DATABASE_URL")?;
 
     let pool = Arc::new(
         AnyPoolOptions::new()
             .max_connections(2)
             .acquire_timeout(Duration::from_secs(3))
-            .connect(&dotenvy::var("DATABASE_URL")?)
+            .connect(&database_url)
             .await?,
     );
 
@@ -138,21 +140,23 @@ async fn test_pool_callbacks() -> anyhow::Result<()> {
             let id = current_id.fetch_add(1, Ordering::AcqRel);
 
             Box::pin(async move {
-                let statement = format!(
-                    // language=SQL
+                // Split into separate statements for ODBC drivers that don't support multi-statement execution
+                let create_statement = 
                     r#"
                     CREATE TEMPORARY TABLE conn_stats(
                         id int primary key,
                         before_acquire_calls int default 0,
                         after_release_calls int default 0 
-                    );
-                    INSERT INTO conn_stats(id) VALUES ({});
-                    "#,
-                    // Until we have generalized bind parameters
+                    )
+                    "#;
+                
+                let insert_statement = format!(
+                    "INSERT INTO conn_stats(id) VALUES ({})",
                     id
                 );
 
-                conn.execute(&statement[..]).await?;
+                conn.execute(create_statement).await?;
+                conn.execute(&insert_statement[..]).await?;
                 Ok(())
             })
         })
