@@ -11,6 +11,8 @@ use crate::odbc::{
 #[allow(unused_imports)]
 use crate::row::Row as SqlxRow;
 use either::Either;
+#[allow(unused_imports)]
+use odbc_api::handles::Statement as OdbcStatementTrait;
 use odbc_api::{Cursor, CursorRow, IntoParameter, ResultSetMetadata};
 
 // Type aliases for commonly used types
@@ -338,9 +340,9 @@ fn execute_sql(conn: &OdbcConnection, sql: &str, args: Option<OdbcArguments>, tx
     let params = prepare_parameters(args);
 
     if params.is_empty() {
-        dispatch_execute(conn, sql, (), tx);
+        dispatch_execute_direct(conn, sql, tx);
     } else {
-        dispatch_execute(conn, sql, &params[..], tx);
+        dispatch_execute_prepared(conn, sql, &params[..], tx);
     }
 }
 
@@ -362,14 +364,68 @@ fn to_param(arg: OdbcArgumentValue) -> Box<dyn odbc_api::parameter::InputParamet
 }
 
 // Dispatch functions
-fn dispatch_execute<P>(conn: &OdbcConnection, sql: &str, params: P, tx: &ExecuteSender)
+fn dispatch_execute_direct(conn: &OdbcConnection, sql: &str, tx: &ExecuteSender) {
+    match conn.preallocate() {
+        Ok(mut stmt) => {
+            let mut sent = false;
+            {
+                let res = stmt.execute(sql, ());
+                match res {
+                    Ok(Some(mut cursor)) => {
+                        handle_cursor(&mut cursor, tx);
+                        sent = true;
+                    }
+                    Ok(None) => {
+                        // drop res and then read row_count below
+                    }
+                    Err(e) => {
+                        let _ = send_error(tx, Error::from(e));
+                        sent = true;
+                    }
+                }
+            }
+            if !sent {
+                let rc = stmt.row_count().ok().flatten().unwrap_or(0) as u64;
+                let _ = send_done(tx, rc);
+            }
+        }
+        Err(e) => {
+            let _ = send_error(tx, Error::from(e));
+        }
+    }
+}
+
+fn dispatch_execute_prepared<P>(conn: &OdbcConnection, sql: &str, params: P, tx: &ExecuteSender)
 where
     P: odbc_api::ParameterCollectionRef,
 {
-    match conn.execute(sql, params, None) {
-        Ok(Some(mut cursor)) => handle_cursor(&mut cursor, tx),
-        Ok(None) => send_empty_result(tx).unwrap_or_default(),
-        Err(e) => send_error(tx, Error::from(e)).unwrap_or_default(),
+    match conn.prepare(sql) {
+        Ok(mut prepared) => {
+            let mut sent = false;
+            {
+                let res = prepared.execute(params);
+                match res {
+                    Ok(Some(mut cursor)) => {
+                        handle_cursor(&mut cursor, tx);
+                        sent = true;
+                    }
+                    Ok(None) => {
+                        // drop res and then read row_count below
+                    }
+                    Err(e) => {
+                        let _ = send_error(tx, Error::from(e));
+                        sent = true;
+                    }
+                }
+            }
+            if !sent {
+                let rc = prepared.row_count().ok().flatten().unwrap_or(0) as u64;
+                let _ = send_done(tx, rc);
+            }
+        }
+        Err(e) => {
+            let _ = send_error(tx, Error::from(e));
+        }
     }
 }
 
@@ -380,14 +436,18 @@ where
     let columns = collect_columns(cursor);
 
     match stream_rows(cursor, &columns, tx) {
-        Ok(true) => send_empty_result(tx).unwrap_or_default(),
+        Ok(true) => {
+            let _ = send_done(tx, 0);
+        }
         Ok(false) => {}
-        Err(e) => send_error(tx, e).unwrap_or_default(),
+        Err(e) => {
+            let _ = send_error(tx, e);
+        }
     }
 }
 
-fn send_empty_result(tx: &ExecuteSender) -> Result<(), SendError<ExecuteResult>> {
-    send_stream_result(tx, Ok(Either::Left(OdbcQueryResult { rows_affected: 0 })))
+fn send_done(tx: &ExecuteSender, rows_affected: u64) -> Result<(), SendError<ExecuteResult>> {
+    send_stream_result(tx, Ok(Either::Left(OdbcQueryResult { rows_affected })))
 }
 
 fn send_error(tx: &ExecuteSender, error: Error) -> Result<(), SendError<ExecuteResult>> {
