@@ -349,7 +349,7 @@ jobs:
       - name: Install unixODBC and ODBC drivers (PostgreSQL, SQLite)
         run: |
           sudo apt-get update
-          sudo apt-get install -y unixodbc odbcinst odbcinst1debian2 odbc-postgresql libsqliteodbc
+          sudo apt-get install -y unixodbc odbcinst unixodbc-common libodbcinst2 odbc-postgresql libsqliteodbc
           odbcinst -j
       - name: Configure system/user DSN for PostgreSQL
         run: |
