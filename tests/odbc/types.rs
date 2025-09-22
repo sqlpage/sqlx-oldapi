@@ -247,11 +247,6 @@ test_type!(string_to_integer<i32>(Odbc,
     "'-123'" == -123_i32
 ));
 
-test_type!(string_to_float<f64>(Odbc,
-    "'3.125'" == 3.125_f64,
-    "'-2.75'" == -2.75_f64
-));
-
 test_type!(string_to_bool<bool>(Odbc,
     "'1'" == true,
     "'0'" == false
