@@ -45,7 +45,7 @@ jobs:
           cargo clippy \
             --no-default-features \
             --all-targets \
-            --features offline,all-databases,migrate,runtime-${{ matrix.runtime }}-${{ matrix.tls }} \
+            --features offline,all-databases,all-types,migrate,runtime-${{ matrix.runtime }}-${{ matrix.tls }} \
             -- -D warnings
 
   test:
@@ -366,28 +366,11 @@ jobs:
           cp tests/odbc.ini ~/.odbc.ini
           odbcinst -q -s || true
           echo "select 1;" | isql -v SQLX_PG_5432 || true
-      - name: Run clippy for odbc
-        run: |
-          cargo clippy \
-            --no-default-features \
-            --features odbc,all-types,runtime-tokio-rustls,macros,migrate \
-            -- -D warnings
       - name: Run ODBC tests (PostgreSQL DSN)
-        run: |
-          cargo test --no-default-features --features any,odbc,macros,all-types,runtime-tokio-rustls any_odbc -- --test-threads=1
-          cargo test --no-default-features --features odbc,all-types,runtime-tokio-rustls -- --test odbc --test-threads=1
-          cargo test --no-default-features --features odbc,all-types,runtime-tokio-rustls -- --test odbc-types --test-threads=1
+        run: cargo test --no-default-features --features any,odbc,macros,all-types,runtime-tokio-rustls -- --test-threads=1
         env:
           DATABASE_URL: DSN=SQLX_PG_5432;UID=postgres;PWD=password
-      - name: Detect SQLite ODBC driver name
-        id: detect_sqlite
-        run: |
-          if odbcinst -q -d | grep -q '^\[SQLite3\]'; then echo "driver=SQLite3" >> $GITHUB_OUTPUT; elif odbcinst -q -d | grep -q '^\[SQLite\]'; then echo "driver=SQLite" >> $GITHUB_OUTPUT; else echo 'No SQLite ODBC driver installed'; exit 1; fi
       - name: Run ODBC tests (SQLite driver)
-        run: |
-          echo "Using SQLite ODBC driver: ${{ steps.detect_sqlite.outputs.driver }}"
-          cargo test --no-default-features --features any,odbc,macros,all-types,runtime-tokio-rustls any_odbc -- --test-threads=1
-          cargo test --no-default-features --features odbc,all-types,runtime-tokio-rustls -- --test odbc --test-threads=1
-          cargo test --no-default-features --features odbc,all-types,runtime-tokio-rustls -- --test odbc-types --test-threads=1
+        run: cargo test --no-default-features --features any,odbc,macros,all-types,runtime-tokio-rustls -- --test-threads=1
         env:
-          DATABASE_URL: Driver={${{ steps.detect_sqlite.outputs.driver }}};Database=./tests/odbc/sqlite.db
+          DATABASE_URL: Driver={SQLite3};Database=./tests/odbc/sqlite.db
