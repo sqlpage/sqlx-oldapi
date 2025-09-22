@@ -165,22 +165,67 @@ impl<'q> Encode<'q, Odbc> for DateTime<Local> {
     }
 }
 
+// Helper functions for date parsing
+fn parse_yyyymmdd_as_naive_date(val: i64) -> Option<NaiveDate> {
+    if (19000101..=30001231).contains(&val) {
+        let year = (val / 10000) as i32;
+        let month = ((val % 10000) / 100) as u32;
+        let day = (val % 100) as u32;
+        NaiveDate::from_ymd_opt(year, month, day)
+    } else {
+        None
+    }
+}
+
+fn parse_yyyymmdd_text_as_naive_date(s: &str) -> Option<NaiveDate> {
+    if s.len() == 8 && s.chars().all(|c| c.is_ascii_digit()) {
+        if let (Ok(y), Ok(m), Ok(d)) = (
+            s[0..4].parse::<i32>(),
+            s[4..6].parse::<u32>(),
+            s[6..8].parse::<u32>(),
+        ) {
+            return NaiveDate::from_ymd_opt(y, m, d);
+        }
+    }
+    None
+}
+
+fn get_text_from_value(value: &OdbcValueRef<'_>) -> Result<Option<String>, BoxDynError> {
+    if let Some(text) = value.text {
+        return Ok(Some(text.trim().to_string()));
+    }
+    if let Some(bytes) = value.blob {
+        let s = std::str::from_utf8(bytes)?;
+        return Ok(Some(s.trim().to_string()));
+    }
+    Ok(None)
+}
+
 impl<'r> Decode<'r, Odbc> for NaiveDate {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        let s = <String as Decode<'r, Odbc>>::decode(value)?;
-        // Accept YYYYMMDD (some SQLite ODBC configs) as a date as well
-        if s.len() == 8 && s.chars().all(|c| c.is_ascii_digit()) {
-            if let (Ok(y), Ok(m), Ok(d)) = (
-                s[0..4].parse::<i32>(),
-                s[4..6].parse::<u32>(),
-                s[6..8].parse::<u32>(),
-            ) {
-                if let Some(date) = NaiveDate::from_ymd_opt(y, m, d) {
-                    return Ok(date);
-                }
+        // Handle text values first (most common for dates)
+        if let Some(text) = get_text_from_value(&value)? {
+            if let Some(date) = parse_yyyymmdd_text_as_naive_date(&text) {
+                return Ok(date);
+            }
+            return Ok(text.parse()?);
+        }
+
+        // Handle numeric YYYYMMDD format (for databases that return as numbers)
+        if let Some(int_val) = value.int {
+            if let Some(date) = parse_yyyymmdd_as_naive_date(int_val) {
+                return Ok(date);
             }
         }
-        Ok(s.parse()?)
+
+        // Handle float values similarly
+        if let Some(float_val) = value.float {
+            if let Some(date) = parse_yyyymmdd_as_naive_date(float_val as i64) {
+                return Ok(date);
+            }
+        }
+
+        Err("ODBC: cannot decode NaiveDate".into())
     }
 }
 
@@ -260,5 +305,194 @@ impl<'r> Decode<'r, Odbc> for DateTime<Local> {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
         let s = <String as Decode<'r, Odbc>>::decode(value)?;
         Ok(s.parse::<DateTime<Utc>>()?.with_timezone(&Local))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::odbc::{OdbcTypeInfo, OdbcValueRef};
+    use crate::type_info::TypeInfo;
+    use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
+    use odbc_api::DataType;
+
+    fn create_test_value_text(text: &'static str, data_type: DataType) -> OdbcValueRef<'static> {
+        OdbcValueRef {
+            type_info: OdbcTypeInfo::new(data_type),
+            is_null: false,
+            text: Some(text),
+            blob: None,
+            int: None,
+            float: None,
+        }
+    }
+
+    fn create_test_value_int(value: i64, data_type: DataType) -> OdbcValueRef<'static> {
+        OdbcValueRef {
+            type_info: OdbcTypeInfo::new(data_type),
+            is_null: false,
+            text: None,
+            blob: None,
+            int: Some(value),
+            float: None,
+        }
+    }
+
+    #[test]
+    fn test_naive_date_type_compatibility() {
+        assert!(<NaiveDate as Type<Odbc>>::compatible(&OdbcTypeInfo::DATE));
+        assert!(<NaiveDate as Type<Odbc>>::compatible(
+            &OdbcTypeInfo::varchar(None)
+        ));
+        assert!(<NaiveDate as Type<Odbc>>::compatible(
+            &OdbcTypeInfo::INTEGER
+        ));
+    }
+
+    #[test]
+    fn test_parse_yyyymmdd_as_naive_date() {
+        // Valid dates
+        assert_eq!(
+            parse_yyyymmdd_as_naive_date(20200102),
+            Some(NaiveDate::from_ymd_opt(2020, 1, 2).unwrap())
+        );
+        assert_eq!(
+            parse_yyyymmdd_as_naive_date(19991231),
+            Some(NaiveDate::from_ymd_opt(1999, 12, 31).unwrap())
+        );
+
+        // Invalid dates
+        assert_eq!(parse_yyyymmdd_as_naive_date(20201301), None); // Invalid month
+        assert_eq!(parse_yyyymmdd_as_naive_date(20200230), None); // Invalid day
+        assert_eq!(parse_yyyymmdd_as_naive_date(123456), None); // Too short
+    }
+
+    #[test]
+    fn test_parse_yyyymmdd_text_as_naive_date() {
+        // Valid dates
+        assert_eq!(
+            parse_yyyymmdd_text_as_naive_date("20200102"),
+            Some(NaiveDate::from_ymd_opt(2020, 1, 2).unwrap())
+        );
+        assert_eq!(
+            parse_yyyymmdd_text_as_naive_date("19991231"),
+            Some(NaiveDate::from_ymd_opt(1999, 12, 31).unwrap())
+        );
+
+        // Invalid formats
+        assert_eq!(parse_yyyymmdd_text_as_naive_date("2020-01-02"), None); // Dashes
+        assert_eq!(parse_yyyymmdd_text_as_naive_date("20201301"), None); // Invalid month
+        assert_eq!(parse_yyyymmdd_text_as_naive_date("abcd1234"), None); // Non-numeric
+    }
+
+    #[test]
+    fn test_naive_date_decode_from_text() -> Result<(), BoxDynError> {
+        // Standard ISO format
+        let value = create_test_value_text("2020-01-02", DataType::Date);
+        let decoded = <NaiveDate as Decode<Odbc>>::decode(value)?;
+        assert_eq!(decoded, NaiveDate::from_ymd_opt(2020, 1, 2).unwrap());
+
+        // YYYYMMDD format
+        let value = create_test_value_text("20200102", DataType::Date);
+        let decoded = <NaiveDate as Decode<Odbc>>::decode(value)?;
+        assert_eq!(decoded, NaiveDate::from_ymd_opt(2020, 1, 2).unwrap());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_naive_date_decode_from_int() -> Result<(), BoxDynError> {
+        let value = create_test_value_int(20200102, DataType::Date);
+        let decoded = <NaiveDate as Decode<Odbc>>::decode(value)?;
+        assert_eq!(decoded, NaiveDate::from_ymd_opt(2020, 1, 2).unwrap());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_naive_datetime_decode() -> Result<(), BoxDynError> {
+        let value =
+            create_test_value_text("2020-01-02 15:30:45", DataType::Timestamp { precision: 0 });
+        let decoded = <NaiveDateTime as Decode<Odbc>>::decode(value)?;
+        let expected = NaiveDate::from_ymd_opt(2020, 1, 2)
+            .unwrap()
+            .and_hms_opt(15, 30, 45)
+            .unwrap();
+        assert_eq!(decoded, expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_datetime_utc_decode() -> Result<(), BoxDynError> {
+        let value =
+            create_test_value_text("2020-01-02 15:30:45", DataType::Timestamp { precision: 0 });
+        let decoded = <DateTime<Utc> as Decode<Odbc>>::decode(value)?;
+        let expected_naive = NaiveDate::from_ymd_opt(2020, 1, 2)
+            .unwrap()
+            .and_hms_opt(15, 30, 45)
+            .unwrap();
+        let expected = DateTime::<Utc>::from_naive_utc_and_offset(expected_naive, Utc);
+        assert_eq!(decoded, expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_naive_time_decode() -> Result<(), BoxDynError> {
+        let value = create_test_value_text("15:30:45", DataType::Time { precision: 0 });
+        let decoded = <NaiveTime as Decode<Odbc>>::decode(value)?;
+        let expected = NaiveTime::from_hms_opt(15, 30, 45).unwrap();
+        assert_eq!(decoded, expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_naive_date_encode() {
+        let mut buf = Vec::new();
+        let date = NaiveDate::from_ymd_opt(2020, 1, 2).unwrap();
+        let result = <NaiveDate as Encode<Odbc>>::encode(date, &mut buf);
+        assert!(matches!(result, crate::encode::IsNull::No));
+        assert_eq!(buf.len(), 1);
+        if let OdbcArgumentValue::Text(text) = &buf[0] {
+            assert_eq!(text, "2020-01-02");
+        } else {
+            panic!("Expected Text argument");
+        }
+    }
+
+    #[test]
+    fn test_get_text_from_value() -> Result<(), BoxDynError> {
+        // From text
+        let value = create_test_value_text("  test  ", DataType::Varchar { length: None });
+        assert_eq!(get_text_from_value(&value)?, Some("test".to_string()));
+
+        // From empty
+        let value = OdbcValueRef {
+            type_info: OdbcTypeInfo::new(DataType::Date),
+            is_null: false,
+            text: None,
+            blob: None,
+            int: None,
+            float: None,
+        };
+        assert_eq!(get_text_from_value(&value)?, None);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_type_info() {
+        assert_eq!(<NaiveDate as Type<Odbc>>::type_info().name(), "DATE");
+        assert_eq!(<NaiveTime as Type<Odbc>>::type_info().name(), "TIME");
+        assert_eq!(
+            <NaiveDateTime as Type<Odbc>>::type_info().name(),
+            "TIMESTAMP"
+        );
+        assert_eq!(
+            <DateTime<Utc> as Type<Odbc>>::type_info().name(),
+            "TIMESTAMP"
+        );
     }
 }

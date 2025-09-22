@@ -33,9 +33,24 @@ async fn it_streams_row_and_metadata() -> anyhow::Result<()> {
     let mut s = conn.fetch("SELECT 42 AS n, 'hi' AS s, NULL AS z");
     let mut saw_row = false;
     while let Some(row) = s.try_next().await? {
-        assert_eq!(row.column(0).name(), "n");
-        assert_eq!(row.column(1).name(), "s");
-        assert_eq!(row.column(2).name(), "z");
+        let col0_name = row.column(0).name();
+        let col1_name = row.column(1).name();
+        let col2_name = row.column(2).name();
+        assert!(
+            col0_name.eq_ignore_ascii_case("n"),
+            "Expected 'n' or 'N', got '{}'",
+            col0_name
+        );
+        assert!(
+            col1_name.eq_ignore_ascii_case("s"),
+            "Expected 's' or 'S', got '{}'",
+            col1_name
+        );
+        assert!(
+            col2_name.eq_ignore_ascii_case("z"),
+            "Expected 'z' or 'Z', got '{}'",
+            col2_name
+        );
         let vn = row.try_get_raw(0)?.to_owned();
         let vs = row.try_get_raw(1)?.to_owned();
         let vz = row.try_get_raw(2)?.to_owned();
@@ -92,9 +107,25 @@ async fn it_handles_basic_numeric_and_text_expressions() -> anyhow::Result<()> {
     let mut s = conn.fetch("SELECT 1 AS i, 1.5 AS f, 'hello' AS t");
     let row = s.try_next().await?.expect("row expected");
 
-    assert_eq!(row.column(0).name(), "i");
-    assert_eq!(row.column(1).name(), "f");
-    assert_eq!(row.column(2).name(), "t");
+    // Column names may be uppercase or lowercase depending on the database
+    let col0_name = row.column(0).name();
+    let col1_name = row.column(1).name();
+    let col2_name = row.column(2).name();
+    assert!(
+        col0_name.eq_ignore_ascii_case("i"),
+        "Expected 'i' or 'I', got '{}'",
+        col0_name
+    );
+    assert!(
+        col1_name.eq_ignore_ascii_case("f"),
+        "Expected 'f' or 'F', got '{}'",
+        col1_name
+    );
+    assert!(
+        col2_name.eq_ignore_ascii_case("t"),
+        "Expected 't' or 'T', got '{}'",
+        col2_name
+    );
 
     let i = row.try_get_raw(0)?.to_owned().decode::<i64>();
     let f = row.try_get_raw(1)?.to_owned().decode::<f64>();
@@ -120,7 +151,12 @@ async fn it_can_prepare_then_query_without_params() -> anyhow::Result<()> {
     let mut conn = new::<Odbc>().await?;
     let stmt = (&mut conn).prepare("SELECT 7 AS seven").await?;
     let row = stmt.query().fetch_one(&mut conn).await?;
-    assert_eq!(row.column(0).name(), "seven");
+    let col_name = row.column(0).name();
+    assert!(
+        col_name.eq_ignore_ascii_case("seven"),
+        "Expected 'seven' or 'SEVEN', got '{}'",
+        col_name
+    );
     let v = row.try_get_raw(0)?.to_owned().decode::<i64>();
     assert_eq!(v, 7);
     Ok(())
@@ -140,9 +176,24 @@ async fn it_can_prepare_then_query_with_params_integer_float_text() -> anyhow::R
         .fetch_one(&mut conn)
         .await?;
 
-    assert_eq!(row.column(0).name(), "i");
-    assert_eq!(row.column(1).name(), "f");
-    assert_eq!(row.column(2).name(), "t");
+    let col0_name = row.column(0).name();
+    let col1_name = row.column(1).name();
+    let col2_name = row.column(2).name();
+    assert!(
+        col0_name.eq_ignore_ascii_case("i"),
+        "Expected 'i' or 'I', got '{}'",
+        col0_name
+    );
+    assert!(
+        col1_name.eq_ignore_ascii_case("f"),
+        "Expected 'f' or 'F', got '{}'",
+        col1_name
+    );
+    assert!(
+        col2_name.eq_ignore_ascii_case("t"),
+        "Expected 't' or 'T', got '{}'",
+        col2_name
+    );
     let i = row.try_get_raw(0)?.to_owned().decode::<i64>();
     let f = row.try_get_raw(1)?.to_owned().decode::<f64>();
     let t = row.try_get_raw(2)?.to_owned().decode::<String>();
