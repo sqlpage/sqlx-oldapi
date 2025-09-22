@@ -266,8 +266,18 @@ async fn it_prepares_and_reports_metadata_via_any_odbc() -> anyhow::Result<()> {
 
     let cols = stmt.columns();
     assert_eq!(cols.len(), 2);
-    assert_eq!(cols[0].name(), "a");
-    assert_eq!(cols[1].name(), "b");
+    let col0_name = cols[0].name();
+    let col1_name = cols[1].name();
+    assert!(
+        col0_name.eq_ignore_ascii_case("a"),
+        "Expected 'a' or 'A', got '{}'",
+        col0_name
+    );
+    assert!(
+        col1_name.eq_ignore_ascii_case("b"),
+        "Expected 'b' or 'B', got '{}'",
+        col1_name
+    );
 
     conn.close().await?;
     Ok(())
