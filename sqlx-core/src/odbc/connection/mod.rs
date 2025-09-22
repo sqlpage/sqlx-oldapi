@@ -28,6 +28,17 @@ impl OdbcConnection {
             log_settings: LogSettings::default(),
         })
     }
+
+    /// Returns the name of the actual Database Management System (DBMS) this
+    /// connection is talking to as reported by the ODBC driver.
+    ///
+    /// This calls the underlying ODBC API `SQL_DBMS_NAME` via
+    /// `odbc_api::Connection::database_management_system_name`.
+    ///
+    /// See: https://docs.rs/odbc-api/19.0.1/odbc_api/struct.Connection.html#method.database_management_system_name
+    pub async fn dbms_name(&mut self) -> Result<String, Error> {
+        self.worker.get_dbms_name().await
+    }
 }
 
 impl Connection for OdbcConnection {

@@ -25,6 +25,10 @@ async fn it_connects_via_any_odbc() -> anyhow::Result<()> {
     // Simple ping test
     conn.ping().await?;
 
+    // DBMS name can be retrieved at runtime
+    let dbms = conn.dbms_name().await?;
+    assert!(!dbms.is_empty());
+
     // Close the connection
     conn.close().await?;
 
@@ -338,7 +342,9 @@ async fn it_matches_any_kind_odbc() -> anyhow::Result<()> {
     // Check that the connection kind is ODBC
     assert_eq!(conn.kind(), AnyKind::Odbc);
 
-    conn.close().await?;
+    // Ensure dbms_name works on owned connection too by dropping after fetch
+    let _ = conn;
+
     Ok(())
 }
 

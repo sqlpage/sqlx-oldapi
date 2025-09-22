@@ -53,6 +53,9 @@ enum Command {
         sql: Box<str>,
         tx: PrepareSender,
     },
+    GetDbmsName {
+        tx: oneshot::Sender<Result<String, Error>>,
+    },
 }
 
 impl Drop for ConnectionWorker {
@@ -156,6 +159,11 @@ impl ConnectionWorker {
         )
         .await?
     }
+
+    pub(crate) async fn get_dbms_name(&mut self) -> Result<String, Error> {
+        let (tx, rx) = oneshot::channel();
+        send_command_and_await(&self.command_tx, Command::GetDbmsName { tx }, rx).await?
+    }
 }
 
 // Worker thread implementation
@@ -254,6 +262,7 @@ fn process_command(cmd: Command, conn: &OdbcConnection) -> Option<oneshot::Sende
         Command::Shutdown { tx } => return Some(tx),
         Command::Execute { sql, args, tx } => handle_execute(conn, sql, args, tx),
         Command::Prepare { sql, tx } => handle_prepare(conn, sql, tx),
+        Command::GetDbmsName { tx } => handle_get_dbms_name(conn, tx),
     }
     None
 }
@@ -306,6 +315,13 @@ fn handle_prepare(conn: &OdbcConnection, sql: Box<str>, tx: PrepareSender) {
         Err(e) => Err(Error::from(e)),
     };
 
+    send_result(tx, result);
+}
+
+fn handle_get_dbms_name(conn: &OdbcConnection, tx: oneshot::Sender<Result<String, Error>>) {
+    let result = conn
+        .database_management_system_name()
+        .map_err(|e| Error::Protocol(format!("Failed to get DBMS name: {}", e)));
     send_result(tx, result);
 }
 
