@@ -1,6 +1,6 @@
 use std::thread;
 
-use flume::TrySendError;
+use flume::{SendError, TrySendError};
 use futures_channel::oneshot;
 
 use crate::error::Error;
@@ -203,8 +203,11 @@ fn send_result<T: std::fmt::Debug>(tx: oneshot::Sender<T>, result: T) {
     let _ = tx.send(result);
 }
 
-fn send_stream_result(tx: &ExecuteSender, result: ExecuteResult) {
-    let _ = tx.send(result);
+fn send_stream_result(
+    tx: &ExecuteSender,
+    result: ExecuteResult,
+) -> Result<(), SendError<ExecuteResult>> {
+    tx.send(result)
 }
 
 async fn send_command_and_await<T>(
@@ -349,8 +352,8 @@ where
 {
     match conn.execute(sql, params, None) {
         Ok(Some(mut cursor)) => handle_cursor(&mut cursor, tx),
-        Ok(None) => send_empty_result(tx),
-        Err(e) => send_error(tx, Error::from(e)),
+        Ok(None) => send_empty_result(tx).unwrap_or_default(),
+        Err(e) => send_error(tx, Error::from(e)).unwrap_or_default(),
     }
 }
 
@@ -360,20 +363,19 @@ where
 {
     let columns = collect_columns(cursor);
 
-    if let Err(e) = stream_rows(cursor, &columns, tx) {
-        send_error(tx, e);
-        return;
+    match stream_rows(cursor, &columns, tx) {
+        Ok(true) => send_empty_result(tx).unwrap_or_default(),
+        Ok(false) => {}
+        Err(e) => send_error(tx, e).unwrap_or_default(),
     }
-
-    send_empty_result(tx);
 }
 
-fn send_empty_result(tx: &ExecuteSender) {
-    send_stream_result(tx, Ok(Either::Left(OdbcQueryResult { rows_affected: 0 })));
+fn send_empty_result(tx: &ExecuteSender) -> Result<(), SendError<ExecuteResult>> {
+    send_stream_result(tx, Ok(Either::Left(OdbcQueryResult { rows_affected: 0 })))
 }
 
-fn send_error(tx: &ExecuteSender, error: Error) {
-    send_stream_result(tx, Err(error));
+fn send_error(tx: &ExecuteSender, error: Error) -> Result<(), SendError<ExecuteResult>> {
+    send_stream_result(tx, Err(error))
 }
 
 // Metadata and row processing
@@ -406,10 +408,11 @@ fn decode_column_name(name_bytes: Vec<u8>, index: u16) -> String {
     String::from_utf8(name_bytes).unwrap_or_else(|_| format!("col{}", index - 1))
 }
 
-fn stream_rows<C>(cursor: &mut C, columns: &[OdbcColumn], tx: &ExecuteSender) -> Result<(), Error>
+fn stream_rows<C>(cursor: &mut C, columns: &[OdbcColumn], tx: &ExecuteSender) -> Result<bool, Error>
 where
     C: Cursor,
 {
+    let mut receiver_open = true;
     while let Some(mut row) = cursor.next_row()? {
         let values = collect_row_values(&mut row, columns)?;
         let row_data = OdbcRow {
@@ -418,11 +421,11 @@ where
         };
 
         if tx.send(Ok(Either::Right(row_data))).is_err() {
-            // Receiver dropped, stop processing
+            receiver_open = false;
             break;
         }
     }
-    Ok(())
+    Ok(receiver_open)
 }
 
 fn collect_row_values(
