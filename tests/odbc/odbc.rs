@@ -697,13 +697,23 @@ async fn it_handles_connection_level_errors() -> anyhow::Result<()> {
     let invalid_opts = OdbcConnectOptions::from_str("DSN=DefinitelyNonExistentDataSource_12345")?;
     let result = sqlx_oldapi::odbc::OdbcConnection::connect_with(&invalid_opts).await;
     // This should reliably fail across all ODBC drivers
-    assert!(result.is_err());
+    let err = result.expect_err("should be an error");
+    assert!(
+        matches!(err, sqlx_core::error::Error::Configuration(_)),
+        "{:?} should be a configuration error",
+        err
+    );
 
     // Test with malformed connection string
     let malformed_opts = OdbcConnectOptions::from_str("INVALID_KEY_VALUE_PAIRS;;;")?;
     let result = sqlx_oldapi::odbc::OdbcConnection::connect_with(&malformed_opts).await;
     // This should also reliably fail
-    assert!(result.is_err());
+    let err = result.expect_err("should be an error");
+    assert!(
+        matches!(err, sqlx_core::error::Error::Configuration(_)),
+        "{:?} should be a configuration error",
+        err
+    );
 
     Ok(())
 }
@@ -714,15 +724,30 @@ async fn it_handles_sql_syntax_errors() -> anyhow::Result<()> {
 
     // Test invalid SQL syntax
     let result = conn.execute("INVALID SQL SYNTAX THAT SHOULD FAIL").await;
-    assert!(result.is_err());
+    let err = result.expect_err("should be an error");
+    assert!(
+        matches!(err, sqlx_core::error::Error::Database(_)),
+        "{:?} should be a database error",
+        err
+    );
 
     // Test malformed SELECT
     let result = conn.execute("SELECT FROM WHERE").await;
-    assert!(result.is_err());
+    let err = result.expect_err("should be an error");
+    assert!(
+        matches!(err, sqlx_core::error::Error::Database(_)),
+        "{:?} should be a database error",
+        err
+    );
 
     // Test unclosed quotes
     let result = conn.execute("SELECT 'unclosed string").await;
-    assert!(result.is_err());
+    let err = result.expect_err("should be an error");
+    assert!(
+        matches!(err, sqlx_core::error::Error::Database(_)),
+        "{:?} should be a database error",
+        err
+    );
 
     Ok(())
 }
@@ -737,20 +762,43 @@ async fn it_handles_prepare_statement_errors() -> anyhow::Result<()> {
     // Test executing prepared invalid SQL
     if let Ok(stmt) = (&mut conn).prepare("INVALID PREPARE STATEMENT").await {
         let result = stmt.query().fetch_one(&mut conn).await;
-        assert!(result.is_err());
+        let err = result.expect_err("should be an error");
+        assert!(
+            matches!(err, sqlx_core::error::Error::Database(_)),
+            "{:?} should be a database error",
+            err
+        );
     }
 
     // Test executing prepared SQL with syntax errors
-    if let Ok(stmt) = (&mut conn).prepare("SELECT FROM WHERE 1=1").await {
-        let result = stmt.query().fetch_one(&mut conn).await;
-        assert!(result.is_err());
+    match (&mut conn)
+        .prepare("SELECT idonotexist FROM idonotexist WHERE idonotexist")
+        .await
+    {
+        Ok(stmt) => match stmt.query().fetch_one(&mut conn).await {
+            Ok(_) => panic!("should be an error"),
+            Err(sqlx_oldapi::Error::Database(err)) => {
+                assert!(
+                    err.to_string().contains("idonotexist"),
+                    "{:?} should contain 'idonotexist'",
+                    err
+                );
+            }
+            Err(err) => {
+                panic!("should be a database error, got {:?}", err);
+            }
+        },
+        Err(sqlx_oldapi::Error::Database(err)) => {
+            assert!(
+                err.to_string().contains("idonotexist"),
+                "{:?} should contain 'idonotexist'",
+                err
+            );
+        }
+        Err(err) => {
+            panic!("should be an error, got {:?}", err);
+        }
     }
-
-    // Test with completely malformed SQL that should fail even permissive drivers
-    let result = (&mut conn).prepare("").await;
-    // Empty SQL should generally fail, but if it doesn't, that's also valid ODBC behavior
-    let _ = result;
-
     Ok(())
 }
 
