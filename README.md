@@ -2,6 +2,7 @@
 > sqlx v0.7 broke backwards compatibility with v0.6 in a way that makes it difficult to upgrade.
 > sqlx v0.7 also removed support for Microsoft SQL Server (to sell it as a separate commercial product).
 > This fork is intended to be a drop-in replacement for sqlx v0.6, with the following changes:
+> - Added support for ODBC.
 > - Updated to use the latest versions of dependencies, including
 >    - All missing security updates
 >    - Latest SQLite version
@@ -76,7 +77,7 @@ SQLx is an async, pure Rust<sub>†</sub> SQL crate featuring compile-time check
 
 -   **Compile-time checked queries** (if you want). See [SQLx is not an ORM](#sqlx-is-not-an-orm).
 
--   **Database Agnostic**. Support for [PostgreSQL], [MySQL], [SQLite], and [MSSQL].
+-   **Database Agnostic**. Support for [PostgreSQL], [MySQL], [SQLite], [MSSQL], and [ODBC].
 
 -   **Pure Rust**. The Postgres and MySQL/MariaDB drivers are written in pure Rust using **zero** unsafe<sub>††</sub> code.
 
@@ -96,6 +97,7 @@ with C, those interactions are `unsafe`.
 [sqlite]: https://sqlite.org/
 [mysql]: https://www.mysql.com/
 [mssql]: https://www.microsoft.com/en-us/sql-server
+[odbc]: https://docs.microsoft.com/en-us/sql/odbc/
 
 ---
 
@@ -161,6 +163,8 @@ sqlx-oldapi = { version = "0.6", features = [ "runtime-async-std-native-tls" ] }
 -   `mssql`: Add support for the MSSQL database server.
 
 -   `sqlite`: Add support for the self-contained [SQLite](https://sqlite.org/) database engine.
+
+-   `odbc`: Add support for ODBC database connections.
 
 -   `any`: Add support for the `Any` database driver, which can proxy to a database driver at runtime.
 
@@ -246,6 +250,7 @@ async fn main() -> Result<(), sqlx_oldapi::Error> {
     // Create a connection pool
     //  for MySQL, use MySqlPoolOptions::new()
     //  for SQLite, use SqlitePoolOptions::new()
+    //  for ODBC, use OdbcPoolOptions::new()
     //  etc.
     let pool = PgPoolOptions::new()
         .max_connections(5)
@@ -348,6 +353,81 @@ let mut stream = query_as::<_, User>("SELECT * FROM users WHERE email = ? OR nam
 
 Instead of a stream of results, we can use `fetch_one` or `fetch_optional` to request one required or optional result
 from the database.
+
+### ODBC Setup
+
+ODBC support requires the `odbc` feature and an ODBC driver manager with appropriate drivers installed.
+
+#### Linux Setup
+
+1. Install unixODBC and ODBC drivers:
+
+```bash
+# Ubuntu/Debian
+sudo apt-get update
+sudo apt-get install -y unixodbc odbcinst unixodbc-common libodbcinst2
+
+# Install database-specific drivers
+sudo apt-get install -y odbc-postgresql  # For PostgreSQL
+sudo apt-get install -y libsqliteodbc    # For SQLite
+```
+ODBC drivers are available for most popular databases:
+ - Oracle: https://www.oracle.com/uk/database/technologies/releasenote-odbc-ic.html
+ - Slowflake: https://docs.snowflake.com/en/developer-guide/odbc/odbc
+ - BigQuery: https://cloud.google.com/bigquery/docs/reference/odbc-jdbc-drivers
+ - DB2: https://www.ibm.com/support/pages/db2-odbc-cli-driver-download-and-installation-information
+
+2. Configure your ODBC connection using a DSN (Data Source Name):
+
+```ini
+# ~/.odbc.ini
+[MySnowflakeDb]
+Description=SnowflakeDB for SQLx Testing
+Driver=SnowflakeDSIIDriver
+Locale=en-US
+SERVER=abcxyz-hh12345.snowflakecomputing.com
+Database=testdb
+PORT=443
+SSL=on
+ACCOUNT=abcxyz-hh12345
+uid=test
+pwd=ab_XY.1234567=-
+schema=public
+```
+
+3. Test your connection:
+
+```bash
+echo "SELECT 1;" | isql -v MyDatabase
+```
+
+#### Windows Setup
+
+1. Install ODBC drivers for your database (usually included with database client software)
+2. Configure DSN through ODBC Data Source Administrator
+3. Use the DSN name in your connection string
+
+#### Connection Examples
+
+```rust
+use sqlx_oldapi::odbc::OdbcPoolOptions;
+
+// Using DSN
+let pool = OdbcPoolOptions::new()
+    .max_connections(5)
+    .connect("DSN=MyDatabase").await?;
+
+// Using connection string
+let pool = OdbcPoolOptions::new()
+    .max_connections(5)
+    .connect("Driver={PostgreSQL Unicode};Server=localhost;Port=5432;Database=mydb;UID=myuser;PWD=mypassword").await?;
+
+// Using Any driver (automatically detects ODBC)
+use sqlx_oldapi::any::AnyPoolOptions;
+let pool = AnyPoolOptions::new()
+    .max_connections(5)
+    .connect("DSN=MyDatabase").await?;
+```
 
 ### Compile-time verification
 

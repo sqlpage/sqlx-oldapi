@@ -28,9 +28,9 @@ license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/lovasoa/sqlx"
 documentation = "https://docs.rs/sqlx"
-description = "🧰 The Rust SQL Toolkit. An async, pure Rust SQL crate featuring compile-time checked queries without a DSL. Supports PostgreSQL, MySQL, and SQLite."
+description = "🧰 The Rust SQL Toolkit. An async, pure Rust SQL crate featuring compile-time checked queries without a DSL. Supports PostgreSQL, MySQL, SQLite, MSSQL, and ODBC."
 edition = "2021"
-keywords = ["async", "postgres", "mysql", "sqlite", "mssql"]
+keywords = ["async", "postgres", "mysql", "sqlite", "mssql", "odbc"]
 categories = ["database", "asynchronous"]
 authors = [
     "Ryan Leckey <leckey.ryan@gmail.com>",
