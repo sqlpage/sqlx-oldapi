@@ -33,6 +33,7 @@ pub(crate) struct ConnectionWorker {
     join_handle: Option<thread::JoinHandle<()>>,
 }
 
+#[derive(Debug)]
 enum Command {
     Ping {
         tx: oneshot::Sender<()>,
@@ -194,12 +195,19 @@ fn worker_thread_main(
 
     // Process commands
     while let Ok(cmd) = command_rx.recv() {
-        if let Some(shutdown_tx) = process_command(cmd, &conn, &mut stmt_manager) {
-            log::debug!("Shutting down ODBC worker thread");
-            drop(stmt_manager);
-            drop(conn);
-            let _ = shutdown_tx.send(());
-            break;
+        log::trace!("Processing command: {:?}", cmd);
+        match process_command(cmd, &conn, &mut stmt_manager) {
+            Ok(CommandControlFlow::Continue) => {}
+            Ok(CommandControlFlow::Shutdown(shutdown_tx)) => {
+                log::debug!("Shutting down ODBC worker thread");
+                drop(stmt_manager);
+                drop(conn);
+                send_oneshot(shutdown_tx, (), "shutdown");
+                break;
+            }
+            Err(()) => {
+                log::error!("ODBC worker error while processing command");
+            }
         }
     }
     // Channel disconnected or shutdown command received, worker thread exits
@@ -270,9 +278,11 @@ impl<'conn> StatementManager<'conn> {
         }
     }
 }
-// Utility functions for channel operations (deprecated - use send_result_safe)
-fn send_result<T: std::fmt::Debug>(tx: oneshot::Sender<T>, result: T) {
-    send_result_safe(tx, result, "unknown");
+// Helper function to send results through oneshot channels with consistent error handling
+fn send_oneshot<T>(tx: oneshot::Sender<T>, result: T, operation: &str) {
+    if tx.send(result).is_err() {
+        log::warn!("Failed to send {} result: receiver dropped", operation);
+    }
 }
 
 fn send_stream_result(
@@ -312,59 +322,105 @@ fn execute_transaction_operation<F>(
 where
     F: FnOnce(&OdbcConnection) -> Result<(), odbc_api::Error>,
 {
+    log::trace!("{} odbc transaction", operation_name);
     operation(conn)
         .map_err(|e| Error::Protocol(format!("Failed to {} transaction: {}", operation_name, e)))
 }
+
+#[derive(Debug)]
+enum CommandControlFlow {
+    Shutdown(oneshot::Sender<()>),
+    Continue,
+}
+
+type CommandResult = Result<CommandControlFlow, ()>;
 
 // Returns a shutdown tx if the command is a shutdown command
 fn process_command<'conn>(
     cmd: Command,
     conn: &'conn OdbcConnection,
     stmt_manager: &mut StatementManager<'conn>,
-) -> Option<oneshot::Sender<()>> {
+) -> CommandResult {
     match cmd {
         Command::Ping { tx } => handle_ping(conn, tx),
         Command::Begin { tx } => handle_begin(conn, tx),
         Command::Commit { tx } => handle_commit(conn, tx),
         Command::Rollback { tx } => handle_rollback(conn, tx),
-        Command::Shutdown { tx } => return Some(tx),
+        Command::Shutdown { tx } => Ok(CommandControlFlow::Shutdown(tx)),
         Command::Execute { sql, args, tx } => handle_execute(stmt_manager, sql, args, tx),
         Command::Prepare { sql, tx } => handle_prepare(stmt_manager, sql, tx),
         Command::GetDbmsName { tx } => handle_get_dbms_name(conn, tx),
     }
-    None
 }
 
 // Command handlers
-fn handle_ping(conn: &OdbcConnection, tx: oneshot::Sender<()>) {
-    let _ = conn.execute("SELECT 1", (), None);
-    send_result(tx, ());
+fn handle_ping(conn: &OdbcConnection, tx: oneshot::Sender<()>) -> CommandResult {
+    match conn.execute("SELECT 1", (), None) {
+        Ok(_) => send_oneshot(tx, (), "ping"),
+        Err(e) => log::error!("Ping failed: {}", e),
+    }
+    Ok(CommandControlFlow::Continue)
 }
 
-fn handle_begin(conn: &OdbcConnection, tx: TransactionSender) {
-    log::debug!("Beginning transaction");
+fn handle_begin(conn: &OdbcConnection, tx: TransactionSender) -> CommandResult {
     let result = execute_transaction_operation(conn, |c| c.set_autocommit(false), "begin");
-    send_result_safe(tx, result, "begin transaction");
+    send_oneshot(tx, result, "begin transaction");
+    Ok(CommandControlFlow::Continue)
 }
 
-fn handle_commit(conn: &OdbcConnection, tx: TransactionSender) {
-    log::debug!("Committing transaction");
+fn handle_commit(conn: &OdbcConnection, tx: TransactionSender) -> CommandResult {
     let result = execute_transaction_operation(
         conn,
         |c| c.commit().and_then(|_| c.set_autocommit(true)),
         "commit",
     );
-    send_result_safe(tx, result, "commit transaction");
+    send_oneshot(tx, result, "commit transaction");
+    Ok(CommandControlFlow::Continue)
 }
 
-fn handle_rollback(conn: &OdbcConnection, tx: TransactionSender) {
-    log::debug!("Rolling back transaction");
+fn handle_rollback(conn: &OdbcConnection, tx: TransactionSender) -> CommandResult {
     let result = execute_transaction_operation(
         conn,
         |c| c.rollback().and_then(|_| c.set_autocommit(true)),
         "rollback",
     );
-    send_result_safe(tx, result, "rollback transaction");
+    send_oneshot(tx, result, "rollback transaction");
+    Ok(CommandControlFlow::Continue)
+}
+fn handle_prepare<'conn>(
+    stmt_manager: &mut StatementManager<'conn>,
+    sql: Box<str>,
+    tx: PrepareSender,
+) -> CommandResult {
+    let result = do_prepare(stmt_manager, sql);
+    send_oneshot(tx, result, "prepare");
+    Ok(CommandControlFlow::Continue)
+}
+
+fn do_prepare<'conn>(stmt_manager: &mut StatementManager<'conn>, sql: Box<str>) -> PrepareResult {
+    log::trace!("Preparing statement: {}", sql);
+    // Use the statement manager to get or create the prepared statement
+    let prepared = stmt_manager.get_or_create_prepared(&sql)?;
+    let columns = collect_columns(prepared);
+    let params = usize::from(prepared.num_params().unwrap_or(0));
+    log::debug!(
+        "Prepared statement with {} columns and {} parameters",
+        columns.len(),
+        params
+    );
+    Ok((0, columns, params))
+}
+
+fn handle_get_dbms_name(
+    conn: &OdbcConnection,
+    tx: oneshot::Sender<Result<String, Error>>,
+) -> CommandResult {
+    log::debug!("Getting DBMS name");
+    let result = conn
+        .database_management_system_name()
+        .map_err(|e| Error::Protocol(format!("Failed to get DBMS name: {}", e)));
+    send_oneshot(tx, result, "DBMS name");
+    Ok(CommandControlFlow::Continue)
 }
 
 fn handle_execute<'conn>(
@@ -372,44 +428,15 @@ fn handle_execute<'conn>(
     sql: Box<str>,
     args: Option<OdbcArguments>,
     tx: ExecuteSender,
-) {
-    execute_sql(stmt_manager, &sql, args, &tx);
-}
-
-fn handle_prepare<'conn>(
-    stmt_manager: &mut StatementManager<'conn>,
-    sql: Box<str>,
-    tx: PrepareSender,
-) {
+) -> CommandResult {
     log::debug!(
-        "Preparing statement: {}",
+        "Executing SQL: {}",
         sql.chars().take(100).collect::<String>()
     );
 
-    // Use the statement manager to get or create the prepared statement
-    let result = match stmt_manager.get_or_create_prepared(&sql) {
-        Ok(prepared) => {
-            let columns = collect_columns(prepared);
-            let params = prepared.num_params().unwrap_or(0) as usize;
-            log::debug!(
-                "Prepared statement with {} columns and {} parameters",
-                columns.len(),
-                params
-            );
-            Ok((0, columns, params))
-        }
-        Err(e) => Err(e),
-    };
-
-    send_result_safe(tx, result, "prepare statement");
-}
-
-fn handle_get_dbms_name(conn: &OdbcConnection, tx: oneshot::Sender<Result<String, Error>>) {
-    log::debug!("Getting DBMS name");
-    let result = conn
-        .database_management_system_name()
-        .map_err(|e| Error::Protocol(format!("Failed to get DBMS name: {}", e)));
-    send_result_safe(tx, result, "get DBMS name");
+    let result = execute_sql(stmt_manager, &sql, args, &tx);
+    with_result_send_error(result, &tx, |_| {});
+    Ok(CommandControlFlow::Continue)
 }
 
 // SQL execution functions
@@ -418,45 +445,18 @@ fn execute_sql<'conn>(
     sql: &str,
     args: Option<OdbcArguments>,
     tx: &ExecuteSender,
-) {
-    let params = prepare_parameters(args);
-    let has_params = !params.is_empty();
-
-    let result = if has_params {
-        execute_with_prepared_statement(stmt_manager, sql, &params[..], tx)
-    } else {
-        execute_with_direct_statement(stmt_manager, sql, tx)
-    };
-
-    if let Err(e) = result {
-        let _ = send_error(tx, e);
-    }
-}
-
-fn execute_with_direct_statement<'conn>(
-    stmt_manager: &mut StatementManager<'conn>,
-    sql: &str,
-    tx: &ExecuteSender,
 ) -> Result<(), Error> {
+    let params = prepare_parameters(args);
     let stmt = stmt_manager.get_or_create_direct_stmt()?;
-    execute_statement(stmt.execute(sql, ()), tx)
-}
-
-fn execute_with_prepared_statement<'conn, P>(
-    stmt_manager: &mut StatementManager<'conn>,
-    sql: &str,
-    params: P,
-    tx: &ExecuteSender,
-) -> Result<(), Error>
-where
-    P: odbc_api::ParameterCollectionRef,
-{
-    let prepared = stmt_manager.get_or_create_prepared(sql)?;
-    execute_statement(prepared.execute(params), tx)
+    log::trace!("Starting execution of SQL: {}", sql);
+    let cursor_result = stmt.execute(sql, &params[..]);
+    log::trace!("Received cursor result for SQL: {}", sql);
+    send_exec_result(cursor_result, tx)?;
+    Ok(())
 }
 
 // Unified execution logic for both direct and prepared statements
-fn execute_statement<C>(
+fn send_exec_result<C>(
     execution_result: Result<Option<C>, odbc_api::Error>,
     tx: &ExecuteSender,
 ) -> Result<(), Error>
@@ -509,7 +509,7 @@ where
             log::trace!("Row streaming stopped early (receiver closed)");
         }
         Err(e) => {
-            let _ = send_error(tx, e);
+            send_error(tx, e);
         }
     }
 }
@@ -519,19 +519,25 @@ fn send_done(tx: &ExecuteSender, rows_affected: u64) -> Result<(), SendError<Exe
     send_stream_result(tx, Ok(Either::Left(OdbcQueryResult { rows_affected })))
 }
 
-fn send_error(tx: &ExecuteSender, error: Error) -> Result<(), SendError<ExecuteResult>> {
-    send_stream_result(tx, Err(error))
+fn with_result_send_error<T>(
+    result: Result<T, Error>,
+    tx: &ExecuteSender,
+    handler: impl FnOnce(T),
+) {
+    match result {
+        Ok(result) => handler(result),
+        Err(error) => send_error(tx, error),
+    }
+}
+
+fn send_error(tx: &ExecuteSender, error: Error) {
+    if let Err(e) = send_stream_result(tx, Err(error)) {
+        log::error!("Failed to send error from ODBC worker thread: {}", e);
+    }
 }
 
 fn send_row(tx: &ExecuteSender, row: OdbcRow) -> Result<(), SendError<ExecuteResult>> {
     send_stream_result(tx, Ok(Either::Right(row)))
-}
-
-// Helper function for safe result sending with logging
-fn send_result_safe<T: std::fmt::Debug>(tx: oneshot::Sender<T>, result: T, operation: &str) {
-    if tx.send(result).is_err() {
-        log::warn!("Failed to send {} result: receiver dropped", operation);
-    }
 }
 
 // Metadata and row processing

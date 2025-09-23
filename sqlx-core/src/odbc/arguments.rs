@@ -3,7 +3,7 @@ use crate::encode::Encode;
 use crate::odbc::Odbc;
 use crate::types::Type;
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct OdbcArguments {
     pub(crate) values: Vec<OdbcArgumentValue>,
 }
