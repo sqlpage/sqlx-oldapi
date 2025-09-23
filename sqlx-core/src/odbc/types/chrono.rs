@@ -2,8 +2,8 @@ use crate::decode::Decode;
 use crate::encode::Encode;
 use crate::error::BoxDynError;
 use crate::odbc::{DataTypeExt, Odbc, OdbcArgumentValue, OdbcTypeInfo, OdbcValueRef};
-use crate::types::Type;
 use crate::type_info::TypeInfo;
+use crate::types::Type;
 use chrono::{DateTime, FixedOffset, Local, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use odbc_api::DataType;
 
@@ -255,7 +255,9 @@ impl<'r> Decode<'r, Odbc> for NaiveTime {
             s = s.trim_end_matches('\u{0}').to_string();
         }
         let s_trimmed = s.trim();
-        Ok(s_trimmed.parse().map_err(|e| format!("ODBC: cannot decode NaiveTime from '{}': {}", s_trimmed, e))?)
+        Ok(s_trimmed
+            .parse()
+            .map_err(|e| format!("ODBC: cannot decode NaiveTime from '{}': {}", s_trimmed, e))?)
     }
 }
 
@@ -272,9 +274,12 @@ impl<'r> Decode<'r, Odbc> for NaiveDateTime {
         if let Ok(dt) = NaiveDateTime::parse_from_str(s_trimmed, "%Y-%m-%d %H:%M:%S") {
             return Ok(dt);
         }
-        Ok(s_trimmed
-            .parse()
-            .map_err(|e| format!("ODBC: cannot decode NaiveDateTime from '{}': {}", s_trimmed, e))?)
+        Ok(s_trimmed.parse().map_err(|e| {
+            format!(
+                "ODBC: cannot decode NaiveDateTime from '{}': {}",
+                s_trimmed, e
+            )
+        })?)
     }
 }
 
@@ -328,7 +333,11 @@ impl<'r> Decode<'r, Odbc> for DateTime<FixedOffset> {
             return Ok(DateTime::<Utc>::from_naive_utc_and_offset(naive_dt, Utc).fixed_offset());
         }
 
-        Err(format!("ODBC: cannot decode DateTime<FixedOffset> from '{}'", s_trimmed).into())
+        Err(format!(
+            "ODBC: cannot decode DateTime<FixedOffset> from '{}'",
+            s_trimmed
+        )
+        .into())
     }
 }
 
@@ -341,7 +350,12 @@ impl<'r> Decode<'r, Odbc> for DateTime<Local> {
         let s_trimmed = s.trim();
         Ok(s_trimmed
             .parse::<DateTime<Utc>>()
-            .map_err(|e| format!("ODBC: cannot decode DateTime<Local> from '{}' as DateTime<Utc>: {}", s_trimmed, e))?
+            .map_err(|e| {
+                format!(
+                    "ODBC: cannot decode DateTime<Local> from '{}' as DateTime<Utc>: {}",
+                    s_trimmed, e
+                )
+            })?
             .with_timezone(&Local))
     }
 }

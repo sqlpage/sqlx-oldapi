@@ -231,7 +231,6 @@ SELECT id, mood FROM people WHERE id = $1
     let mut conn = new::<Postgres>().await?;
 
     let stmt = format!("SELECT id, mood FROM people WHERE id = {}", people_id);
-    dbg!(&stmt);
 
     let mut cursor = conn.fetch(&*stmt);
 

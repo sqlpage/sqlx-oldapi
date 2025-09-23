@@ -12,11 +12,14 @@ pub struct OdbcValueRef<'r> {
     pub(crate) float: Option<f64>,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct OdbcValue {
     pub(crate) type_info: OdbcTypeInfo,
     pub(crate) is_null: bool,
-    pub(crate) data: Vec<u8>,
+    pub(crate) text: Option<String>,
+    pub(crate) blob: Option<Vec<u8>>,
+    pub(crate) int: Option<i64>,
+    pub(crate) float: Option<f64>,
 }
 
 impl<'r> ValueRef<'r> for OdbcValueRef<'r> {
@@ -26,7 +29,10 @@ impl<'r> ValueRef<'r> for OdbcValueRef<'r> {
         OdbcValue {
             type_info: self.type_info.clone(),
             is_null: self.is_null,
-            data: self.blob.unwrap_or(&[]).to_vec(),
+            text: self.text.map(|s| s.to_string()),
+            blob: self.blob.map(|b| b.to_vec()),
+            int: self.int,
+            float: self.float,
         }
     }
 
@@ -45,10 +51,10 @@ impl Value for OdbcValue {
         OdbcValueRef {
             type_info: self.type_info.clone(),
             is_null: self.is_null,
-            text: None,
-            blob: Some(&self.data),
-            int: None,
-            float: None,
+            text: self.text.as_deref(),
+            blob: self.blob.as_deref(),
+            int: self.int,
+            float: self.float,
         }
     }
 

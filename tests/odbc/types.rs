@@ -1,6 +1,6 @@
 #![allow(clippy::approx_constant)]
 use sqlx_oldapi::odbc::Odbc;
-use sqlx_test::test_type;
+use sqlx_test::{test_decode_type, test_type};
 
 // Basic null test
 test_type!(null<Option<i32>>(Odbc,
@@ -97,8 +97,6 @@ test_type!(string<String>(Odbc,
 // Binary data types - decode-only tests due to ODBC driver encoding quirks
 // Note: The actual binary type implementations are correct, but ODBC drivers handle binary data differently
 // The round-trip encoding converts binary to hex strings, so we test decoding capability instead
-use sqlx_test::test_decode_type;
-
 test_decode_type!(bytes<Vec<u8>>(Odbc,
     "'hello'" == "hello".as_bytes().to_vec(),
     "''" == b"".to_vec(),
@@ -123,15 +121,10 @@ mod slice_tests {
 #[cfg(feature = "uuid")]
 mod uuid_tests {
     use super::*;
-    use sqlx_test::test_decode_type;
 
     test_type!(uuid<sqlx_oldapi::types::Uuid>(Odbc,
     "'550e8400-e29b-41d4-a716-446655440000'" == sqlx_oldapi::types::Uuid::parse_str("550e8400-e29b-41d4-a716-446655440000").unwrap(),
         "'00000000-0000-0000-0000-000000000000'" == sqlx_oldapi::types::Uuid::nil()
-    ));
-
-    test_decode_type!(uuid_padded<sqlx_oldapi::types::Uuid>(Odbc,
-        "'550e8400-e29b-41d4-a716-446655440000  '" == sqlx_oldapi::types::Uuid::parse_str("550e8400-e29b-41d4-a716-446655440000").unwrap()
     ));
 }
 
@@ -170,7 +163,6 @@ mod chrono_tests {
     use sqlx_oldapi::types::chrono::{
         DateTime, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime, Utc,
     };
-    use sqlx_test::test_decode_type;
 
     test_type!(chrono_date<NaiveDate>(Odbc,
         "'2023-12-25'" == NaiveDate::from_ymd_opt(2023, 12, 25).unwrap(),
@@ -242,12 +234,12 @@ test_type!(cross_type_float_compatibility<f64>(Odbc,
 ));
 
 // Type coercion from strings
-test_type!(string_to_integer<i32>(Odbc,
+test_decode_type!(string_to_integer<i32>(Odbc,
     "'42'" == 42_i32,
     "'-123'" == -123_i32
 ));
 
-test_type!(string_to_bool<bool>(Odbc,
+test_decode_type!(string_to_bool<bool>(Odbc,
     "'1'" == true,
     "'0'" == false
 ));

@@ -444,7 +444,11 @@ async fn it_handles_binary_data() -> anyhow::Result<()> {
     // Test binary data - use UTF-8 safe bytes for PostgreSQL compatibility
     let binary_data = b"ABCDE";
     let stmt = (&mut conn).prepare("SELECT ? AS binary_data").await?;
-    let row = stmt.query().bind(&binary_data[..]).fetch_one(&mut conn).await?;
+    let row = stmt
+        .query()
+        .bind(&binary_data[..])
+        .fetch_one(&mut conn)
+        .await?;
 
     let result = row.try_get_raw(0)?.to_owned().decode::<Vec<u8>>();
     assert_eq!(result, binary_data);

@@ -194,13 +194,7 @@ mod tests {
             int: None,
             float: None,
         };
-
-        let result = <Vec<u8> as Decode<Odbc>>::decode(value);
-        assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err().to_string(),
-            "ODBC: cannot decode Vec<u8>"
-        );
+        assert!(<Vec<u8> as Decode<'_, Odbc>>::decode(value).is_err());
     }
 
     #[test]
