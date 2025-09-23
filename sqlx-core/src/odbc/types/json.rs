@@ -44,7 +44,7 @@ impl<'r> Decode<'r, Odbc> for Value {
         } else if let Some(f) = value.float {
             Ok(serde_json::Value::from(f))
         } else {
-            Err(serde_json::Error::custom("not a valid json type").into())
+            Err(serde_json::Error::custom("not a valid json type"))
         }
         .map_err(|e| format!("ODBC: cannot decode JSON from {:?}: {}", value, e).into())
     }

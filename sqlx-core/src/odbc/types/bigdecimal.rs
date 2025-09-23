@@ -43,7 +43,7 @@ impl<'r> Decode<'r, Odbc> for BigDecimal {
             return Ok(BigDecimal::from_f64(float).ok_or(format!("bad float: {}", float))?);
         }
         if let Some(text) = value.text {
-            return Ok(BigDecimal::from_str(&text).map_err(|e| format!("bad decimal text: {}", e))?);
+            return Ok(BigDecimal::from_str(text).map_err(|e| format!("bad decimal text: {}", e))?);
         }
         if let Some(bytes) = value.blob {
             return Ok(BigDecimal::parse_bytes(bytes, 10)
