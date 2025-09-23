@@ -43,7 +43,12 @@ async fn it_has_chrono() -> anyhow::Result<()> {
     use sqlx_oldapi::types::chrono::NaiveDate;
     assert_eq!(
         NaiveDate::from_ymd_opt(2020, 1, 2).unwrap(),
-        get_val::<NaiveDate>("CAST('2020-01-02' AS DATE)").await?
+        get_val::<NaiveDate>(if cfg!(feature = "sqlite") {
+            "'2020-01-02'" // SQLite does not have a DATE type
+        } else {
+            "CAST('2020-01-02' AS DATE)"
+        })
+        .await?
     );
     Ok(())
 }
