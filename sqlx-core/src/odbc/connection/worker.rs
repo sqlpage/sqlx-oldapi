@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::thread;
 
 use flume::{SendError, TrySendError};
@@ -13,7 +14,8 @@ use crate::row::Row as SqlxRow;
 use either::Either;
 #[allow(unused_imports)]
 use odbc_api::handles::Statement as OdbcStatementTrait;
-use odbc_api::{Cursor, CursorRow, IntoParameter, ResultSetMetadata};
+use odbc_api::handles::StatementImpl;
+use odbc_api::{Cursor, CursorRow, IntoParameter, Preallocated, ResultSetMetadata};
 
 // Type aliases for commonly used types
 type OdbcConnection = odbc_api::Connection<'static>;
@@ -177,6 +179,7 @@ fn worker_thread_main(
     // Establish connection
     let conn = match establish_connection(&options) {
         Ok(conn) => {
+            log::debug!("ODBC connection established successfully");
             let _ = conn_tx.send(Ok(()));
             conn
         }
@@ -185,9 +188,14 @@ fn worker_thread_main(
             return;
         }
     };
+
+    let mut stmt_manager = StatementManager::new();
+
     // Process commands
     while let Ok(cmd) = command_rx.recv() {
-        if let Some(shutdown_tx) = process_command(cmd, &conn) {
+        if let Some(shutdown_tx) = process_command(cmd, &conn, &mut stmt_manager) {
+            log::debug!("Shutting down ODBC worker thread");
+            drop(stmt_manager);
             drop(conn);
             let _ = shutdown_tx.send(());
             break;
@@ -208,9 +216,57 @@ fn establish_connection(options: &OdbcConnectOptions) -> Result<OdbcConnection, 
     Ok(conn)
 }
 
-// Utility functions for channel operations
+/// Statement manager to handle preallocated statements
+struct StatementManager<'conn> {
+    // Reusable statement for direct execution
+    direct_stmt: Option<Preallocated<StatementImpl<'conn>>>,
+    // Cache of prepared statements by SQL hash
+    prepared_cache: HashMap<u64, odbc_api::Prepared<StatementImpl<'conn>>>,
+}
+
+impl<'conn> StatementManager<'conn> {
+    fn new() -> Self {
+        log::debug!("Creating new statement manager");
+        Self {
+            direct_stmt: None,
+            prepared_cache: HashMap::new(),
+        }
+    }
+
+    fn get_or_create_direct_stmt(
+        &mut self,
+        conn: &'conn OdbcConnection,
+    ) -> Result<&mut Preallocated<StatementImpl<'conn>>, Error> {
+        if self.direct_stmt.is_none() {
+            log::debug!("Preallocating ODBC direct statement");
+            self.direct_stmt = Some(conn.preallocate().map_err(Error::from)?);
+        }
+        Ok(self.direct_stmt.as_mut().unwrap())
+    }
+
+    fn get_or_create_prepared(
+        &mut self,
+        conn: &'conn OdbcConnection,
+        sql: &str,
+    ) -> Result<&mut odbc_api::Prepared<StatementImpl<'conn>>, Error> {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+
+        let mut hasher = DefaultHasher::new();
+        sql.hash(&mut hasher);
+        let sql_hash = hasher.finish();
+
+        if let std::collections::hash_map::Entry::Vacant(e) = self.prepared_cache.entry(sql_hash) {
+            log::debug!("Preparing statement for SQL hash: {}", sql_hash);
+            let prepared = conn.prepare(sql).map_err(Error::from)?;
+            e.insert(prepared);
+        }
+        Ok(self.prepared_cache.get_mut(&sql_hash).unwrap())
+    }
+}
+// Utility functions for channel operations (deprecated - use send_result_safe)
 fn send_result<T: std::fmt::Debug>(tx: oneshot::Sender<T>, result: T) {
-    let _ = tx.send(result);
+    send_result_safe(tx, result, "unknown");
 }
 
 fn send_stream_result(
@@ -255,15 +311,19 @@ where
 }
 
 // Returns a shutdown tx if the command is a shutdown command
-fn process_command(cmd: Command, conn: &OdbcConnection) -> Option<oneshot::Sender<()>> {
+fn process_command<'conn>(
+    cmd: Command,
+    conn: &'conn OdbcConnection,
+    stmt_manager: &mut StatementManager<'conn>,
+) -> Option<oneshot::Sender<()>> {
     match cmd {
         Command::Ping { tx } => handle_ping(conn, tx),
         Command::Begin { tx } => handle_begin(conn, tx),
         Command::Commit { tx } => handle_commit(conn, tx),
         Command::Rollback { tx } => handle_rollback(conn, tx),
         Command::Shutdown { tx } => return Some(tx),
-        Command::Execute { sql, args, tx } => handle_execute(conn, sql, args, tx),
-        Command::Prepare { sql, tx } => handle_prepare(conn, sql, tx),
+        Command::Execute { sql, args, tx } => handle_execute(conn, stmt_manager, sql, args, tx),
+        Command::Prepare { sql, tx } => handle_prepare(conn, stmt_manager, sql, tx),
         Command::GetDbmsName { tx } => handle_get_dbms_name(conn, tx),
     }
     None
@@ -276,73 +336,142 @@ fn handle_ping(conn: &OdbcConnection, tx: oneshot::Sender<()>) {
 }
 
 fn handle_begin(conn: &OdbcConnection, tx: TransactionSender) {
+    log::debug!("Beginning transaction");
     let result = execute_transaction_operation(conn, |c| c.set_autocommit(false), "begin");
-    send_result(tx, result);
+    send_result_safe(tx, result, "begin transaction");
 }
 
 fn handle_commit(conn: &OdbcConnection, tx: TransactionSender) {
+    log::debug!("Committing transaction");
     let result = execute_transaction_operation(
         conn,
         |c| c.commit().and_then(|_| c.set_autocommit(true)),
         "commit",
     );
-    send_result(tx, result);
+    send_result_safe(tx, result, "commit transaction");
 }
 
 fn handle_rollback(conn: &OdbcConnection, tx: TransactionSender) {
+    log::debug!("Rolling back transaction");
     let result = execute_transaction_operation(
         conn,
         |c| c.rollback().and_then(|_| c.set_autocommit(true)),
         "rollback",
     );
-    send_result(tx, result);
+    send_result_safe(tx, result, "rollback transaction");
 }
 
-fn handle_execute(
-    conn: &OdbcConnection,
+fn handle_execute<'conn>(
+    conn: &'conn OdbcConnection,
+    stmt_manager: &mut StatementManager<'conn>,
     sql: Box<str>,
     args: Option<OdbcArguments>,
     tx: ExecuteSender,
 ) {
-    execute_sql(conn, &sql, args, &tx);
+    execute_sql(conn, stmt_manager, &sql, args, &tx);
 }
 
-fn handle_prepare(conn: &OdbcConnection, sql: Box<str>, tx: PrepareSender) {
-    let result = match conn.prepare(&sql) {
-        Ok(mut prepared) => {
-            let columns = collect_columns(&mut prepared);
+fn handle_prepare<'conn>(
+    conn: &'conn OdbcConnection,
+    stmt_manager: &mut StatementManager<'conn>,
+    sql: Box<str>,
+    tx: PrepareSender,
+) {
+    log::debug!(
+        "Preparing statement: {}",
+        sql.chars().take(100).collect::<String>()
+    );
+
+    // Use the statement manager to get or create the prepared statement
+    let result = match stmt_manager.get_or_create_prepared(conn, &sql) {
+        Ok(prepared) => {
+            let columns = collect_columns(prepared);
             let params = prepared.num_params().unwrap_or(0) as usize;
+            log::debug!(
+                "Prepared statement with {} columns and {} parameters",
+                columns.len(),
+                params
+            );
             Ok((0, columns, params))
         }
-        Err(e) => Err(Error::from(e)),
+        Err(e) => Err(e),
     };
 
-    send_result(tx, result);
+    send_result_safe(tx, result, "prepare statement");
 }
 
 fn handle_get_dbms_name(conn: &OdbcConnection, tx: oneshot::Sender<Result<String, Error>>) {
+    log::debug!("Getting DBMS name");
     let result = conn
         .database_management_system_name()
         .map_err(|e| Error::Protocol(format!("Failed to get DBMS name: {}", e)));
-    send_result(tx, result);
-}
-
-// Helper functions
-fn execute_simple(conn: &OdbcConnection, sql: &str) -> Result<(), Error> {
-    match conn.execute(sql, (), None) {
-        Ok(_) => Ok(()),
-        Err(e) => Err(Error::Configuration(e.to_string().into())),
-    }
+    send_result_safe(tx, result, "get DBMS name");
 }
 
 // SQL execution functions
-fn execute_sql(conn: &OdbcConnection, sql: &str, args: Option<OdbcArguments>, tx: &ExecuteSender) {
+fn execute_sql<'conn>(
+    conn: &'conn OdbcConnection,
+    stmt_manager: &mut StatementManager<'conn>,
+    sql: &str,
+    args: Option<OdbcArguments>,
+    tx: &ExecuteSender,
+) {
     let params = prepare_parameters(args);
+    let has_params = !params.is_empty();
 
-    if params.is_empty() {
-        dispatch_execute_direct(conn, sql, tx);
+    let result = if has_params {
+        execute_with_prepared_statement(conn, stmt_manager, sql, &params[..], tx)
     } else {
-        dispatch_execute_prepared(conn, sql, &params[..], tx);
+        execute_with_direct_statement(conn, stmt_manager, sql, tx)
+    };
+
+    if let Err(e) = result {
+        let _ = send_error(tx, e);
+    }
+}
+
+fn execute_with_direct_statement<'conn>(
+    conn: &'conn OdbcConnection,
+    stmt_manager: &mut StatementManager<'conn>,
+    sql: &str,
+    tx: &ExecuteSender,
+) -> Result<(), Error> {
+    let stmt = stmt_manager.get_or_create_direct_stmt(conn)?;
+    execute_statement(stmt.execute(sql, ()), tx)
+}
+
+fn execute_with_prepared_statement<'conn, P>(
+    conn: &'conn OdbcConnection,
+    stmt_manager: &mut StatementManager<'conn>,
+    sql: &str,
+    params: P,
+    tx: &ExecuteSender,
+) -> Result<(), Error>
+where
+    P: odbc_api::ParameterCollectionRef,
+{
+    let prepared = stmt_manager.get_or_create_prepared(conn, sql)?;
+    execute_statement(prepared.execute(params), tx)
+}
+
+// Unified execution logic for both direct and prepared statements
+fn execute_statement<C>(
+    execution_result: Result<Option<C>, odbc_api::Error>,
+    tx: &ExecuteSender,
+) -> Result<(), Error>
+where
+    C: Cursor + ResultSetMetadata,
+{
+    match execution_result {
+        Ok(Some(mut cursor)) => {
+            handle_cursor(&mut cursor, tx);
+            Ok(())
+        }
+        Ok(None) => {
+            let _ = send_done(tx, 0);
+            Ok(())
+        }
+        Err(e) => Err(Error::from(e)),
     }
 }
 
@@ -363,95 +492,45 @@ fn to_param(arg: OdbcArgumentValue) -> Box<dyn odbc_api::parameter::InputParamet
     }
 }
 
-// Dispatch functions
-fn dispatch_execute_direct(conn: &OdbcConnection, sql: &str, tx: &ExecuteSender) {
-    match conn.preallocate() {
-        Ok(mut stmt) => {
-            let mut sent = false;
-            {
-                let res = stmt.execute(sql, ());
-                match res {
-                    Ok(Some(mut cursor)) => {
-                        handle_cursor(&mut cursor, tx);
-                        sent = true;
-                    }
-                    Ok(None) => {
-                        // drop res and then read row_count below
-                    }
-                    Err(e) => {
-                        let _ = send_error(tx, Error::from(e));
-                        sent = true;
-                    }
-                }
-            }
-            if !sent {
-                let rc = stmt.row_count().ok().flatten().unwrap_or(0) as u64;
-                let _ = send_done(tx, rc);
-            }
-        }
-        Err(e) => {
-            let _ = send_error(tx, Error::from(e));
-        }
-    }
-}
-
-fn dispatch_execute_prepared<P>(conn: &OdbcConnection, sql: &str, params: P, tx: &ExecuteSender)
-where
-    P: odbc_api::ParameterCollectionRef,
-{
-    match conn.prepare(sql) {
-        Ok(mut prepared) => {
-            let mut sent = false;
-            {
-                let res = prepared.execute(params);
-                match res {
-                    Ok(Some(mut cursor)) => {
-                        handle_cursor(&mut cursor, tx);
-                        sent = true;
-                    }
-                    Ok(None) => {
-                        // drop res and then read row_count below
-                    }
-                    Err(e) => {
-                        let _ = send_error(tx, Error::from(e));
-                        sent = true;
-                    }
-                }
-            }
-            if !sent {
-                let rc = prepared.row_count().ok().flatten().unwrap_or(0) as u64;
-                let _ = send_done(tx, rc);
-            }
-        }
-        Err(e) => {
-            let _ = send_error(tx, Error::from(e));
-        }
-    }
-}
-
 fn handle_cursor<C>(cursor: &mut C, tx: &ExecuteSender)
 where
     C: Cursor + ResultSetMetadata,
 {
     let columns = collect_columns(cursor);
+    log::trace!("Processing ODBC result set with {} columns", columns.len());
 
     match stream_rows(cursor, &columns, tx) {
         Ok(true) => {
+            log::trace!("Successfully streamed all rows");
             let _ = send_done(tx, 0);
         }
-        Ok(false) => {}
+        Ok(false) => {
+            log::trace!("Row streaming stopped early (receiver closed)");
+        }
         Err(e) => {
             let _ = send_error(tx, e);
         }
     }
 }
 
+// Unified result sending functions
 fn send_done(tx: &ExecuteSender, rows_affected: u64) -> Result<(), SendError<ExecuteResult>> {
     send_stream_result(tx, Ok(Either::Left(OdbcQueryResult { rows_affected })))
 }
 
 fn send_error(tx: &ExecuteSender, error: Error) -> Result<(), SendError<ExecuteResult>> {
     send_stream_result(tx, Err(error))
+}
+
+fn send_row(tx: &ExecuteSender, row: OdbcRow) -> Result<(), SendError<ExecuteResult>> {
+    send_stream_result(tx, Ok(Either::Right(row)))
+}
+
+// Helper function for safe result sending with logging
+fn send_result_safe<T: std::fmt::Debug>(tx: oneshot::Sender<T>, result: T, operation: &str) {
+    if tx.send(result).is_err() {
+        log::warn!("Failed to send {} result: receiver dropped", operation);
+    }
 }
 
 // Metadata and row processing
@@ -489,6 +568,8 @@ where
     C: Cursor,
 {
     let mut receiver_open = true;
+    let mut row_count = 0;
+
     while let Some(mut row) = cursor.next_row()? {
         let values = collect_row_values(&mut row, columns)?;
         let row_data = OdbcRow {
@@ -496,10 +577,16 @@ where
             values,
         };
 
-        if tx.send(Ok(Either::Right(row_data))).is_err() {
+        if send_row(tx, row_data).is_err() {
+            log::debug!("Receiver closed after {} rows", row_count);
             receiver_open = false;
             break;
         }
+        row_count += 1;
+    }
+
+    if receiver_open {
+        log::debug!("Streamed {} rows successfully", row_count);
     }
     Ok(receiver_open)
 }
