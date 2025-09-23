@@ -16,7 +16,7 @@ use either::Either;
 #[allow(unused_imports)]
 use odbc_api::handles::Statement as OdbcStatementTrait;
 use odbc_api::handles::StatementImpl;
-use odbc_api::{Cursor, CursorRow, IntoParameter, Preallocated, ResultSetMetadata};
+use odbc_api::{Cursor, CursorRow, IntoParameter, Nullable, Preallocated, ResultSetMetadata};
 
 // Type aliases for commonly used types
 type OdbcConnection = odbc_api::Connection<'static>;
@@ -562,7 +562,7 @@ where
     OdbcColumn {
         name: decode_column_name(cd.name, index),
         type_info: OdbcTypeInfo::new(cd.data_type),
-        ordinal: (index - 1) as usize,
+        ordinal: usize::from(index.checked_sub(1).unwrap()),
     }
 }
 
@@ -581,7 +581,7 @@ where
         let values = collect_row_values(&mut row, columns)?;
         let row_data = OdbcRow {
             columns: columns.to_vec(),
-            values,
+            values: values.into_iter().map(|(_, value)| value).collect(),
         };
 
         if send_row(tx, row_data).is_err() {
@@ -601,7 +601,7 @@ where
 fn collect_row_values(
     row: &mut CursorRow<'_>,
     columns: &[OdbcColumn],
-) -> Result<Vec<(OdbcTypeInfo, Option<Vec<u8>>)>, Error> {
+) -> Result<Vec<(OdbcTypeInfo, crate::odbc::OdbcValue)>, Error> {
     columns
         .iter()
         .enumerate()
@@ -613,37 +613,155 @@ fn collect_column_value(
     row: &mut CursorRow<'_>,
     index: usize,
     column: &OdbcColumn,
-) -> Result<(OdbcTypeInfo, Option<Vec<u8>>), Error> {
-    let col_idx = (index + 1) as u16;
+) -> Result<(OdbcTypeInfo, crate::odbc::OdbcValue), Error> {
+    use odbc_api::DataType;
 
-    // Try text first
-    match try_get_text(row, col_idx) {
-        Ok(value) => Ok((column.type_info.clone(), value)),
-        Err(_) => {
-            // Fall back to binary
-            match try_get_binary(row, col_idx) {
-                Ok(value) => Ok((column.type_info.clone(), value)),
-                Err(e) => Err(Error::from(e)),
+    let col_idx = (index + 1) as u16;
+    let type_info = column.type_info.clone();
+    let data_type = type_info.data_type();
+
+    // Extract value based on data type
+    let value = match data_type {
+        // Integer types
+        DataType::TinyInt
+        | DataType::SmallInt
+        | DataType::Integer
+        | DataType::BigInt
+        | DataType::Bit => extract_int(row, col_idx, &type_info)?,
+
+        // Floating point types
+        DataType::Real => extract_float::<f32>(row, col_idx, &type_info)?,
+        DataType::Float { .. } | DataType::Double => {
+            extract_float::<f64>(row, col_idx, &type_info)?
+        }
+
+        // String types
+        DataType::Char { .. }
+        | DataType::Varchar { .. }
+        | DataType::LongVarchar { .. }
+        | DataType::WChar { .. }
+        | DataType::WVarchar { .. }
+        | DataType::WLongVarchar { .. }
+        | DataType::Date
+        | DataType::Time { .. }
+        | DataType::Timestamp { .. }
+        | DataType::Decimal { .. }
+        | DataType::Numeric { .. } => extract_text(row, col_idx, &type_info)?,
+
+        // Binary types
+        DataType::Binary { .. } | DataType::Varbinary { .. } | DataType::LongVarbinary { .. } => {
+            extract_binary(row, col_idx, &type_info)?
+        }
+
+        // Unknown types - try text first, fall back to binary
+        DataType::Unknown | DataType::Other { .. } => {
+            match extract_text(row, col_idx, &type_info) {
+                Ok(v) => v,
+                Err(_) => extract_binary(row, col_idx, &type_info)?,
             }
         }
-    }
+    };
+
+    Ok((type_info, value))
 }
 
-fn try_get_text(row: &mut CursorRow<'_>, col_idx: u16) -> Result<Option<Vec<u8>>, odbc_api::Error> {
-    let mut buf = Vec::new();
-    match row.get_text(col_idx, &mut buf)? {
-        true => Ok(Some(buf)),
-        false => Ok(None),
-    }
-}
-
-fn try_get_binary(
+fn extract_int(
     row: &mut CursorRow<'_>,
     col_idx: u16,
-) -> Result<Option<Vec<u8>>, odbc_api::Error> {
+    type_info: &OdbcTypeInfo,
+) -> Result<crate::odbc::OdbcValue, Error> {
+    let mut nullable = Nullable::<i64>::null();
+    row.get_data(col_idx, &mut nullable)?;
+
+    let (is_null, int) = match nullable.into_opt() {
+        None => (true, None),
+        Some(v) => (false, Some(v.into())),
+    };
+
+    Ok(crate::odbc::OdbcValue {
+        type_info: type_info.clone(),
+        is_null,
+        text: None,
+        blob: None,
+        int,
+        float: None,
+    })
+}
+
+fn extract_float<T>(
+    row: &mut CursorRow<'_>,
+    col_idx: u16,
+    type_info: &OdbcTypeInfo,
+) -> Result<crate::odbc::OdbcValue, Error>
+where
+    T: Into<f64> + Default,
+    odbc_api::Nullable<T>: odbc_api::parameter::CElement + odbc_api::handles::CDataMut,
+{
+    let mut nullable = Nullable::<T>::null();
+    row.get_data(col_idx, &mut nullable)?;
+
+    let (is_null, float) = match nullable.into_opt() {
+        None => (true, None),
+        Some(v) => (false, Some(v.into())),
+    };
+
+    Ok(crate::odbc::OdbcValue {
+        type_info: type_info.clone(),
+        is_null,
+        text: None,
+        blob: None,
+        int: None,
+        float,
+    })
+}
+
+fn extract_text(
+    row: &mut CursorRow<'_>,
+    col_idx: u16,
+    type_info: &OdbcTypeInfo,
+) -> Result<crate::odbc::OdbcValue, Error> {
     let mut buf = Vec::new();
-    match row.get_binary(col_idx, &mut buf)? {
-        true => Ok(Some(buf)),
-        false => Ok(None),
-    }
+    let is_some = row.get_text(col_idx, &mut buf)?;
+
+    let (is_null, text) = if !is_some {
+        (true, None)
+    } else {
+        match String::from_utf8(buf) {
+            Ok(s) => (false, Some(s)),
+            Err(e) => return Err(Error::Decode(e.into())),
+        }
+    };
+
+    Ok(crate::odbc::OdbcValue {
+        type_info: type_info.clone(),
+        is_null,
+        text,
+        blob: None,
+        int: None,
+        float: None,
+    })
+}
+
+fn extract_binary(
+    row: &mut CursorRow<'_>,
+    col_idx: u16,
+    type_info: &OdbcTypeInfo,
+) -> Result<crate::odbc::OdbcValue, Error> {
+    let mut buf = Vec::new();
+    let is_some = row.get_binary(col_idx, &mut buf)?;
+
+    let (is_null, blob) = if !is_some {
+        (true, None)
+    } else {
+        (false, Some(buf))
+    };
+
+    Ok(crate::odbc::OdbcValue {
+        type_info: type_info.clone(),
+        is_null,
+        text: None,
+        blob,
+        int: None,
+        float: None,
+    })
 }

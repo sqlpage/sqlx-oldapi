@@ -1,13 +1,14 @@
 use crate::column::ColumnIndex;
 use crate::database::HasValueRef;
 use crate::error::Error;
-use crate::odbc::{Odbc, OdbcColumn, OdbcTypeInfo, OdbcValueRef};
+use crate::odbc::{Odbc, OdbcColumn, OdbcValue};
 use crate::row::Row;
+use crate::value::Value;
 
 #[derive(Debug, Clone)]
 pub struct OdbcRow {
     pub(crate) columns: Vec<OdbcColumn>,
-    pub(crate) values: Vec<(OdbcTypeInfo, Option<Vec<u8>>)>,
+    pub(crate) values: Vec<OdbcValue>,
 }
 
 impl Row for OdbcRow {
@@ -25,15 +26,8 @@ impl Row for OdbcRow {
         I: ColumnIndex<Self>,
     {
         let idx = index.index(self)?;
-        let (ti, data) = &self.values[idx];
-        Ok(OdbcValueRef {
-            type_info: ti.clone(),
-            is_null: data.is_none(),
-            text: None,
-            blob: data.as_deref(),
-            int: None,
-            float: None,
-        })
+        let value = &self.values[idx];
+        Ok(value.as_ref())
     }
 }
 
@@ -66,6 +60,8 @@ mod tests {
     use odbc_api::DataType;
 
     fn create_test_row() -> OdbcRow {
+        use crate::odbc::OdbcValue;
+
         OdbcRow {
             columns: vec![
                 OdbcColumn {
@@ -85,15 +81,30 @@ mod tests {
                 },
             ],
             values: vec![
-                (OdbcTypeInfo::new(DataType::Integer), Some(vec![1, 2, 3, 4])),
-                (
-                    OdbcTypeInfo::new(DataType::Varchar { length: None }),
-                    Some(b"test".to_vec()),
-                ),
-                (
-                    OdbcTypeInfo::new(DataType::Double),
-                    Some(vec![1, 2, 3, 4, 5, 6, 7, 8]),
-                ),
+                OdbcValue {
+                    type_info: OdbcTypeInfo::new(DataType::Integer),
+                    is_null: false,
+                    text: None,
+                    blob: None,
+                    int: Some(42),
+                    float: None,
+                },
+                OdbcValue {
+                    type_info: OdbcTypeInfo::new(DataType::Varchar { length: None }),
+                    is_null: false,
+                    text: Some("test".to_string()),
+                    blob: None,
+                    int: None,
+                    float: None,
+                },
+                OdbcValue {
+                    type_info: OdbcTypeInfo::new(DataType::Double),
+                    is_null: false,
+                    text: None,
+                    blob: None,
+                    int: None,
+                    float: Some(std::f64::consts::PI),
+                },
             ],
         }
     }

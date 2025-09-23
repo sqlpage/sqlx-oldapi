@@ -153,13 +153,26 @@ async fn it_handles_chrono_types_via_any_odbc() -> anyhow::Result<()> {
     let db_name = conn.dbms_name().await?;
 
     let is_sqlite = db_name.to_lowercase().contains("sqlite");
-    let cast_date = |s: &str| if is_sqlite { s.to_string() } else { format!("CAST({} AS DATE)", s) };
-    let cast_ts = |s: &str| if is_sqlite { s.to_string() } else { format!("CAST({} AS TIMESTAMP)", s) };
+    let cast_date = |s: &str| {
+        if is_sqlite {
+            s.to_string()
+        } else {
+            format!("CAST({} AS DATE)", s)
+        }
+    };
+    let cast_ts = |s: &str| {
+        if is_sqlite {
+            s.to_string()
+        } else {
+            format!("CAST({} AS TIMESTAMP)", s)
+        }
+    };
 
     // Test DATE
-    let row: AnyRow = sqlx_oldapi::query(&format!("SELECT {} AS date_val", cast_date("'2023-05-15'")))
-        .fetch_one(&mut conn)
-        .await?;
+    let row: AnyRow =
+        sqlx_oldapi::query(&format!("SELECT {} AS date_val", cast_date("'2023-05-15'")))
+            .fetch_one(&mut conn)
+            .await?;
     let date_val: NaiveDate = row.try_get("date_val")?;
     assert_eq!(date_val, NaiveDate::from_ymd_opt(2023, 5, 15).unwrap());
 

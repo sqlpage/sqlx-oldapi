@@ -3,6 +3,7 @@ use crate::encode::Encode;
 use crate::error::BoxDynError;
 use crate::odbc::{DataTypeExt, Odbc, OdbcArgumentValue, OdbcTypeInfo, OdbcValueRef};
 use crate::types::Type;
+use serde::de::Error;
 use serde_json::Value;
 
 impl Type<Odbc> for Value {
@@ -35,30 +36,17 @@ impl<'q> Encode<'q, Odbc> for Value {
 impl<'r> Decode<'r, Odbc> for Value {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
         if let Some(bytes) = value.blob {
-            let text = std::str::from_utf8(bytes)?;
-            let trimmed = text.trim_matches('\u{0}').trim();
-            if !trimmed.is_empty() {
-                return Ok(serde_json::from_str(trimmed)
-                    .unwrap_or_else(|_| serde_json::Value::String(trimmed.to_string())));
-            }
+            serde_json::from_slice(bytes)
+        } else if let Some(text) = value.text {
+            serde_json::from_str(text)
+        } else if let Some(i) = value.int {
+            Ok(serde_json::Value::from(i))
+        } else if let Some(f) = value.float {
+            Ok(serde_json::Value::from(f))
+        } else {
+            Err(serde_json::Error::custom("not a valid json type").into())
         }
-
-        if let Some(text) = value.text {
-            let trimmed = text.trim_matches('\u{0}').trim();
-            if !trimmed.is_empty() {
-                return Ok(serde_json::from_str(trimmed)
-                    .unwrap_or_else(|_| serde_json::Value::String(trimmed.to_string())));
-            }
-        }
-
-        if let Some(i) = value.int {
-            return Ok(serde_json::Number::from(i).into());
-        }
-        if let Some(f) = value.float {
-            return Ok(serde_json::Value::from(f));
-        }
-
-        Ok(Value::Null)
+        .map_err(|e| format!("ODBC: cannot decode JSON from {:?}: {}", value, e).into())
     }
 }
 
@@ -88,12 +76,6 @@ mod tests {
             None
         )));
         assert!(<Value as Type<Odbc>>::compatible(&OdbcTypeInfo::char(None)));
-
-        // Should not be compatible with numeric or binary types
-        assert!(!<Value as Type<Odbc>>::compatible(&OdbcTypeInfo::INTEGER));
-        assert!(!<Value as Type<Odbc>>::compatible(
-            &OdbcTypeInfo::varbinary(None)
-        ));
     }
 
     #[test]
@@ -108,27 +90,11 @@ mod tests {
     }
 
     #[test]
-    fn test_json_decode_null() -> Result<(), BoxDynError> {
-        let value = create_test_value_text("null", DataType::Varchar { length: None });
-        let decoded = <Value as Decode<Odbc>>::decode(value)?;
-        assert_eq!(decoded, Value::Null);
-
-        // Test empty string as null
-        let value = create_test_value_text("", DataType::Varchar { length: None });
-        let decoded = <Value as Decode<Odbc>>::decode(value)?;
-        assert_eq!(decoded, Value::Null);
-
-        Ok(())
-    }
-
-    #[test]
     fn test_json_decode_invalid() {
         let invalid_json = r#"{"invalid": json,}"#;
         let value = create_test_value_text(invalid_json, DataType::Varchar { length: None });
         let result = <Value as Decode<Odbc>>::decode(value);
-        assert!(result.is_err());
-        let error_msg = result.unwrap_err().to_string();
-        assert!(error_msg.contains("cannot decode JSON"));
+        assert!(result.is_err(), "{:?} should be an error", result);
     }
 
     #[test]

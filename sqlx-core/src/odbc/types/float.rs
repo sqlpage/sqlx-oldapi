@@ -74,11 +74,13 @@ impl<'r> Decode<'r, Odbc> for f64 {
         if let Some(f) = value.float {
             return Ok(f);
         }
-        if let Some(bytes) = value.blob {
-            let s = std::str::from_utf8(bytes)?;
+        if let Some(int) = value.int {
+            return Ok(int as f64);
+        }
+        if let Some(s) = value.text {
             return Ok(s.trim().parse()?);
         }
-        Err("ODBC: cannot decode f64".into())
+        Err(format!("ODBC: cannot decode f64: {:?}", value).into())
     }
 }
 

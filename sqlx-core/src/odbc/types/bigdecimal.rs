@@ -3,7 +3,7 @@ use crate::encode::Encode;
 use crate::error::BoxDynError;
 use crate::odbc::{DataTypeExt, Odbc, OdbcArgumentValue, OdbcTypeInfo, OdbcValueRef};
 use crate::types::Type;
-use bigdecimal::BigDecimal;
+use bigdecimal::{BigDecimal, FromPrimitive};
 use odbc_api::DataType;
 use std::str::FromStr;
 
@@ -36,7 +36,19 @@ impl<'q> Encode<'q, Odbc> for BigDecimal {
 
 impl<'r> Decode<'r, Odbc> for BigDecimal {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        let s = <String as Decode<'r, Odbc>>::decode(value)?;
-        Ok(BigDecimal::from_str(&s)?)
+        if let Some(int) = value.int {
+            return Ok(BigDecimal::from(int));
+        }
+        if let Some(float) = value.float {
+            return Ok(BigDecimal::from_f64(float).ok_or(format!("bad float: {}", float))?);
+        }
+        if let Some(text) = value.text {
+            return Ok(BigDecimal::from_str(&text).map_err(|e| format!("bad decimal text: {}", e))?);
+        }
+        if let Some(bytes) = value.blob {
+            return Ok(BigDecimal::parse_bytes(bytes, 10)
+                .ok_or(format!("bad base10 bytes: {:?}", bytes))?);
+        }
+        Err(format!("ODBC: cannot decode BigDecimal: {:?}", value).into())
     }
 }

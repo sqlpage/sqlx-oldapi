@@ -126,17 +126,19 @@ async fn it_has_json() -> anyhow::Result<()> {
 #[sqlx_macros::test]
 async fn it_has_uuid() -> anyhow::Result<()> {
     use sqlx_oldapi::types::Uuid;
-    assert_eq!(
-        Uuid::parse_str("123e4567-e89b-12d3-a456-426614174000")?,
-        get_val::<Uuid>(if cfg!(feature = "mssql") {
-            "CONVERT(uniqueidentifier, '123e4567-e89b-12d3-a456-426614174000')"
-        } else if cfg!(feature = "postgres") {
-            "'123e4567-e89b-12d3-a456-426614174000'::uuid"
-        } else {
-            "x'123e4567e89b12d3a456426614174000'"
-        })
-        .await?
-    );
+    let mut conn = new::<Any>().await?;
+    let dbms_name = conn.dbms_name().await?.to_lowercase();
+    let expected_uuid = Uuid::parse_str("123e4567-e89b-12d3-a456-426614174000")?;
+
+    let sql = if dbms_name.contains("mssql") || dbms_name.contains("sql server") {
+        "select CONVERT(uniqueidentifier, '123e4567-e89b-12d3-a456-426614174000')"
+    } else if dbms_name.contains("postgres") {
+        "select '123e4567-e89b-12d3-a456-426614174000'::uuid"
+    } else {
+        "select x'123e4567e89b12d3a456426614174000'"
+    };
+    let actual = conn.fetch_one(sql).await?.try_get::<Uuid, _>(0)?;
+    assert_eq!(expected_uuid, actual, "UUID value for {}", sql);
     Ok(())
 }
 
