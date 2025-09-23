@@ -41,15 +41,16 @@ async fn it_has_all_the_types() -> anyhow::Result<()> {
 #[sqlx_macros::test]
 async fn it_has_chrono() -> anyhow::Result<()> {
     use sqlx_oldapi::types::chrono::NaiveDate;
-    assert_eq!(
-        NaiveDate::from_ymd_opt(2020, 1, 2).unwrap(),
-        get_val::<NaiveDate>(if cfg!(feature = "sqlite") {
-            "'2020-01-02'" // SQLite does not have a DATE type
-        } else {
-            "CAST('2020-01-02' AS DATE)"
-        })
-        .await?
-    );
+    let mut conn = crate::new::<sqlx_oldapi::Any>().await?;
+    let dbms_name = conn.dbms_name().await.unwrap_or_default();
+    let sql_date = if dbms_name.to_lowercase().contains("sqlite") {
+        "'2020-01-02'"
+    } else {
+        "CAST('2020-01-02' AS DATE)"
+    };
+    let expected_date = NaiveDate::from_ymd_opt(2020, 1, 2).unwrap();
+    let actual = conn.fetch_one(&*format!("SELECT {}", sql_date)).await?;
+    assert_eq!(expected_date, actual.try_get::<NaiveDate, _>(0)?);
     Ok(())
 }
 
@@ -103,27 +104,21 @@ async fn it_has_decimal() -> anyhow::Result<()> {
 async fn it_has_json() -> anyhow::Result<()> {
     use serde_json::json;
 
-    // Check if this is Snowflake (which doesn't support JSON via ODBC)
+    let databases_without_json = ["sqlite", "mssql", "snowflake"];
     let mut conn = crate::new::<sqlx_oldapi::Any>().await?;
     let dbms_name = conn.dbms_name().await.unwrap_or_default();
-    if dbms_name.to_lowercase().contains("snowflake") {
-        // Skip JSON test for Snowflake as it doesn't support JSON via ODBC
-        println!("Skipping JSON test for Snowflake (no ODBC JSON support)");
-        return Ok(());
-    }
+    let json_sql = if databases_without_json.contains(&dbms_name.to_lowercase().as_str()) {
+        "select '{\"foo\": \"bar\"}'"
+    } else {
+        "select CAST('{\"foo\": \"bar\"}' AS JSON)"
+    };
 
-    assert_eq!(
-        json!({"foo": "bar"}),
-        get_val::<serde_json::Value>(
-            // SQLite and Mssql do not have a native JSON type, strings are parsed as JSON
-            if cfg!(any(feature = "sqlite", feature = "mssql")) {
-                "'{\"foo\": \"bar\"}'"
-            } else {
-                "CAST('{\"foo\": \"bar\"}' AS JSON)"
-            }
-        )
+    let expected_json = json!({"foo": "bar"});
+    let actual = conn
+        .fetch_one(json_sql)
         .await?
-    );
+        .try_get::<serde_json::Value, _>(0)?;
+    assert_eq!(expected_json, actual, "Json value for {}", json_sql);
     Ok(())
 }
 

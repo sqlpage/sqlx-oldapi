@@ -11,6 +11,12 @@ impl Type<Odbc> for Value {
     }
     fn compatible(ty: &OdbcTypeInfo) -> bool {
         ty.data_type().accepts_character_data()
+            || ty.data_type().accepts_numeric_data()
+            || ty.data_type().accepts_binary_data()
+            || matches!(
+                ty.data_type(),
+                odbc_api::DataType::Other { .. } | odbc_api::DataType::Unknown
+            )
     }
 }
 
@@ -28,19 +34,31 @@ impl<'q> Encode<'q, Odbc> for Value {
 
 impl<'r> Decode<'r, Odbc> for Value {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        let s = <String as Decode<'r, Odbc>>::decode(value)?;
-        let trimmed = s.trim();
-
-        // Handle empty or null-like strings
-        if trimmed.is_empty() || trimmed.eq_ignore_ascii_case("null") {
-            return Ok(Value::Null);
+        if let Some(bytes) = value.blob {
+            let text = std::str::from_utf8(bytes)?;
+            let trimmed = text.trim_matches('\u{0}').trim();
+            if !trimmed.is_empty() {
+                return Ok(serde_json::from_str(trimmed)
+                    .unwrap_or_else(|_| serde_json::Value::String(trimmed.to_string())));
+            }
         }
 
-        // Try parsing as JSON
-        match serde_json::from_str(trimmed) {
-            Ok(value) => Ok(value),
-            Err(e) => Err(format!("ODBC: cannot decode JSON from '{}': {}", trimmed, e).into()),
+        if let Some(text) = value.text {
+            let trimmed = text.trim_matches('\u{0}').trim();
+            if !trimmed.is_empty() {
+                return Ok(serde_json::from_str(trimmed)
+                    .unwrap_or_else(|_| serde_json::Value::String(trimmed.to_string())));
+            }
         }
+
+        if let Some(i) = value.int {
+            return Ok(serde_json::Number::from(i).into());
+        }
+        if let Some(f) = value.float {
+            return Ok(serde_json::Value::from(f));
+        }
+
+        Ok(Value::Null)
     }
 }
 

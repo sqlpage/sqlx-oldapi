@@ -4,7 +4,7 @@ use sqlx_test::test_type;
 
 // Basic null test
 test_type!(null<Option<i32>>(Odbc,
-    "NULL::int" == None::<i32>
+    "CAST(NULL AS INTEGER)" == None::<i32>
 ));
 
 // Boolean type

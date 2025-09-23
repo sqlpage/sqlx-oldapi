@@ -39,7 +39,6 @@ impl<'r> Decode<'r, Odbc> for Uuid {
             if bytes.len() == 16 {
                 return Ok(Uuid::from_bytes(bytes.try_into()?));
             } else if bytes.len() == 128 {
-                // Each byte is ASCII '0' or '1' representing a bit
                 let mut uuid_bytes = [0u8; 16];
                 for (i, chunk) in bytes.chunks(8).enumerate() {
                     if i >= 16 {
@@ -48,7 +47,6 @@ impl<'r> Decode<'r, Odbc> for Uuid {
                     let mut byte_val = 0u8;
                     for (j, &bit_byte) in chunk.iter().enumerate() {
                         if bit_byte == 49 {
-                            // ASCII '1'
                             byte_val |= 1 << (7 - j);
                         }
                     }
@@ -57,10 +55,42 @@ impl<'r> Decode<'r, Odbc> for Uuid {
                 return Ok(Uuid::from_bytes(uuid_bytes));
             }
             // Some drivers may return UUIDs as ASCII/UTF-8 bytes
-            let s = std::str::from_utf8(bytes)?.trim();
+            let s = std::str::from_utf8(bytes)?;
+            let s = s.trim_matches('\u{0}').trim();
+            let s = if s.len() > 3 && (s.starts_with("X'") || s.starts_with("x'")) && s.ends_with("'") {
+                &s[2..s.len() - 1]
+            } else {
+                s
+            };
+            // If it's 32 hex digits without dashes, accept it
+            if s.len() == 32 && s.chars().all(|c| c.is_ascii_hexdigit()) {
+                let mut buf = [0u8; 16];
+                for i in 0..16 {
+                    let byte_str = &s[i * 2..i * 2 + 2];
+                    buf[i] = u8::from_str_radix(byte_str, 16)?;
+                }
+                return Ok(Uuid::from_bytes(buf));
+            }
             return Ok(Uuid::from_str(s).map_err(|e| format!("Invalid UUID: {}, error: {}", s, e))?);
         }
-        let s = <String as Decode<'r, Odbc>>::decode(value)?;
-        Ok(Uuid::from_str(s.trim()).map_err(|e| format!("Invalid UUID: {}, error: {}", s, e))?)
+        let mut s = <String as Decode<'r, Odbc>>::decode(value)?;
+        if s.ends_with('\u{0}') {
+            s = s.trim_end_matches('\u{0}').to_string();
+        }
+        let s = s.trim();
+        let s = if s.len() > 3 && (s.starts_with("X'") || s.starts_with("x'")) && s.ends_with("'") {
+            &s[2..s.len() - 1]
+        } else {
+            s
+        };
+        if s.len() == 32 && s.chars().all(|c| c.is_ascii_hexdigit()) {
+            let mut buf = [0u8; 16];
+            for i in 0..16 {
+                let byte_str = &s[i * 2..i * 2 + 2];
+                buf[i] = u8::from_str_radix(byte_str, 16)?;
+            }
+            return Ok(Uuid::from_bytes(buf));
+        }
+        Ok(Uuid::from_str(s).map_err(|e| format!("Invalid UUID: {}, error: {}", s, e))?)
     }
 }
