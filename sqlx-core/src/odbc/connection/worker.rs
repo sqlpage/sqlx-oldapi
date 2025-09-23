@@ -189,7 +189,7 @@ fn worker_thread_main(
         }
     };
 
-    let mut stmt_manager = StatementManager::new();
+    let mut stmt_manager = StatementManager::new(&conn);
 
     // Process commands
     while let Ok(cmd) = command_rx.recv() {
@@ -218,6 +218,7 @@ fn establish_connection(options: &OdbcConnectOptions) -> Result<OdbcConnection, 
 
 /// Statement manager to handle preallocated statements
 struct StatementManager<'conn> {
+    conn: &'conn OdbcConnection,
     // Reusable statement for direct execution
     direct_stmt: Option<Preallocated<StatementImpl<'conn>>>,
     // Cache of prepared statements by SQL hash
@@ -225,9 +226,10 @@ struct StatementManager<'conn> {
 }
 
 impl<'conn> StatementManager<'conn> {
-    fn new() -> Self {
+    fn new(conn: &'conn OdbcConnection) -> Self {
         log::debug!("Creating new statement manager");
         Self {
+            conn,
             direct_stmt: None,
             prepared_cache: HashMap::new(),
         }
@@ -235,18 +237,16 @@ impl<'conn> StatementManager<'conn> {
 
     fn get_or_create_direct_stmt(
         &mut self,
-        conn: &'conn OdbcConnection,
     ) -> Result<&mut Preallocated<StatementImpl<'conn>>, Error> {
         if self.direct_stmt.is_none() {
             log::debug!("Preallocating ODBC direct statement");
-            self.direct_stmt = Some(conn.preallocate().map_err(Error::from)?);
+            self.direct_stmt = Some(self.conn.preallocate().map_err(Error::from)?);
         }
         Ok(self.direct_stmt.as_mut().unwrap())
     }
 
     fn get_or_create_prepared(
         &mut self,
-        conn: &'conn OdbcConnection,
         sql: &str,
     ) -> Result<&mut odbc_api::Prepared<StatementImpl<'conn>>, Error> {
         use std::collections::hash_map::DefaultHasher;
@@ -258,7 +258,7 @@ impl<'conn> StatementManager<'conn> {
 
         if let std::collections::hash_map::Entry::Vacant(e) = self.prepared_cache.entry(sql_hash) {
             log::debug!("Preparing statement for SQL hash: {}", sql_hash);
-            let prepared = conn.prepare(sql).map_err(Error::from)?;
+            let prepared = self.conn.prepare(sql).map_err(Error::from)?;
             e.insert(prepared);
         }
         Ok(self.prepared_cache.get_mut(&sql_hash).unwrap())
@@ -322,8 +322,8 @@ fn process_command<'conn>(
         Command::Commit { tx } => handle_commit(conn, tx),
         Command::Rollback { tx } => handle_rollback(conn, tx),
         Command::Shutdown { tx } => return Some(tx),
-        Command::Execute { sql, args, tx } => handle_execute(conn, stmt_manager, sql, args, tx),
-        Command::Prepare { sql, tx } => handle_prepare(conn, stmt_manager, sql, tx),
+        Command::Execute { sql, args, tx } => handle_execute(stmt_manager, sql, args, tx),
+        Command::Prepare { sql, tx } => handle_prepare(stmt_manager, sql, tx),
         Command::GetDbmsName { tx } => handle_get_dbms_name(conn, tx),
     }
     None
@@ -362,17 +362,15 @@ fn handle_rollback(conn: &OdbcConnection, tx: TransactionSender) {
 }
 
 fn handle_execute<'conn>(
-    conn: &'conn OdbcConnection,
     stmt_manager: &mut StatementManager<'conn>,
     sql: Box<str>,
     args: Option<OdbcArguments>,
     tx: ExecuteSender,
 ) {
-    execute_sql(conn, stmt_manager, &sql, args, &tx);
+    execute_sql(stmt_manager, &sql, args, &tx);
 }
 
 fn handle_prepare<'conn>(
-    conn: &'conn OdbcConnection,
     stmt_manager: &mut StatementManager<'conn>,
     sql: Box<str>,
     tx: PrepareSender,
@@ -383,7 +381,7 @@ fn handle_prepare<'conn>(
     );
 
     // Use the statement manager to get or create the prepared statement
-    let result = match stmt_manager.get_or_create_prepared(conn, &sql) {
+    let result = match stmt_manager.get_or_create_prepared(&sql) {
         Ok(prepared) => {
             let columns = collect_columns(prepared);
             let params = prepared.num_params().unwrap_or(0) as usize;
@@ -410,7 +408,6 @@ fn handle_get_dbms_name(conn: &OdbcConnection, tx: oneshot::Sender<Result<String
 
 // SQL execution functions
 fn execute_sql<'conn>(
-    conn: &'conn OdbcConnection,
     stmt_manager: &mut StatementManager<'conn>,
     sql: &str,
     args: Option<OdbcArguments>,
@@ -420,9 +417,9 @@ fn execute_sql<'conn>(
     let has_params = !params.is_empty();
 
     let result = if has_params {
-        execute_with_prepared_statement(conn, stmt_manager, sql, &params[..], tx)
+        execute_with_prepared_statement(stmt_manager, sql, &params[..], tx)
     } else {
-        execute_with_direct_statement(conn, stmt_manager, sql, tx)
+        execute_with_direct_statement(stmt_manager, sql, tx)
     };
 
     if let Err(e) = result {
@@ -431,17 +428,15 @@ fn execute_sql<'conn>(
 }
 
 fn execute_with_direct_statement<'conn>(
-    conn: &'conn OdbcConnection,
     stmt_manager: &mut StatementManager<'conn>,
     sql: &str,
     tx: &ExecuteSender,
 ) -> Result<(), Error> {
-    let stmt = stmt_manager.get_or_create_direct_stmt(conn)?;
+    let stmt = stmt_manager.get_or_create_direct_stmt()?;
     execute_statement(stmt.execute(sql, ()), tx)
 }
 
 fn execute_with_prepared_statement<'conn, P>(
-    conn: &'conn OdbcConnection,
     stmt_manager: &mut StatementManager<'conn>,
     sql: &str,
     params: P,
@@ -450,7 +445,7 @@ fn execute_with_prepared_statement<'conn, P>(
 where
     P: odbc_api::ParameterCollectionRef,
 {
-    let prepared = stmt_manager.get_or_create_prepared(conn, sql)?;
+    let prepared = stmt_manager.get_or_create_prepared(sql)?;
     execute_statement(prepared.execute(params), tx)
 }
 
