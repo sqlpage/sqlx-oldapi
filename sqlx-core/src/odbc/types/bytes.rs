@@ -38,50 +38,9 @@ impl<'q> Encode<'q, Odbc> for &'q [u8] {
     }
 }
 
-// Helper function for hex string parsing
-fn try_parse_hex_string(s: &str) -> Option<Vec<u8>> {
-    let trimmed = s.trim();
-    if trimmed.len().is_multiple_of(2) && trimmed.chars().all(|c| c.is_ascii_hexdigit()) {
-        let mut result = Vec::with_capacity(trimmed.len() / 2);
-        for chunk in trimmed.as_bytes().chunks(2) {
-            if let Ok(hex_str) = std::str::from_utf8(chunk) {
-                if let Ok(byte_val) = u8::from_str_radix(hex_str, 16) {
-                    result.push(byte_val);
-                } else {
-                    return None;
-                }
-            } else {
-                return None;
-            }
-        }
-        Some(result)
-    } else {
-        None
-    }
-}
-
 impl<'r> Decode<'r, Odbc> for Vec<u8> {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        if let Some(bytes) = value.blob {
-            // Check if blob contains hex string representation
-            if let Ok(text) = std::str::from_utf8(bytes) {
-                if let Some(hex_bytes) = try_parse_hex_string(text) {
-                    return Ok(hex_bytes);
-                }
-            }
-            // Fall back to raw blob bytes
-            return Ok(bytes.to_vec());
-        }
-        if let Some(text) = value.text {
-            // Try to decode as hex string first (common for ODBC drivers)
-            if let Some(hex_bytes) = try_parse_hex_string(text) {
-                return Ok(hex_bytes);
-            }
-
-            // Fall back to raw text bytes
-            return Ok(text.as_bytes().to_vec());
-        }
-        Err("ODBC: cannot decode Vec<u8>".into())
+        Ok(<&[u8] as Decode<'r, Odbc>>::decode(value)?.to_vec())
     }
 }
 
@@ -91,11 +50,9 @@ impl<'r> Decode<'r, Odbc> for &'r [u8] {
             return Ok(bytes);
         }
         if let Some(text) = value.text {
-            // For slice types, we can only return the original text bytes
-            // since we can't allocate new memory for hex decoding
             return Ok(text.as_bytes());
         }
-        Err("ODBC: cannot decode &[u8]".into())
+        Err(format!("ODBC: cannot decode {:?} as &[u8]", value).into())
     }
 }
 
@@ -160,43 +117,11 @@ mod tests {
     }
 
     #[test]
-    fn test_hex_string_parsing() {
-        // Test valid hex strings
-        assert_eq!(
-            try_parse_hex_string("4142434445"),
-            Some(vec![65, 66, 67, 68, 69])
-        );
-        assert_eq!(
-            try_parse_hex_string("48656C6C6F"),
-            Some(vec![72, 101, 108, 108, 111])
-        );
-        assert_eq!(try_parse_hex_string(""), Some(vec![]));
-
-        // Test invalid hex strings
-        assert_eq!(try_parse_hex_string("XYZ"), None);
-        assert_eq!(try_parse_hex_string("123"), None); // Odd length
-        assert_eq!(try_parse_hex_string("hello"), None);
-
-        // Test with whitespace
-        assert_eq!(try_parse_hex_string("  4142  "), Some(vec![65, 66]));
-    }
-
-    #[test]
     fn test_vec_u8_decode_from_blob() -> Result<(), BoxDynError> {
         let test_data = b"Hello, ODBC!";
         let value = create_test_value_blob(test_data, DataType::Varbinary { length: None });
         let decoded = <Vec<u8> as Decode<Odbc>>::decode(value)?;
         assert_eq!(decoded, test_data.to_vec());
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_vec_u8_decode_from_hex_text() -> Result<(), BoxDynError> {
-        let hex_str = "48656C6C6F"; // "Hello" in hex
-        let value = create_test_value_text(hex_str, DataType::Varchar { length: None });
-        let decoded = <Vec<u8> as Decode<Odbc>>::decode(value)?;
-        assert_eq!(decoded, b"Hello".to_vec());
 
         Ok(())
     }

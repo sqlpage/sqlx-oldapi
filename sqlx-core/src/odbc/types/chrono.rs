@@ -3,6 +3,7 @@ use crate::encode::Encode;
 use crate::error::BoxDynError;
 use crate::odbc::{DataTypeExt, Odbc, OdbcArgumentValue, OdbcTypeInfo, OdbcValueRef};
 use crate::types::Type;
+use crate::type_info::TypeInfo;
 use chrono::{DateTime, FixedOffset, Local, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use odbc_api::DataType;
 
@@ -192,11 +193,13 @@ fn parse_yyyymmdd_text_as_naive_date(s: &str) -> Option<NaiveDate> {
 
 fn get_text_from_value(value: &OdbcValueRef<'_>) -> Result<Option<String>, BoxDynError> {
     if let Some(text) = value.text {
-        return Ok(Some(text.trim().to_string()));
+        let trimmed = text.trim_matches('\u{0}').trim();
+        return Ok(Some(trimmed.to_string()));
     }
     if let Some(bytes) = value.blob {
         let s = std::str::from_utf8(bytes)?;
-        return Ok(Some(s.trim().to_string()));
+        let trimmed = s.trim_matches('\u{0}').trim();
+        return Ok(Some(trimmed.to_string()));
     }
     Ok(None)
 }
@@ -208,7 +211,9 @@ impl<'r> Decode<'r, Odbc> for NaiveDate {
             if let Some(date) = parse_yyyymmdd_text_as_naive_date(&text) {
                 return Ok(date);
             }
-            return Ok(text.parse()?);
+            if let Ok(date) = text.parse() {
+                return Ok(date);
+            }
         }
 
         // Handle numeric YYYYMMDD format (for databases that return as numbers)
@@ -216,6 +221,11 @@ impl<'r> Decode<'r, Odbc> for NaiveDate {
             if let Some(date) = parse_yyyymmdd_as_naive_date(int_val) {
                 return Ok(date);
             }
+            return Err(format!(
+                "ODBC: cannot decode NaiveDate from integer '{}': not in YYYYMMDD range",
+                int_val
+            )
+            .into());
         }
 
         // Handle float values similarly
@@ -223,16 +233,29 @@ impl<'r> Decode<'r, Odbc> for NaiveDate {
             if let Some(date) = parse_yyyymmdd_as_naive_date(float_val as i64) {
                 return Ok(date);
             }
+            return Err(format!(
+                "ODBC: cannot decode NaiveDate from float '{}': not in YYYYMMDD range",
+                float_val
+            )
+            .into());
         }
 
-        Err("ODBC: cannot decode NaiveDate".into())
+        Err(format!(
+            "ODBC: cannot decode NaiveDate from value with type '{}'",
+            value.type_info.name()
+        )
+        .into())
     }
 }
 
 impl<'r> Decode<'r, Odbc> for NaiveTime {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        let s = <String as Decode<'r, Odbc>>::decode(value)?;
-        Ok(s.parse()?)
+        let mut s = <String as Decode<'r, Odbc>>::decode(value)?;
+        if s.ends_with('\u{0}') {
+            s = s.trim_end_matches('\u{0}').to_string();
+        }
+        let s_trimmed = s.trim();
+        Ok(s_trimmed.parse().map_err(|e| format!("ODBC: cannot decode NaiveTime from '{}': {}", s_trimmed, e))?)
     }
 }
 
@@ -249,13 +272,18 @@ impl<'r> Decode<'r, Odbc> for NaiveDateTime {
         if let Ok(dt) = NaiveDateTime::parse_from_str(s_trimmed, "%Y-%m-%d %H:%M:%S") {
             return Ok(dt);
         }
-        Ok(s_trimmed.parse()?)
+        Ok(s_trimmed
+            .parse()
+            .map_err(|e| format!("ODBC: cannot decode NaiveDateTime from '{}': {}", s_trimmed, e))?)
     }
 }
 
 impl<'r> Decode<'r, Odbc> for DateTime<Utc> {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        let s = <String as Decode<'r, Odbc>>::decode(value)?;
+        let mut s = <String as Decode<'r, Odbc>>::decode(value)?;
+        if s.ends_with('\u{0}') {
+            s = s.trim_end_matches('\u{0}').to_string();
+        }
         let s_trimmed = s.trim();
 
         // First try to parse as a UTC timestamp with timezone
@@ -273,13 +301,16 @@ impl<'r> Decode<'r, Odbc> for DateTime<Utc> {
             return Ok(DateTime::<Utc>::from_naive_utc_and_offset(naive_dt, Utc));
         }
 
-        Err(format!("Cannot parse '{}' as DateTime<Utc>", s_trimmed).into())
+        Err(format!("ODBC: cannot decode DateTime<Utc> from '{}'", s_trimmed).into())
     }
 }
 
 impl<'r> Decode<'r, Odbc> for DateTime<FixedOffset> {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        let s = <String as Decode<'r, Odbc>>::decode(value)?;
+        let mut s = <String as Decode<'r, Odbc>>::decode(value)?;
+        if s.ends_with('\u{0}') {
+            s = s.trim_end_matches('\u{0}').to_string();
+        }
         let s_trimmed = s.trim();
 
         // First try to parse as a timestamp with timezone/offset
@@ -297,14 +328,21 @@ impl<'r> Decode<'r, Odbc> for DateTime<FixedOffset> {
             return Ok(DateTime::<Utc>::from_naive_utc_and_offset(naive_dt, Utc).fixed_offset());
         }
 
-        Err(format!("Cannot parse '{}' as DateTime<FixedOffset>", s_trimmed).into())
+        Err(format!("ODBC: cannot decode DateTime<FixedOffset> from '{}'", s_trimmed).into())
     }
 }
 
 impl<'r> Decode<'r, Odbc> for DateTime<Local> {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        let s = <String as Decode<'r, Odbc>>::decode(value)?;
-        Ok(s.parse::<DateTime<Utc>>()?.with_timezone(&Local))
+        let mut s = <String as Decode<'r, Odbc>>::decode(value)?;
+        if s.ends_with('\u{0}') {
+            s = s.trim_end_matches('\u{0}').to_string();
+        }
+        let s_trimmed = s.trim();
+        Ok(s_trimmed
+            .parse::<DateTime<Utc>>()
+            .map_err(|e| format!("ODBC: cannot decode DateTime<Local> from '{}' as DateTime<Utc>: {}", s_trimmed, e))?
+            .with_timezone(&Local))
     }
 }
 
