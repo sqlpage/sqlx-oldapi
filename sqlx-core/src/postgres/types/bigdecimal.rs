@@ -339,7 +339,7 @@ mod bigdecimal_to_pgnumeric {
                 sign: PgNumericSign::Positive,
                 scale: 5,
                 weight: -1,
-                digits: vec![0123, 4000]
+                digits: vec![123, 4000]
             }
         );
     }

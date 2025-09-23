@@ -599,7 +599,7 @@ mod test {
             query.statement.unwrap_left(),
             "SELECT * FROM users WHERE id = $1"
         );
-        assert_eq!(query.persistent, true);
+        assert!(query.persistent);
     }
 
     #[test]

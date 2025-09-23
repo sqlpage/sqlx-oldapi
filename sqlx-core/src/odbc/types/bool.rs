@@ -172,7 +172,7 @@ mod tests {
             },
         );
         let decoded = <bool as Decode<Odbc>>::decode(value)?;
-        assert_eq!(decoded, true);
+        assert!(decoded);
 
         let value = create_test_value_text(
             "0",
@@ -182,7 +182,7 @@ mod tests {
             },
         );
         let decoded = <bool as Decode<Odbc>>::decode(value)?;
-        assert_eq!(decoded, false);
+        assert!(!decoded);
 
         // Test with decimal values
         let value = create_test_value_text(
@@ -193,7 +193,7 @@ mod tests {
             },
         );
         let decoded = <bool as Decode<Odbc>>::decode(value)?;
-        assert_eq!(decoded, true);
+        assert!(decoded);
 
         let value = create_test_value_text(
             "0.0",
@@ -203,7 +203,7 @@ mod tests {
             },
         );
         let decoded = <bool as Decode<Odbc>>::decode(value)?;
-        assert_eq!(decoded, false);
+        assert!(!decoded);
 
         Ok(())
     }
@@ -212,15 +212,15 @@ mod tests {
     fn test_bool_decode_from_float() -> Result<(), BoxDynError> {
         let value = create_test_value_float(1.0, DataType::Double);
         let decoded = <bool as Decode<Odbc>>::decode(value)?;
-        assert_eq!(decoded, true);
+        assert!(decoded);
 
         let value = create_test_value_float(0.0, DataType::Double);
         let decoded = <bool as Decode<Odbc>>::decode(value)?;
-        assert_eq!(decoded, false);
+        assert!(!decoded);
 
         let value = create_test_value_float(42.5, DataType::Double);
         let decoded = <bool as Decode<Odbc>>::decode(value)?;
-        assert_eq!(decoded, true);
+        assert!(decoded);
 
         Ok(())
     }
@@ -229,15 +229,15 @@ mod tests {
     fn test_bool_decode_from_int() -> Result<(), BoxDynError> {
         let value = create_test_value_int(1, DataType::Integer);
         let decoded = <bool as Decode<Odbc>>::decode(value)?;
-        assert_eq!(decoded, true);
+        assert!(decoded);
 
         let value = create_test_value_int(0, DataType::Integer);
         let decoded = <bool as Decode<Odbc>>::decode(value)?;
-        assert_eq!(decoded, false);
+        assert!(!decoded);
 
         let value = create_test_value_int(-1, DataType::Integer);
         let decoded = <bool as Decode<Odbc>>::decode(value)?;
-        assert_eq!(decoded, true);
+        assert!(decoded);
 
         Ok(())
     }
@@ -275,7 +275,7 @@ mod tests {
             },
         );
         let decoded = <bool as Decode<Odbc>>::decode(value)?;
-        assert_eq!(decoded, true);
+        assert!(decoded);
 
         let value = create_test_value_text(
             "  0  ",
@@ -285,7 +285,7 @@ mod tests {
             },
         );
         let decoded = <bool as Decode<Odbc>>::decode(value)?;
-        assert_eq!(decoded, false);
+        assert!(!decoded);
 
         Ok(())
     }

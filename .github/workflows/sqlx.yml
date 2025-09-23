@@ -122,8 +122,6 @@ jobs:
       - run: cargo test
           --no-default-features
           --features any,macros,migrate,sqlite,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
-          --
-          --test-threads=1
         env:
           DATABASE_URL: sqlite://tests/sqlite/sqlite.db
           RUSTFLAGS: --cfg sqlite_ipaddr

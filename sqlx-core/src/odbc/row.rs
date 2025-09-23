@@ -52,6 +52,25 @@ mod private {
     impl Sealed for OdbcRow {}
 }
 
+#[cfg(feature = "any")]
+impl From<OdbcRow> for crate::any::AnyRow {
+    fn from(row: OdbcRow) -> Self {
+        let columns = row
+            .columns
+            .iter()
+            .map(|col| crate::any::AnyColumn {
+                kind: crate::any::column::AnyColumnKind::Odbc(col.clone()),
+                type_info: crate::any::AnyTypeInfo::from(col.type_info.clone()),
+            })
+            .collect();
+
+        crate::any::AnyRow {
+            kind: crate::any::row::AnyRowKind::Odbc(row),
+            columns,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -175,24 +194,5 @@ mod tests {
         assert_eq!(columns[0].name, "lowercase_col");
         assert_eq!(columns[1].name, "UPPERCASE_COL");
         assert_eq!(columns[2].name, "MixedCase_Col");
-    }
-}
-
-#[cfg(feature = "any")]
-impl From<OdbcRow> for crate::any::AnyRow {
-    fn from(row: OdbcRow) -> Self {
-        let columns = row
-            .columns
-            .iter()
-            .map(|col| crate::any::AnyColumn {
-                kind: crate::any::column::AnyColumnKind::Odbc(col.clone()),
-                type_info: crate::any::AnyTypeInfo::from(col.type_info.clone()),
-            })
-            .collect();
-
-        crate::any::AnyRow {
-            kind: crate::any::row::AnyRowKind::Odbc(row),
-            columns,
-        }
     }
 }

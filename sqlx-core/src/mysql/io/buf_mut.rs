@@ -40,7 +40,7 @@ impl MySqlBufMutExt for Vec<u8> {
 #[test]
 fn test_encodes_int_lenenc_u8() {
     let mut buf = Vec::with_capacity(1024);
-    buf.put_uint_lenenc(0xFA as u64);
+    buf.put_uint_lenenc(0xFA_u64);
 
     assert_eq!(&buf[..], b"\xFA");
 }
@@ -48,7 +48,7 @@ fn test_encodes_int_lenenc_u8() {
 #[test]
 fn test_encodes_int_lenenc_u16() {
     let mut buf = Vec::with_capacity(1024);
-    buf.put_uint_lenenc(std::u16::MAX as u64);
+    buf.put_uint_lenenc(u16::MAX as u64);
 
     assert_eq!(&buf[..], b"\xFC\xFF\xFF");
 }
@@ -56,7 +56,7 @@ fn test_encodes_int_lenenc_u16() {
 #[test]
 fn test_encodes_int_lenenc_u24() {
     let mut buf = Vec::with_capacity(1024);
-    buf.put_uint_lenenc(0xFF_FF_FF as u64);
+    buf.put_uint_lenenc(0xFF_FF_FF_u64);
 
     assert_eq!(&buf[..], b"\xFD\xFF\xFF\xFF");
 }
@@ -64,7 +64,7 @@ fn test_encodes_int_lenenc_u24() {
 #[test]
 fn test_encodes_int_lenenc_u64() {
     let mut buf = Vec::with_capacity(1024);
-    buf.put_uint_lenenc(std::u64::MAX);
+    buf.put_uint_lenenc(u64::MAX);
 
     assert_eq!(&buf[..], b"\xFE\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF");
 }
@@ -72,7 +72,7 @@ fn test_encodes_int_lenenc_u64() {
 #[test]
 fn test_encodes_int_lenenc_fb() {
     let mut buf = Vec::with_capacity(1024);
-    buf.put_uint_lenenc(0xFB as u64);
+    buf.put_uint_lenenc(0xFB_u64);
 
     assert_eq!(&buf[..], b"\xFC\xFB\x00");
 }
@@ -80,7 +80,7 @@ fn test_encodes_int_lenenc_fb() {
 #[test]
 fn test_encodes_int_lenenc_fc() {
     let mut buf = Vec::with_capacity(1024);
-    buf.put_uint_lenenc(0xFC as u64);
+    buf.put_uint_lenenc(0xFC_u64);
 
     assert_eq!(&buf[..], b"\xFC\xFC\x00");
 }
@@ -88,7 +88,7 @@ fn test_encodes_int_lenenc_fc() {
 #[test]
 fn test_encodes_int_lenenc_fd() {
     let mut buf = Vec::with_capacity(1024);
-    buf.put_uint_lenenc(0xFD as u64);
+    buf.put_uint_lenenc(0xFD_u64);
 
     assert_eq!(&buf[..], b"\xFC\xFD\x00");
 }
@@ -96,7 +96,7 @@ fn test_encodes_int_lenenc_fd() {
 #[test]
 fn test_encodes_int_lenenc_fe() {
     let mut buf = Vec::with_capacity(1024);
-    buf.put_uint_lenenc(0xFE as u64);
+    buf.put_uint_lenenc(0xFE_u64);
 
     assert_eq!(&buf[..], b"\xFC\xFE\x00");
 }
@@ -104,7 +104,7 @@ fn test_encodes_int_lenenc_fe() {
 #[test]
 fn test_encodes_int_lenenc_ff() {
     let mut buf = Vec::with_capacity(1024);
-    buf.put_uint_lenenc(0xFF as u64);
+    buf.put_uint_lenenc(0xFF_u64);
 
     assert_eq!(&buf[..], b"\xFC\xFF\x00");
 }
