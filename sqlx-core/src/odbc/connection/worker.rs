@@ -1,3 +1,4 @@
+use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::thread;
 
@@ -256,12 +257,17 @@ impl<'conn> StatementManager<'conn> {
         sql.hash(&mut hasher);
         let sql_hash = hasher.finish();
 
-        if let std::collections::hash_map::Entry::Vacant(e) = self.prepared_cache.entry(sql_hash) {
-            log::debug!("Preparing statement for SQL hash: {}", sql_hash);
-            let prepared = self.conn.prepare(sql).map_err(Error::from)?;
-            e.insert(prepared);
+        match self.prepared_cache.entry(sql_hash) {
+            Entry::Vacant(e) => {
+                log::trace!("Preparing statement for SQL: {}", sql);
+                let prepared = self.conn.prepare(sql)?;
+                Ok(e.insert(prepared))
+            }
+            Entry::Occupied(e) => {
+                log::trace!("Using prepared statement for SQL: {}", sql);
+                Ok(e.into_mut())
+            }
         }
-        Ok(self.prepared_cache.get_mut(&sql_hash).unwrap())
     }
 }
 // Utility functions for channel operations (deprecated - use send_result_safe)
