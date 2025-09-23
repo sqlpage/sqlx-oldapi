@@ -104,7 +104,7 @@ async fn it_has_decimal() -> anyhow::Result<()> {
 async fn it_has_json() -> anyhow::Result<()> {
     use serde_json::json;
 
-    let databases_without_json = ["sqlite", "mssql", "snowflake"];
+    let databases_without_json = ["sqlite", "microsoft sql server", "snowflake"];
     let mut conn = crate::new::<sqlx_oldapi::Any>().await?;
     let dbms_name = conn.dbms_name().await.unwrap_or_default();
     let json_sql = if databases_without_json.contains(&dbms_name.to_lowercase().as_str()) {

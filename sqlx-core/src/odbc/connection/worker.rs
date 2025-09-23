@@ -675,7 +675,7 @@ fn extract_int(
 
     let (is_null, int) = match nullable.into_opt() {
         None => (true, None),
-        Some(v) => (false, Some(v.into())),
+        Some(v) => (false, Some(v)),
     };
 
     Ok(crate::odbc::OdbcValue {
