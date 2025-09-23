@@ -56,7 +56,7 @@ jobs:
         with:
           prefix-key: v1-sqlx
           save-if: ${{ false }}
-      - run: apt-get update && apt-get install -y libodbc2 unixodbc-dev
+      - run: sudo apt-get update && sudo apt-get install -y libodbc2 unixodbc-dev
       - run: cargo test
           --manifest-path sqlx-core/Cargo.toml
           --features offline,all-databases,all-types,runtime-tokio-rustls
@@ -141,7 +141,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-
       - uses: Swatinem/rust-cache@v2
         with:
           prefix-key: v1-sqlx
@@ -213,7 +212,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-
       - uses: Swatinem/rust-cache@v2
         with:
           prefix-key: v1-sqlx
@@ -257,7 +255,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-
       - uses: Swatinem/rust-cache@v2
         with:
           prefix-key: v1-sqlx
@@ -293,7 +290,6 @@ jobs:
     needs: check
     steps:
       - uses: actions/checkout@v4
-
 
       - uses: Swatinem/rust-cache@v2
         with:
