@@ -57,6 +57,22 @@ pub struct OdbcConnection {
 }
 
 impl OdbcConnection {
+    pub(crate) async fn with_conn<R, F, S>(&mut self, operation: S, f: F) -> Result<R, Error>
+    where
+        R: Send + 'static,
+        F: FnOnce(&mut odbc_api::Connection<'static>) -> Result<R, Error> + Send + 'static,
+        S: std::fmt::Display + Send + 'static,
+    {
+        let conn = Arc::clone(&self.conn);
+        run_blocking(move || {
+            let mut conn_guard = conn.lock().map_err(|_| {
+                Error::Protocol(format!("ODBC {}: failed to lock connection", operation))
+            })?;
+            f(&mut conn_guard)
+        })
+        .await
+    }
+
     pub(crate) async fn establish(options: &OdbcConnectOptions) -> Result<Self, Error> {
         let shared_conn = run_blocking({
             let options = options.clone();
@@ -77,63 +93,42 @@ impl OdbcConnection {
     /// Returns the name of the actual Database Management System (DBMS) this
     /// connection is talking to as reported by the ODBC driver.
     pub async fn dbms_name(&mut self) -> Result<String, Error> {
-        let conn = Arc::clone(&self.conn);
-        run_blocking(move || {
-            let conn_guard = conn
-                .lock()
-                .map_err(|_| Error::Protocol("Failed to lock connection".into()))?;
-            conn_guard
-                .database_management_system_name()
-                .map_err(Error::from)
+        self.with_conn("dbms_name", move |conn| {
+            Ok(conn.database_management_system_name()?)
         })
         .await
     }
 
     pub(crate) async fn ping_blocking(&mut self) -> Result<(), Error> {
-        let conn = Arc::clone(&self.conn);
-        run_blocking(move || {
-            let conn_guard = conn
-                .lock()
-                .map_err(|_| Error::Protocol("Failed to lock connection".into()))?;
-            conn_guard
-                .execute("SELECT 1", (), None)
-                .map_err(Error::from)
-                .map(|_| ())
+        self.with_conn("ping", move |conn| {
+            conn.execute("SELECT 1", (), None)?;
+            Ok(())
         })
         .await
     }
 
     pub(crate) async fn begin_blocking(&mut self) -> Result<(), Error> {
-        let conn = Arc::clone(&self.conn);
-        run_blocking(move || {
-            let conn_guard = conn
-                .lock()
-                .map_err(|_| Error::Protocol("Failed to lock connection".into()))?;
-            conn_guard.set_autocommit(false).map_err(Error::from)
+        self.with_conn("begin", move |conn| {
+            conn.set_autocommit(false)?;
+            Ok(())
         })
         .await
     }
 
     pub(crate) async fn commit_blocking(&mut self) -> Result<(), Error> {
-        let conn = Arc::clone(&self.conn);
-        run_blocking(move || {
-            let conn_guard = conn
-                .lock()
-                .map_err(|_| Error::Protocol("Failed to lock connection".into()))?;
-            conn_guard.commit()?;
-            conn_guard.set_autocommit(true).map_err(Error::from)
+        self.with_conn("commit", move |conn| {
+            conn.commit()?;
+            conn.set_autocommit(true)?;
+            Ok(())
         })
         .await
     }
 
     pub(crate) async fn rollback_blocking(&mut self) -> Result<(), Error> {
-        let conn = Arc::clone(&self.conn);
-        run_blocking(move || {
-            let conn_guard = conn
-                .lock()
-                .map_err(|_| Error::Protocol("Failed to lock connection".into()))?;
-            conn_guard.rollback()?;
-            conn_guard.set_autocommit(true).map_err(Error::from)
+        self.with_conn("rollback", move |conn| {
+            conn.rollback()?;
+            conn.set_autocommit(true)?;
+            Ok(())
         })
         .await
     }
@@ -146,13 +141,9 @@ impl OdbcConnection {
         let (tx, rx) = flume::bounded(64);
         let sql = sql.to_string();
         let args_move = args;
-        let conn = Arc::clone(&self.conn);
 
-        run_blocking(move || {
-            let mut conn_guard = conn
-                .lock()
-                .map_err(|_| Error::Protocol("Failed to lock connection".into()))?;
-            if let Err(e) = execute_sql(&mut conn_guard, &sql, args_move, &tx) {
+        self.with_conn("execute_stream", move |conn| {
+            if let Err(e) = execute_sql(conn, &sql, args_move, &tx) {
                 let _ = tx.send(Err(e));
             }
             Ok(())
@@ -180,16 +171,11 @@ impl OdbcConnection {
 
         // Create new prepared statement to get metadata
         let sql = sql.to_string();
-        let conn = Arc::clone(&self.conn);
-
-        run_blocking(move || {
-            let conn_guard = conn
-                .lock()
-                .map_err(|_| Error::Protocol("Failed to lock connection".into()))?;
-            let mut prepared = conn_guard.prepare(&sql).map_err(Error::from)?;
+        self.with_conn("prepare_metadata", move |conn| {
+            let mut prepared = conn.prepare(&sql)?;
             let columns = collect_columns(&mut prepared);
             let params = usize::from(prepared.num_params().unwrap_or(0));
-            Ok::<_, Error>((columns, params))
+            Ok((columns, params))
         })
         .await
         .map(|(columns, params)| {
