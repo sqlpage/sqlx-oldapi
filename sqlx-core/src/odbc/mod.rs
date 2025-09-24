@@ -36,6 +36,7 @@ mod transaction;
 mod type_info;
 pub mod types;
 mod value;
+mod blocking;
 
 pub use arguments::{OdbcArgumentValue, OdbcArguments};
 pub use column::OdbcColumn;
