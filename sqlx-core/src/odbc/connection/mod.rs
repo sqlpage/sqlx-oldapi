@@ -19,7 +19,7 @@ mod executor;
 /// thread-pool via `spawn_blocking` and synchronize access with a mutex.
 #[derive(Debug)]
 pub struct OdbcConnection {
-    pub(crate) inner: Arc<Mutex<OdbcConn>>,
+    pub(crate) conn: Arc<Mutex<OdbcConn>>,
 }
 
 impl OdbcConnection {
@@ -29,7 +29,7 @@ impl OdbcConnection {
         T: Send + 'static,
         F: FnOnce(&mut OdbcConn) -> Result<T, Error> + Send + 'static,
     {
-        let inner = self.inner.clone();
+        let inner = self.conn.clone();
         run_blocking(move || {
             let mut conn = inner.lock().unwrap();
             f(&mut conn)
@@ -44,7 +44,7 @@ impl OdbcConnection {
         E: std::fmt::Display,
         F: FnOnce(&mut OdbcConn) -> Result<T, E> + Send + 'static,
     {
-        let inner = self.inner.clone();
+        let inner = self.conn.clone();
         run_blocking(move || {
             let mut conn = inner.lock().unwrap();
             f(&mut conn).map_err(|e| Error::Protocol(format!("{}: {}", ctx, e)))
@@ -60,7 +60,7 @@ impl OdbcConnection {
         .await?;
 
         Ok(Self {
-            inner: Arc::new(Mutex::new(conn)),
+            conn: Arc::new(Mutex::new(conn)),
         })
     }
 
