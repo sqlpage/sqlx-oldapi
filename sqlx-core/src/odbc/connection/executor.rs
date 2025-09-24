@@ -24,7 +24,7 @@ impl<'c> Executor<'c> for &'c mut OdbcConnection {
         let sql = query.sql().to_string();
         let args = query.take_arguments();
         Box::pin(try_stream! {
-            let rx = self.worker.execute_stream(&sql, args).await?;
+            let rx = self.execute_stream(&sql, args).await?;
             while let Ok(item) = rx.recv_async().await {
                 r#yield!(item?);
             }
@@ -60,7 +60,7 @@ impl<'c> Executor<'c> for &'c mut OdbcConnection {
         'c: 'e,
     {
         Box::pin(async move {
-            let (_, columns, parameters) = self.worker.prepare(sql).await?;
+            let (_, columns, parameters) = self.prepare(sql).await?;
             Ok(OdbcStatement {
                 sql: Cow::Borrowed(sql),
                 columns,

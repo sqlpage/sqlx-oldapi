@@ -11,19 +11,19 @@ impl TransactionManager for OdbcTransactionManager {
     fn begin(
         conn: &mut <Self::Database as crate::database::Database>::Connection,
     ) -> BoxFuture<'_, Result<(), Error>> {
-        Box::pin(async move { conn.worker.begin().await })
+        Box::pin(async move { conn.begin_blocking().await })
     }
 
     fn commit(
         conn: &mut <Self::Database as crate::database::Database>::Connection,
     ) -> BoxFuture<'_, Result<(), Error>> {
-        Box::pin(async move { conn.worker.commit().await })
+        Box::pin(async move { conn.commit_blocking().await })
     }
 
     fn rollback(
         conn: &mut <Self::Database as crate::database::Database>::Connection,
     ) -> BoxFuture<'_, Result<(), Error>> {
-        Box::pin(async move { conn.worker.rollback().await })
+        Box::pin(async move { conn.rollback_blocking().await })
     }
 
     fn start_rollback(_conn: &mut <Self::Database as crate::database::Database>::Connection) {

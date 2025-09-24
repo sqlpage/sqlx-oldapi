@@ -2,6 +2,7 @@ pub use async_std::{
     self, fs, future::timeout, io::prelude::ReadExt as AsyncReadExt,
     io::prelude::WriteExt as AsyncWriteExt, io::Read as AsyncRead, io::Write as AsyncWrite,
     net::TcpStream, sync::Mutex as AsyncMutex, task::sleep, task::spawn, task::yield_now,
+    task::spawn_blocking,
 };
 
 #[cfg(unix)]
