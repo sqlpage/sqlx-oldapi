@@ -149,7 +149,7 @@ async fn it_fetch_optional_some_and_none() -> anyhow::Result<()> {
 #[tokio::test]
 async fn it_can_prepare_then_query_without_params() -> anyhow::Result<()> {
     let mut conn = new::<Odbc>().await?;
-    let stmt = (&mut conn).prepare("SELECT 7 AS seven").await?;
+    let stmt = conn.prepare("SELECT 7 AS seven").await?;
     let row = stmt.query().fetch_one(&mut conn).await?;
     let col_name = row.column(0).name();
     assert!(
@@ -166,7 +166,7 @@ async fn it_can_prepare_then_query_without_params() -> anyhow::Result<()> {
 async fn it_can_prepare_then_query_with_params_integer_float_text() -> anyhow::Result<()> {
     let mut conn = new::<Odbc>().await?;
 
-    let stmt = (&mut conn).prepare("SELECT ? AS i, ? AS f, ? AS t").await?;
+    let stmt = conn.prepare("SELECT ? AS i, ? AS f, ? AS t").await?;
 
     let row = stmt
         .query()
@@ -217,7 +217,7 @@ async fn it_can_bind_many_params_dynamically() -> anyhow::Result<()> {
         sql.push('?');
     }
 
-    let stmt = (&mut conn).prepare(&sql).await?;
+    let stmt = conn.prepare(&sql).await?;
 
     let values: Vec<i32> = (1..=count as i32).collect();
     let mut q = stmt.query();
@@ -237,7 +237,7 @@ async fn it_can_bind_many_params_dynamically() -> anyhow::Result<()> {
 async fn it_can_bind_heterogeneous_params() -> anyhow::Result<()> {
     let mut conn = new::<Odbc>().await?;
 
-    let stmt = (&mut conn).prepare("SELECT ?, ?, ?, ?, ?").await?;
+    let stmt = conn.prepare("SELECT ?, ?, ?, ?, ?").await?;
 
     let row = stmt
         .query()
@@ -266,7 +266,7 @@ async fn it_can_bind_heterogeneous_params() -> anyhow::Result<()> {
 #[tokio::test]
 async fn it_binds_null_string_parameter() -> anyhow::Result<()> {
     let mut conn = new::<Odbc>().await?;
-    let stmt = (&mut conn).prepare("SELECT ?, ?").await?;
+    let stmt = conn.prepare("SELECT ?, ?").await?;
     let row = stmt
         .query()
         .bind("abc")
@@ -424,7 +424,7 @@ async fn it_handles_large_strings() -> anyhow::Result<()> {
 
     // Test a moderately large string
     let large_string = "a".repeat(1000);
-    let stmt = (&mut conn).prepare("SELECT ? AS large_str").await?;
+    let stmt = conn.prepare("SELECT ? AS large_str").await?;
     let row = stmt
         .query()
         .bind(&large_string)
@@ -443,7 +443,7 @@ async fn it_handles_binary_data() -> anyhow::Result<()> {
 
     // Test binary data - use UTF-8 safe bytes for PostgreSQL compatibility
     let binary_data = b"ABCDE";
-    let stmt = (&mut conn).prepare("SELECT ? AS binary_data").await?;
+    let stmt = conn.prepare("SELECT ? AS binary_data").await?;
     let row = stmt
         .query()
         .bind(&binary_data[..])
@@ -459,7 +459,7 @@ async fn it_handles_binary_data() -> anyhow::Result<()> {
 async fn it_handles_mixed_null_and_values() -> anyhow::Result<()> {
     let mut conn = new::<Odbc>().await?;
 
-    let stmt = (&mut conn).prepare("SELECT ?, ?, ?, ?").await?;
+    let stmt = conn.prepare("SELECT ?, ?, ?, ?").await?;
     let row = stmt
         .query()
         .bind(42_i32)
@@ -505,7 +505,7 @@ async fn it_handles_slice_types() -> anyhow::Result<()> {
 
     // Test slice types
     let test_data = b"Hello, ODBC!";
-    let stmt = (&mut conn).prepare("SELECT ? AS slice_data").await?;
+    let stmt = conn.prepare("SELECT ? AS slice_data").await?;
     let row = stmt
         .query()
         .bind(&test_data[..])
@@ -528,7 +528,7 @@ async fn it_handles_uuid() -> anyhow::Result<()> {
     let uuid_str = test_uuid.to_string();
 
     // Test UUID as string
-    let stmt = (&mut conn).prepare("SELECT ? AS uuid_data").await?;
+    let stmt = conn.prepare("SELECT ? AS uuid_data").await?;
     let row = stmt.query().bind(&uuid_str).fetch_one(&mut conn).await?;
 
     let result = row.try_get_raw(0)?.to_owned().decode::<Uuid>();
@@ -536,7 +536,7 @@ async fn it_handles_uuid() -> anyhow::Result<()> {
 
     // Test with a specific UUID string
     let specific_uuid_str = "550e8400-e29b-41d4-a716-446655440000";
-    let stmt = (&mut conn).prepare("SELECT ? AS uuid_data").await?;
+    let stmt = conn.prepare("SELECT ? AS uuid_data").await?;
     let row = stmt
         .query()
         .bind(specific_uuid_str)
@@ -563,7 +563,7 @@ async fn it_handles_json() -> anyhow::Result<()> {
     });
     let json_str = test_json.to_string();
 
-    let stmt = (&mut conn).prepare("SELECT ? AS json_data").await?;
+    let stmt = conn.prepare("SELECT ? AS json_data").await?;
     let row = stmt.query().bind(&json_str).fetch_one(&mut conn).await?;
 
     let result: Value = row.try_get_raw(0)?.to_owned().decode();
@@ -581,7 +581,7 @@ async fn it_handles_bigdecimal() -> anyhow::Result<()> {
     let test_decimal = BigDecimal::from_str("123.456789")?;
     let decimal_str = test_decimal.to_string();
 
-    let stmt = (&mut conn).prepare("SELECT ? AS decimal_data").await?;
+    let stmt = conn.prepare("SELECT ? AS decimal_data").await?;
     let row = stmt.query().bind(&decimal_str).fetch_one(&mut conn).await?;
 
     let result = row.try_get_raw(0)?.to_owned().decode::<BigDecimal>();
@@ -598,7 +598,7 @@ async fn it_handles_rust_decimal() -> anyhow::Result<()> {
     let test_decimal = "123.456789".parse::<Decimal>()?;
     let decimal_str = test_decimal.to_string();
 
-    let stmt = (&mut conn).prepare("SELECT ? AS decimal_data").await?;
+    let stmt = conn.prepare("SELECT ? AS decimal_data").await?;
     let row = stmt.query().bind(&decimal_str).fetch_one(&mut conn).await?;
 
     let result = row.try_get_raw(0)?.to_owned().decode::<Decimal>();
@@ -621,7 +621,7 @@ async fn it_handles_chrono_datetime() -> anyhow::Result<()> {
     let test_datetime = NaiveDateTime::new(test_date, test_time);
 
     // Test that we can encode chrono types (by storing them as strings)
-    let stmt = (&mut conn).prepare("SELECT ? AS date_data").await?;
+    let stmt = conn.prepare("SELECT ? AS date_data").await?;
     let row = stmt.query().bind(test_date).fetch_one(&mut conn).await?;
 
     // Decode as string and verify format
@@ -629,14 +629,14 @@ async fn it_handles_chrono_datetime() -> anyhow::Result<()> {
     assert_eq!(result_str, "2023-12-25");
 
     // Test time encoding
-    let stmt = (&mut conn).prepare("SELECT ? AS time_data").await?;
+    let stmt = conn.prepare("SELECT ? AS time_data").await?;
     let row = stmt.query().bind(test_time).fetch_one(&mut conn).await?;
 
     let result_str = row.try_get_raw(0)?.to_owned().decode::<String>();
     assert_eq!(result_str, "14:30:00");
 
     // Test datetime encoding
-    let stmt = (&mut conn).prepare("SELECT ? AS datetime_data").await?;
+    let stmt = conn.prepare("SELECT ? AS datetime_data").await?;
     let row = stmt
         .query()
         .bind(test_datetime)
@@ -764,7 +764,7 @@ async fn it_handles_prepare_statement_errors() -> anyhow::Result<()> {
     // So we test that execution fails even if preparation succeeds
 
     // Test executing prepared invalid SQL
-    if let Ok(stmt) = (&mut conn).prepare("INVALID PREPARE STATEMENT").await {
+    if let Ok(stmt) = conn.prepare("INVALID PREPARE STATEMENT").await {
         let result = stmt.query().fetch_one(&mut conn).await;
         let err = result.expect_err("should be an error");
         assert!(
@@ -775,7 +775,7 @@ async fn it_handles_prepare_statement_errors() -> anyhow::Result<()> {
     }
 
     // Test executing prepared SQL with syntax errors
-    match (&mut conn)
+    match conn
         .prepare("SELECT idonotexist FROM idonotexist WHERE idonotexist")
         .await
     {
@@ -811,9 +811,7 @@ async fn it_handles_parameter_binding_errors() -> anyhow::Result<()> {
     let mut conn = new::<Odbc>().await?;
 
     // Test with completely missing parameters - this should more reliably fail
-    let stmt = (&mut conn)
-        .prepare("SELECT ? AS param1, ? AS param2")
-        .await?;
+    let stmt = conn.prepare("SELECT ? AS param1, ? AS param2").await?;
 
     // Test with no parameters when some are expected
     let result = stmt.query().fetch_one(&mut conn).await;
@@ -824,7 +822,7 @@ async fn it_handles_parameter_binding_errors() -> anyhow::Result<()> {
 
     // Test that we can handle parameter binding gracefully
     // Even if the driver is permissive, the system should be robust
-    let stmt2 = (&mut conn).prepare("SELECT ? AS single_param").await?;
+    let stmt2 = conn.prepare("SELECT ? AS single_param").await?;
 
     // Bind correct number of parameters - this should work
     let result = stmt2.query().bind(42i32).fetch_one(&mut conn).await;
@@ -842,7 +840,7 @@ async fn it_handles_parameter_execution_errors() -> anyhow::Result<()> {
     let mut conn = new::<Odbc>().await?;
 
     // Test parameter binding with incompatible operations that should fail at execution
-    let stmt = (&mut conn).prepare("SELECT ? / 0 AS div_by_zero").await?;
+    let stmt = conn.prepare("SELECT ? / 0 AS div_by_zero").await?;
 
     // This should execute but may produce a runtime error (division by zero)
     let result = stmt.query().bind(42i32).fetch_one(&mut conn).await;
@@ -850,7 +848,7 @@ async fn it_handles_parameter_execution_errors() -> anyhow::Result<()> {
     let _ = result;
 
     // Test with a parameter in an invalid context that should fail
-    if let Ok(stmt) = (&mut conn).prepare("SELECT * FROM ?").await {
+    if let Ok(stmt) = conn.prepare("SELECT * FROM ?").await {
         // Using parameter as table name should fail at execution
         let result = stmt
             .query()
@@ -1019,7 +1017,7 @@ async fn it_handles_prepared_statement_with_wrong_parameters() -> anyhow::Result
     let mut conn = new::<Odbc>().await?;
 
     // Prepare a statement expecting specific parameter types
-    let stmt = (&mut conn).prepare("SELECT ? + ? AS sum").await?;
+    let stmt = conn.prepare("SELECT ? + ? AS sum").await?;
 
     // Test binding incompatible types (if the database is strict about types)
     // Some databases/drivers are permissive, others are strict

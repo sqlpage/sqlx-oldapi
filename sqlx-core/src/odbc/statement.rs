@@ -8,8 +8,13 @@ use std::borrow::Cow;
 #[derive(Debug, Clone)]
 pub struct OdbcStatement<'q> {
     pub(crate) sql: Cow<'q, str>,
-    pub(crate) columns: Vec<OdbcColumn>,
-    pub(crate) parameters: usize,
+    pub(crate) metadata: OdbcStatementMetadata,
+}
+
+#[derive(Debug, Clone)]
+pub struct OdbcStatementMetadata {
+    pub columns: Vec<OdbcColumn>,
+    pub parameters: usize,
 }
 
 impl<'q> Statement<'q> for OdbcStatement<'q> {
@@ -18,8 +23,7 @@ impl<'q> Statement<'q> for OdbcStatement<'q> {
     fn to_owned(&self) -> OdbcStatement<'static> {
         OdbcStatement {
             sql: Cow::Owned(self.sql.to_string()),
-            columns: self.columns.clone(),
-            parameters: self.parameters,
+            metadata: self.metadata.clone(),
         }
     }
 
@@ -27,10 +31,10 @@ impl<'q> Statement<'q> for OdbcStatement<'q> {
         &self.sql
     }
     fn parameters(&self) -> Option<Either<&[OdbcTypeInfo], usize>> {
-        Some(Either::Right(self.parameters))
+        Some(Either::Right(self.metadata.parameters))
     }
     fn columns(&self) -> &[OdbcColumn] {
-        &self.columns
+        &self.metadata.columns
     }
 
     // ODBC arguments placeholder
@@ -40,6 +44,7 @@ impl<'q> Statement<'q> for OdbcStatement<'q> {
 impl ColumnIndex<OdbcStatement<'_>> for &'_ str {
     fn index(&self, statement: &OdbcStatement<'_>) -> Result<usize, Error> {
         statement
+            .metadata
             .columns
             .iter()
             .position(|c| c.name == *self)
@@ -54,21 +59,22 @@ impl<'q> From<OdbcStatement<'q>> for crate::any::AnyStatement<'q> {
 
         // First build the columns and collect names
         let columns: Vec<_> = stmt
+            .metadata
             .columns
-            .into_iter()
+            .iter()
             .enumerate()
             .map(|(index, col)| {
                 column_names.insert(crate::ext::ustr::UStr::new(&col.name), index);
                 crate::any::AnyColumn {
                     kind: crate::any::column::AnyColumnKind::Odbc(col.clone()),
-                    type_info: crate::any::AnyTypeInfo::from(col.type_info),
+                    type_info: crate::any::AnyTypeInfo::from(col.type_info.clone()),
                 }
             })
             .collect();
 
         crate::any::AnyStatement {
             sql: stmt.sql,
-            parameters: Some(either::Either::Right(stmt.parameters)),
+            parameters: Some(either::Either::Right(stmt.metadata.parameters)),
             columns,
             column_names: std::sync::Arc::new(column_names),
         }

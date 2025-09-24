@@ -4,49 +4,45 @@ use crate::odbc::{
 };
 use either::Either;
 use flume::{SendError, Sender};
-use odbc_api::handles::StatementImpl;
 use odbc_api::{Cursor, CursorRow, IntoParameter, Nullable, Preallocated, ResultSetMetadata};
-use std::collections::HashMap;
 
-#[derive(Debug)]
-pub struct OdbcConn {
-    pub conn: odbc_api::Connection<'static>,
-    pub prepared_meta_cache: HashMap<u64, (Vec<OdbcColumn>, usize)>,
-}
 pub type ExecuteResult = Result<Either<OdbcQueryResult, OdbcRow>, Error>;
 pub type ExecuteSender = Sender<ExecuteResult>;
 
-pub fn establish_connection(options: &crate::odbc::OdbcConnectOptions) -> Result<OdbcConn, Error> {
+pub fn establish_connection(
+    options: &crate::odbc::OdbcConnectOptions,
+) -> Result<odbc_api::Connection<'static>, Error> {
     let env = odbc_api::environment().map_err(|e| Error::Configuration(e.to_string().into()))?;
     let conn = env
         .connect_with_connection_string(options.connection_string(), Default::default())
         .map_err(|e| Error::Configuration(e.to_string().into()))?;
-    Ok(OdbcConn {
-        conn,
-        prepared_meta_cache: HashMap::new(),
-    })
+    Ok(conn)
 }
 
 pub fn execute_sql(
-    inner: &mut OdbcConn,
+    conn: &mut odbc_api::Connection<'static>,
     sql: &str,
     args: Option<OdbcArguments>,
     tx: &ExecuteSender,
 ) -> Result<(), Error> {
     let params = prepare_parameters(args);
-    let stmt = &mut inner.conn.preallocate().map_err(Error::from)?;
 
-    if let Some(mut cursor) = stmt.execute(sql, &params[..])? {
+    let mut preallocated = conn.preallocate().map_err(Error::from)?;
+
+    if let Some(mut cursor) = preallocated.execute(sql, &params[..])? {
         handle_cursor(&mut cursor, tx);
         return Ok(());
     }
 
-    let affected = extract_rows_affected(stmt);
+    let affected = extract_rows_affected(&mut preallocated);
     let _ = send_done(tx, affected);
     Ok(())
 }
 
-fn extract_rows_affected(stmt: &mut Preallocated<StatementImpl<'_>>) -> u64 {
+fn extract_rows_affected<S>(stmt: &mut Preallocated<S>) -> u64
+where
+    S: odbc_api::handles::AsStatementRef,
+{
     let count_opt = match stmt.row_count() {
         Ok(count_opt) => count_opt,
         Err(_) => {
@@ -319,28 +315,4 @@ fn extract_binary(
         int: None,
         float: None,
     })
-}
-
-pub fn do_prepare(
-    inner: &mut OdbcConn,
-    sql: Box<str>,
-) -> Result<(u64, Vec<OdbcColumn>, usize), Error> {
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
-
-    let mut hasher = DefaultHasher::new();
-    sql.hash(&mut hasher);
-    let key = hasher.finish();
-
-    if let Some((cols, params)) = inner.prepared_meta_cache.get(&key) {
-        return Ok((key, cols.clone(), *params));
-    }
-
-    let mut prepared = inner.conn.prepare(&sql)?;
-    let columns = collect_columns(&mut prepared);
-    let params = usize::from(prepared.num_params().unwrap_or(0));
-    inner
-        .prepared_meta_cache
-        .insert(key, (columns.clone(), params));
-    Ok((key, columns, params))
 }

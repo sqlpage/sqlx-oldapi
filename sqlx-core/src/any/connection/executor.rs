@@ -128,15 +128,7 @@ impl<'c> Executor<'c> for &'c mut AnyConnection {
                 AnyConnectionKind::Mssql(conn) => conn.prepare(sql).await.map(Into::into)?,
 
                 #[cfg(feature = "odbc")]
-                AnyConnectionKind::Odbc(conn) => {
-                    let (_, columns, parameters) = conn.prepare_metadata(sql).await?;
-                    crate::odbc::OdbcStatement {
-                        sql: sql.into(),
-                        columns,
-                        parameters,
-                    }
-                    .into()
-                }
+                AnyConnectionKind::Odbc(conn) => conn.prepare(sql).await.map(Into::into)?,
             })
         })
     }
