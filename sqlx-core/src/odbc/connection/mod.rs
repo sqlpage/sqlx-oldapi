@@ -1,13 +1,13 @@
 use crate::connection::{Connection, LogSettings};
 use crate::error::Error;
+use crate::odbc::blocking::run_blocking;
 use crate::odbc::{Odbc, OdbcArguments, OdbcColumn, OdbcConnectOptions, OdbcQueryResult, OdbcRow};
 use crate::transaction::Transaction;
 use either::Either;
-use crate::odbc::blocking::run_blocking;
 mod inner;
-use inner::{do_prepare, establish_connection, execute_sql, OdbcConn};
 use futures_core::future::BoxFuture;
 use futures_util::future;
+use inner::{do_prepare, establish_connection, execute_sql, OdbcConn};
 // no direct spawn_blocking here; use run_blocking helper
 use std::sync::{Arc, Mutex};
 
@@ -28,7 +28,8 @@ impl OdbcConnection {
         let conn = run_blocking({
             let options = options.clone();
             move || establish_connection(&options)
-        }).await?;
+        })
+        .await?;
 
         Ok(Self {
             inner: Arc::new(Mutex::new(conn)),
@@ -44,7 +45,8 @@ impl OdbcConnection {
             let conn = inner.lock().unwrap();
             conn.database_management_system_name()
                 .map_err(|e| Error::Protocol(format!("Failed to get DBMS name: {}", e)))
-        }).await
+        })
+        .await
     }
 
     pub(crate) async fn ping_blocking(&mut self) -> Result<(), Error> {
@@ -56,7 +58,8 @@ impl OdbcConnection {
                 Ok(_) => Ok(()),
                 Err(e) => Err(Error::Protocol(format!("Ping failed: {}", e))),
             }
-        }).await
+        })
+        .await
     }
 
     pub(crate) async fn begin_blocking(&mut self) -> Result<(), Error> {
@@ -65,7 +68,8 @@ impl OdbcConnection {
             let conn = inner.lock().unwrap();
             conn.set_autocommit(false)
                 .map_err(|e| Error::Protocol(format!("Failed to begin transaction: {}", e)))
-        }).await
+        })
+        .await
     }
 
     pub(crate) async fn commit_blocking(&mut self) -> Result<(), Error> {
@@ -75,7 +79,8 @@ impl OdbcConnection {
             conn.commit()
                 .and_then(|_| conn.set_autocommit(true))
                 .map_err(|e| Error::Protocol(format!("Failed to commit transaction: {}", e)))
-        }).await
+        })
+        .await
     }
 
     pub(crate) async fn rollback_blocking(&mut self) -> Result<(), Error> {
@@ -85,7 +90,8 @@ impl OdbcConnection {
             conn.rollback()
                 .and_then(|_| conn.set_autocommit(true))
                 .map_err(|e| Error::Protocol(format!("Failed to rollback transaction: {}", e)))
-        }).await
+        })
+        .await
     }
 
     pub(crate) async fn execute_stream(
@@ -102,7 +108,8 @@ impl OdbcConnection {
                 let _ = tx.send(Err(e));
             }
             Ok(())
-        }).await?;
+        })
+        .await?;
         Ok(rx)
     }
 

@@ -1,5 +1,7 @@
 use crate::error::Error;
-use crate::odbc::{OdbcArgumentValue, OdbcArguments, OdbcColumn, OdbcQueryResult, OdbcRow, OdbcTypeInfo};
+use crate::odbc::{
+    OdbcArgumentValue, OdbcArguments, OdbcColumn, OdbcQueryResult, OdbcRow, OdbcTypeInfo,
+};
 use either::Either;
 use flume::{SendError, Sender};
 use odbc_api::handles::StatementImpl;
@@ -105,7 +107,9 @@ where
     C: ResultSetMetadata,
 {
     let count = cursor.num_result_cols().unwrap_or(0);
-    (1..=count).map(|i| create_column(cursor, i as u16)).collect()
+    (1..=count)
+        .map(|i| create_column(cursor, i as u16))
+        .collect()
 }
 
 fn create_column<C>(cursor: &mut C, index: u16) -> OdbcColumn
@@ -177,7 +181,9 @@ fn collect_column_value(
         | DataType::Bit => extract_int(row, col_idx, &type_info)?,
 
         DataType::Real => extract_float::<f32>(row, col_idx, &type_info)?,
-        DataType::Float { .. } | DataType::Double => extract_float::<f64>(row, col_idx, &type_info)?,
+        DataType::Float { .. } | DataType::Double => {
+            extract_float::<f64>(row, col_idx, &type_info)?
+        }
 
         DataType::Char { .. }
         | DataType::Varchar { .. }
@@ -195,10 +201,12 @@ fn collect_column_value(
             extract_binary(row, col_idx, &type_info)?
         }
 
-        DataType::Unknown | DataType::Other { .. } => match extract_text(row, col_idx, &type_info) {
-            Ok(v) => v,
-            Err(_) => extract_binary(row, col_idx, &type_info)?,
-        },
+        DataType::Unknown | DataType::Other { .. } => {
+            match extract_text(row, col_idx, &type_info) {
+                Ok(v) => v,
+                Err(_) => extract_binary(row, col_idx, &type_info)?,
+            }
+        }
     };
 
     Ok((type_info, value))
@@ -289,7 +297,11 @@ fn extract_binary(
     let mut buf = Vec::new();
     let is_some = row.get_binary(col_idx, &mut buf)?;
 
-    let (is_null, blob) = if !is_some { (true, None) } else { (false, Some(buf)) };
+    let (is_null, blob) = if !is_some {
+        (true, None)
+    } else {
+        (false, Some(buf))
+    };
 
     Ok(crate::odbc::OdbcValue {
         type_info: type_info.clone(),
@@ -310,4 +322,3 @@ pub fn do_prepare(
     let params = usize::from(prepared.num_params().unwrap_or(0));
     Ok((0, columns, params))
 }
-
