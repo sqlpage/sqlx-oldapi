@@ -24,6 +24,25 @@ pub struct OdbcConnection {
 }
 
 impl OdbcConnection {
+    #[inline]
+    async fn with_conn<T, F>(&self, f: F) -> Result<T, Error>
+    where
+        T: Send + 'static,
+        F: FnOnce(&mut OdbcConn) -> Result<T, Error> + Send + 'static,
+    {
+        let inner = self.inner.clone();
+        run_blocking(move || {
+            let mut conn = inner.lock().unwrap();
+            f(&mut conn)
+        })
+        .await
+    }
+
+    #[inline]
+    fn odbc_err<T, E: std::fmt::Display>(res: Result<T, E>, ctx: &'static str) -> Result<T, Error> {
+        res.map_err(|e| Error::Protocol(format!("{}: {}", ctx, e)))
+    }
+
     pub(crate) async fn establish(options: &OdbcConnectOptions) -> Result<Self, Error> {
         let conn = run_blocking({
             let options = options.clone();
@@ -40,56 +59,44 @@ impl OdbcConnection {
     /// Returns the name of the actual Database Management System (DBMS) this
     /// connection is talking to as reported by the ODBC driver.
     pub async fn dbms_name(&mut self) -> Result<String, Error> {
-        let inner = self.inner.clone();
-        run_blocking(move || {
-            let conn = inner.lock().unwrap();
-            conn.database_management_system_name()
-                .map_err(|e| Error::Protocol(format!("Failed to get DBMS name: {}", e)))
+        self.with_conn(|conn| {
+            Self::odbc_err(
+                conn.database_management_system_name(),
+                "Failed to get DBMS name",
+            )
         })
         .await
     }
 
     pub(crate) async fn ping_blocking(&mut self) -> Result<(), Error> {
-        let inner = self.inner.clone();
-        run_blocking(move || {
-            let conn = inner.lock().unwrap();
-            let res = conn.execute("SELECT 1", (), None);
-            match res {
-                Ok(_) => Ok(()),
-                Err(e) => Err(Error::Protocol(format!("Ping failed: {}", e))),
-            }
+        self.with_conn(|conn| {
+            Self::odbc_err(conn.execute("SELECT 1", (), None), "Ping failed")?;
+            Ok(())
         })
         .await
     }
 
     pub(crate) async fn begin_blocking(&mut self) -> Result<(), Error> {
-        let inner = self.inner.clone();
-        run_blocking(move || {
-            let conn = inner.lock().unwrap();
-            conn.set_autocommit(false)
-                .map_err(|e| Error::Protocol(format!("Failed to begin transaction: {}", e)))
+        self.with_conn(|conn| {
+            Self::odbc_err(conn.set_autocommit(false), "Failed to begin transaction")
         })
         .await
     }
 
     pub(crate) async fn commit_blocking(&mut self) -> Result<(), Error> {
-        let inner = self.inner.clone();
-        run_blocking(move || {
-            let conn = inner.lock().unwrap();
-            conn.commit()
-                .and_then(|_| conn.set_autocommit(true))
-                .map_err(|e| Error::Protocol(format!("Failed to commit transaction: {}", e)))
+        self.with_conn(|conn| {
+            Self::odbc_err(conn.commit(), "Failed to commit transaction")?;
+            Self::odbc_err(conn.set_autocommit(true), "Failed to commit transaction")?;
+            Ok(())
         })
         .await
     }
 
     pub(crate) async fn rollback_blocking(&mut self) -> Result<(), Error> {
-        let inner = self.inner.clone();
-        run_blocking(move || {
-            let conn = inner.lock().unwrap();
-            conn.rollback()
-                .and_then(|_| conn.set_autocommit(true))
-                .map_err(|e| Error::Protocol(format!("Failed to rollback transaction: {}", e)))
+        self.with_conn(|conn| {
+            Self::odbc_err(conn.rollback(), "Failed to rollback transaction")?;
+            Self::odbc_err(conn.set_autocommit(true), "Failed to rollback transaction")?;
+            Ok(())
         })
         .await
     }
@@ -100,11 +107,10 @@ impl OdbcConnection {
         args: Option<OdbcArguments>,
     ) -> Result<flume::Receiver<Result<Either<OdbcQueryResult, OdbcRow>, Error>>, Error> {
         let (tx, rx) = flume::bounded(64);
-        let inner = self.inner.clone();
         let sql = sql.to_string();
-        run_blocking(move || {
-            let mut guard = inner.lock().unwrap();
-            if let Err(e) = execute_sql(&mut guard, &sql, args, &tx) {
+        let args_move = args;
+        self.with_conn(move |conn| {
+            if let Err(e) = execute_sql(conn, &sql, args_move, &tx) {
                 let _ = tx.send(Err(e));
             }
             Ok(())
@@ -117,9 +123,9 @@ impl OdbcConnection {
         &mut self,
         sql: &str,
     ) -> Result<(u64, Vec<OdbcColumn>, usize), Error> {
-        let inner = self.inner.clone();
         let sql = sql.to_string();
-        run_blocking(move || do_prepare(&mut inner.lock().unwrap(), sql.into())).await
+        self.with_conn(move |conn| do_prepare(conn, sql.into()))
+            .await
     }
 }
 
