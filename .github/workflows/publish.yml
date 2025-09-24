@@ -21,6 +21,10 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Publish workspace
-        run: cargo publish ${DRY} --workspace --token ${{ secrets.CRATES_TOKEN }} --no-default-features --features runtime-actix-rustls
-        env:
-          DRY: ${{ startsWith(github.ref, 'refs/tags/v') && '--dry-run' || '' }}
+        run: |
+          cargo publish \
+          ${{ startsWith(github.ref, 'refs/tags/v') && '--dry-run' || '' }} \
+           --workspace \
+           --token ${{ secrets.CRATES_TOKEN }} \
+           --no-default-features \
+           --features runtime-actix-rustls
