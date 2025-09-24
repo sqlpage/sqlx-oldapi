@@ -83,6 +83,7 @@ runtime-actix-native-tls = ["runtime-tokio-native-tls"]
 runtime-async-std-native-tls = [
     "sqlx-core/runtime-async-std-native-tls",
     "sqlx-macros/runtime-async-std-native-tls",
+    "sqlx-rt/runtime-async-std-native-tls",
     "_rt-async-std",
 ]
 runtime-tokio-native-tls = [
@@ -95,6 +96,7 @@ runtime-actix-rustls = ["runtime-tokio-rustls"]
 runtime-async-std-rustls = [
     "sqlx-core/runtime-async-std-rustls",
     "sqlx-macros/runtime-async-std-rustls",
+    "sqlx-rt/runtime-async-std-rustls",
     "aws_lc_rs",
     "tls12",
     "_rt-async-std",
@@ -102,11 +104,13 @@ runtime-async-std-rustls = [
 runtime-async-std-rustls-nocrypto = [
     "sqlx-core/runtime-async-std-rustls",
     "sqlx-macros/runtime-async-std-rustls",
+    "sqlx-rt/runtime-async-std-rustls",
     "_rt-async-std",
 ]
 runtime-tokio-rustls = [
     "sqlx-core/runtime-tokio-rustls",
     "sqlx-macros/runtime-tokio-rustls",
+    "sqlx-rt/runtime-tokio-rustls",
     "aws_lc_rs",
     "tls12",
     "_rt-tokio",
@@ -114,6 +118,7 @@ runtime-tokio-rustls = [
 runtime-tokio-rustls-nocrypto = [
     "sqlx-core/runtime-tokio-rustls",
     "sqlx-macros/runtime-tokio-rustls",
+    "sqlx-rt/runtime-tokio-rustls",
     "_rt-tokio",
 ]
 
