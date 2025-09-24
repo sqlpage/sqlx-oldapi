@@ -449,31 +449,45 @@ fn execute_sql<'conn>(
     let params = prepare_parameters(args);
     let stmt = stmt_manager.get_or_create_direct_stmt()?;
     log::trace!("Starting execution of SQL: {}", sql);
-    let cursor_result = stmt.execute(sql, &params[..]);
-    log::trace!("Received cursor result for SQL: {}", sql);
-    send_exec_result(cursor_result, tx)?;
+
+    // Execute and handle result immediately to avoid borrowing conflicts
+    if let Some(mut cursor) = stmt.execute(sql, &params[..])? {
+        handle_cursor(&mut cursor, tx);
+        return Ok(());
+    }
+
+    // Execution completed without result set, get affected rows
+    let affected = extract_rows_affected(stmt);
+    let _ = send_done(tx, affected);
     Ok(())
 }
 
-// Unified execution logic for both direct and prepared statements
-fn send_exec_result<C>(
-    execution_result: Result<Option<C>, odbc_api::Error>,
-    tx: &ExecuteSender,
-) -> Result<(), Error>
-where
-    C: Cursor + ResultSetMetadata,
-{
-    match execution_result {
-        Ok(Some(mut cursor)) => {
-            handle_cursor(&mut cursor, tx);
-            Ok(())
+fn extract_rows_affected(stmt: &mut Preallocated<StatementImpl<'_>>) -> u64 {
+    let count_opt = match stmt.row_count() {
+        Ok(count_opt) => count_opt,
+        Err(e) => {
+            log::warn!("Failed to get ODBC row count: {}", e);
+            return 0;
         }
-        Ok(None) => {
-            let _ = send_done(tx, 0);
-            Ok(())
+    };
+
+    let count = match count_opt {
+        Some(count) => count,
+        None => {
+            log::debug!("ODBC row count is not available");
+            return 0;
         }
-        Err(e) => Err(Error::from(e)),
-    }
+    };
+
+    let affected = match u64::try_from(count) {
+        Ok(count) => count,
+        Err(e) => {
+            log::warn!("Failed to convert ODBC row count to u64: {}", e);
+            return 0;
+        }
+    };
+    log::trace!("ODBC statement affected {} rows", affected);
+    affected
 }
 
 fn prepare_parameters(

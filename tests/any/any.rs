@@ -276,3 +276,34 @@ async fn it_has_unsigned_integers() -> anyhow::Result<()> {
     assert_eq!(max_value, get_val::<u64>(&expr).await?);
     Ok(())
 }
+
+#[sqlx_macros::test]
+async fn it_reports_rows_affected() -> anyhow::Result<()> {
+    let mut conn = new::<Any>().await?;
+
+    let dbms = conn.dbms_name().await.unwrap_or_default().to_lowercase();
+    let (create_sql, insert_sql, delete_sql) =
+        if dbms.contains("mssql") || dbms.contains("sql server") {
+            (
+                "CREATE TABLE #temp_rows_affected (id INT PRIMARY KEY)",
+                "INSERT INTO #temp_rows_affected (id) VALUES (1)",
+                "DELETE FROM #temp_rows_affected WHERE id = 1",
+            )
+        } else {
+            (
+                "CREATE TEMPORARY TABLE temp_rows_affected (id INTEGER PRIMARY KEY)",
+                "INSERT INTO temp_rows_affected (id) VALUES (1)",
+                "DELETE FROM temp_rows_affected WHERE id = 1",
+            )
+        };
+
+    conn.execute(create_sql).await?;
+
+    let insert_done = conn.execute(insert_sql).await?;
+    assert_eq!(insert_done.rows_affected(), 1);
+
+    let delete_done = conn.execute(delete_sql).await?;
+    assert_eq!(delete_done.rows_affected(), 1);
+
+    Ok(())
+}
