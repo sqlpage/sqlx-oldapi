@@ -6,7 +6,6 @@ use either::Either;
 use futures_core::future::BoxFuture;
 use futures_core::stream::BoxStream;
 use futures_util::TryStreamExt;
-use std::borrow::Cow;
 
 // run method removed; fetch_many implements streaming directly
 
@@ -59,14 +58,7 @@ impl<'c> Executor<'c> for &'c mut OdbcConnection {
     where
         'c: 'e,
     {
-        Box::pin(async move {
-            let (_, columns, parameters) = self.prepare_metadata(sql).await?;
-            Ok(OdbcStatement {
-                sql: Cow::Borrowed(sql),
-                columns,
-                parameters,
-            })
-        })
+        Box::pin(async move { self.prepare(sql).await })
     }
 
     #[doc(hidden)]
