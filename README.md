@@ -381,7 +381,7 @@ ODBC drivers are available for most popular databases:
 
 ```ini
 # ~/.odbc.ini
-[MySnowflakeDb]
+[MyDatabase]
 Description=SnowflakeDB for SQLx Testing
 Driver=SnowflakeDSIIDriver
 Locale=en-US
