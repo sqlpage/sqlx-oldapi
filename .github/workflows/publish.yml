@@ -23,7 +23,7 @@ jobs:
       - name: Publish workspace
         run: |
           cargo publish \
-          ${{ startsWith(github.ref, 'refs/tags/v') && '--dry-run' || '' }} \
+          ${{ startsWith(github.ref, 'refs/tags/v') && '' || '--dry-run' }} \
            --workspace \
            --token ${{ secrets.CRATES_TOKEN }} \
            --no-default-features \
