@@ -1,13 +1,13 @@
-use crate::connection::{Connection, LogSettings};
+use crate::connection::Connection;
 use crate::error::Error;
 use crate::odbc::blocking::run_blocking;
 use crate::odbc::{Odbc, OdbcArguments, OdbcColumn, OdbcConnectOptions, OdbcQueryResult, OdbcRow};
 use crate::transaction::Transaction;
 use either::Either;
-mod inner;
+mod odbc_bridge;
 use futures_core::future::BoxFuture;
 use futures_util::future;
-use inner::{do_prepare, establish_connection, execute_sql, OdbcConn};
+use odbc_bridge::{do_prepare, establish_connection, execute_sql, OdbcConn};
 // no direct spawn_blocking here; use run_blocking helper
 use std::sync::{Arc, Mutex};
 
@@ -20,7 +20,6 @@ mod executor;
 #[derive(Debug)]
 pub struct OdbcConnection {
     pub(crate) inner: Arc<Mutex<OdbcConn>>,
-    pub(crate) log_settings: LogSettings,
 }
 
 impl OdbcConnection {
@@ -62,7 +61,6 @@ impl OdbcConnection {
 
         Ok(Self {
             inner: Arc::new(Mutex::new(conn)),
-            log_settings: LogSettings::default(),
         })
     }
 
