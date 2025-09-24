@@ -39,8 +39,18 @@ impl OdbcConnection {
     }
 
     #[inline]
-    fn odbc_err<T, E: std::fmt::Display>(res: Result<T, E>, ctx: &'static str) -> Result<T, Error> {
-        res.map_err(|e| Error::Protocol(format!("{}: {}", ctx, e)))
+    async fn with_conn_map<T, E, F>(&self, ctx: &'static str, f: F) -> Result<T, Error>
+    where
+        T: Send + 'static,
+        E: std::fmt::Display,
+        F: FnOnce(&mut OdbcConn) -> Result<T, E> + Send + 'static,
+    {
+        let inner = self.inner.clone();
+        run_blocking(move || {
+            let mut conn = inner.lock().unwrap();
+            f(&mut conn).map_err(|e| Error::Protocol(format!("{}: {}", ctx, e)))
+        })
+        .await
     }
 
     pub(crate) async fn establish(options: &OdbcConnectOptions) -> Result<Self, Error> {
@@ -59,44 +69,38 @@ impl OdbcConnection {
     /// Returns the name of the actual Database Management System (DBMS) this
     /// connection is talking to as reported by the ODBC driver.
     pub async fn dbms_name(&mut self) -> Result<String, Error> {
-        self.with_conn(|conn| {
-            Self::odbc_err(
-                conn.database_management_system_name(),
-                "Failed to get DBMS name",
-            )
+        self.with_conn_map::<_, _, _>("Failed to get DBMS name", |conn| {
+            conn.database_management_system_name()
         })
         .await
     }
 
     pub(crate) async fn ping_blocking(&mut self) -> Result<(), Error> {
-        self.with_conn(|conn| {
-            Self::odbc_err(conn.execute("SELECT 1", (), None), "Ping failed")?;
-            Ok(())
+        self.with_conn_map::<_, _, _>("Ping failed", |conn| {
+            conn.execute("SELECT 1", (), None).map(|_| ())
         })
         .await
     }
 
     pub(crate) async fn begin_blocking(&mut self) -> Result<(), Error> {
-        self.with_conn(|conn| {
-            Self::odbc_err(conn.set_autocommit(false), "Failed to begin transaction")
+        self.with_conn_map::<_, _, _>("Failed to begin transaction", |conn| {
+            conn.set_autocommit(false)
         })
         .await
     }
 
     pub(crate) async fn commit_blocking(&mut self) -> Result<(), Error> {
-        self.with_conn(|conn| {
-            Self::odbc_err(conn.commit(), "Failed to commit transaction")?;
-            Self::odbc_err(conn.set_autocommit(true), "Failed to commit transaction")?;
-            Ok(())
+        self.with_conn_map::<_, _, _>("Failed to commit transaction", |conn| {
+            conn.commit()?;
+            conn.set_autocommit(true)
         })
         .await
     }
 
     pub(crate) async fn rollback_blocking(&mut self) -> Result<(), Error> {
-        self.with_conn(|conn| {
-            Self::odbc_err(conn.rollback(), "Failed to rollback transaction")?;
-            Self::odbc_err(conn.set_autocommit(true), "Failed to rollback transaction")?;
-            Ok(())
+        self.with_conn_map::<_, _, _>("Failed to rollback transaction", |conn| {
+            conn.rollback()?;
+            conn.set_autocommit(true)
         })
         .await
     }
