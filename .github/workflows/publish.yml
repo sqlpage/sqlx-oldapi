@@ -1,26 +1,30 @@
+name: Publish workspace crates
+
 on:
   workflow_dispatch: {}
   push:
-    # Sequence of patterns matched against refs/tags
+    paths:
+      - "**/Cargo.toml"
+      - ".github/workflows/publish.yml"
     tags:
-      - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
-
-name: Publish
+      - "v*"
+  pull_request:
+    paths:
+      - "**/Cargo.toml"
+      - ".github/workflows/publish.yml"
 
 jobs:
   publish:
-    name: Publish
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: |
-          cargo publish ${ARGS} --package sqlx-rt-oldapi
-          cargo publish ${ARGS} --package sqlx-core-oldapi
-          cargo publish ${ARGS} --package sqlx-macros-oldapi
-          cargo publish ${ARGS} --package sqlx-oldapi
-        env:
-          ARGS: 
-            --token ${{ secrets.CRATES_TOKEN }}
-            --no-default-features
-            --features runtime-actix-rustls
+      - name: Publish workspace
+        run: |
+          cargo publish \
+          ${{ startsWith(github.ref, 'refs/tags/v') && '' || '--dry-run' }} \
+           --workspace \
+           --token ${{ secrets.CRATES_TOKEN }} \
+           --no-default-features \
+           --features runtime-actix-rustls
