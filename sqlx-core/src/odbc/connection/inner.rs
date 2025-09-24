@@ -6,8 +6,13 @@ use either::Either;
 use flume::{SendError, Sender};
 use odbc_api::handles::StatementImpl;
 use odbc_api::{Cursor, CursorRow, IntoParameter, Nullable, Preallocated, ResultSetMetadata};
+use std::collections::HashMap;
 
-pub type OdbcConn = odbc_api::Connection<'static>;
+#[derive(Debug)]
+pub struct OdbcConn {
+    pub conn: odbc_api::Connection<'static>,
+    pub prepared_meta_cache: HashMap<u64, (Vec<OdbcColumn>, usize)>,
+}
 pub type ExecuteResult = Result<Either<OdbcQueryResult, OdbcRow>, Error>;
 pub type ExecuteSender = Sender<ExecuteResult>;
 
@@ -16,17 +21,20 @@ pub fn establish_connection(options: &crate::odbc::OdbcConnectOptions) -> Result
     let conn = env
         .connect_with_connection_string(options.connection_string(), Default::default())
         .map_err(|e| Error::Configuration(e.to_string().into()))?;
-    Ok(conn)
+    Ok(OdbcConn {
+        conn,
+        prepared_meta_cache: HashMap::new(),
+    })
 }
 
 pub fn execute_sql(
-    conn: &mut OdbcConn,
+    inner: &mut OdbcConn,
     sql: &str,
     args: Option<OdbcArguments>,
     tx: &ExecuteSender,
 ) -> Result<(), Error> {
     let params = prepare_parameters(args);
-    let stmt = &mut conn.preallocate().map_err(Error::from)?;
+    let stmt = &mut inner.conn.preallocate().map_err(Error::from)?;
 
     if let Some(mut cursor) = stmt.execute(sql, &params[..])? {
         handle_cursor(&mut cursor, tx);
@@ -314,11 +322,25 @@ fn extract_binary(
 }
 
 pub fn do_prepare(
-    conn: &mut OdbcConn,
+    inner: &mut OdbcConn,
     sql: Box<str>,
 ) -> Result<(u64, Vec<OdbcColumn>, usize), Error> {
-    let mut prepared = conn.prepare(&sql)?;
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+
+    let mut hasher = DefaultHasher::new();
+    sql.hash(&mut hasher);
+    let key = hasher.finish();
+
+    if let Some((cols, params)) = inner.prepared_meta_cache.get(&key) {
+        return Ok((key, cols.clone(), *params));
+    }
+
+    let mut prepared = inner.conn.prepare(&sql)?;
     let columns = collect_columns(&mut prepared);
     let params = usize::from(prepared.num_params().unwrap_or(0));
-    Ok((0, columns, params))
+    inner
+        .prepared_meta_cache
+        .insert(key, (columns.clone(), params));
+    Ok((key, columns, params))
 }
