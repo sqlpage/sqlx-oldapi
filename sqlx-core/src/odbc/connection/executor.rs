@@ -60,7 +60,7 @@ impl<'c> Executor<'c> for &'c mut OdbcConnection {
         'c: 'e,
     {
         Box::pin(async move {
-            let (_, columns, parameters) = self.prepare(sql).await?;
+            let (_, columns, parameters) = self.prepare_metadata(sql).await?;
             Ok(OdbcStatement {
                 sql: Cow::Borrowed(sql),
                 columns,
