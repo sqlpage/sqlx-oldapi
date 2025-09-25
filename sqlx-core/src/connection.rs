@@ -102,6 +102,25 @@ pub trait Connection: Send {
         Box::pin(async move { Ok(()) })
     }
 
+    /// Returns the name of the Database Management System (DBMS) this connection
+    /// is talking to.
+    ///
+    /// This is intended to be compatible with the ODBC `SQL_DBMS_NAME` info value
+    /// and should generally return the same string as an ODBC driver for the same
+    /// database. This makes it easier to write conditional SQL or feature probes
+    /// that work across both native and ODBC connections.
+    ///
+    /// Typical return values include:
+    /// - "PostgreSQL"
+    /// - "MySQL"
+    /// - "SQLite"
+    /// - "Microsoft SQL Server" (includes Azure SQL)
+    /// - ODBC: the exact string reported by the driver via `SQL_DBMS_NAME`
+    ///
+    /// Implementations for built-in drivers return a well-known constant string,
+    /// while the ODBC driver queries the underlying driver at runtime.
+    fn dbms_name(&mut self) -> BoxFuture<'_, Result<String, Error>>;
+
     #[doc(hidden)]
     fn flush(&mut self) -> BoxFuture<'_, Result<(), Error>>;
 

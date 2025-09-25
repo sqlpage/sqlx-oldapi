@@ -95,14 +95,7 @@ impl OdbcConnection {
         })
     }
 
-    /// Returns the name of the actual Database Management System (DBMS) this
-    /// connection is talking to as reported by the ODBC driver.
-    pub async fn dbms_name(&mut self) -> Result<String, Error> {
-        self.with_conn("dbms_name", move |conn| {
-            Ok(conn.database_management_system_name()?)
-        })
-        .await
-    }
+    // (dbms_name moved to the Connection trait implementation)
 
     pub(crate) async fn ping_blocking(&mut self) -> Result<(), Error> {
         self.with_conn("ping", move |conn| {
@@ -236,6 +229,15 @@ impl Connection for OdbcConnection {
 
     fn clear_cached_statements(&mut self) -> BoxFuture<'_, Result<(), Error>> {
         Box::pin(self.clear_cached_statements())
+    }
+
+    fn dbms_name(&mut self) -> BoxFuture<'_, Result<String, Error>> {
+        Box::pin(async move {
+            self.with_conn("dbms_name", move |conn| {
+                Ok(conn.database_management_system_name()?)
+            })
+            .await
+        })
     }
 }
 

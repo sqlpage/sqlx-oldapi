@@ -81,4 +81,8 @@ impl Connection for MssqlConnection {
     fn should_flush(&self) -> bool {
         !self.stream.wbuf.is_empty()
     }
+
+    fn dbms_name(&mut self) -> BoxFuture<'_, Result<String, Error>> {
+        futures_util::future::ready(Ok("Microsoft SQL Server".to_string())).boxed()
+    }
 }

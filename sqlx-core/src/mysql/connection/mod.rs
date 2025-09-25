@@ -107,4 +107,8 @@ impl Connection for MySqlConnection {
     {
         Transaction::begin(self)
     }
+
+    fn dbms_name(&mut self) -> BoxFuture<'_, Result<String, Error>> {
+        futures_util::future::ready(Ok("MySQL".to_string())).boxed()
+    }
 }
