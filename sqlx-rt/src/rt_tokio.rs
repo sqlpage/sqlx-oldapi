@@ -1,7 +1,7 @@
 pub use tokio::{
     self, fs, io::AsyncRead, io::AsyncReadExt, io::AsyncWrite, io::AsyncWriteExt, io::ReadBuf,
-    net::TcpStream, runtime::Handle, sync::Mutex as AsyncMutex, task::spawn, task::spawn_blocking,
-    task::yield_now, time::sleep, time::timeout,
+    net::TcpStream, runtime::Handle, sync::Mutex as AsyncMutex, task::spawn, task::yield_now,
+    time::sleep, time::timeout,
 };
 
 #[cfg(unix)]
@@ -44,4 +44,15 @@ pub fn test_block_on<F: std::future::Future>(future: F) -> F::Output {
         .build()
         .expect("failed to initialize Tokio test runtime")
         .block_on(future)
+}
+
+/// Spawn a blocking task. Panics if the task panics.
+pub async fn spawn_blocking<F, R>(f: F) -> R
+where
+    F: FnOnce() -> R + Send + 'static,
+    R: Send + 'static,
+{
+    tokio::task::spawn_blocking(f)
+        .await
+        .expect("blocking task panicked")
 }

@@ -1,19 +1,18 @@
 use crate::connection::Connection;
 use crate::error::Error;
-use crate::odbc::blocking::run_blocking;
 use crate::odbc::{
     Odbc, OdbcArguments, OdbcColumn, OdbcConnectOptions, OdbcQueryResult, OdbcRow, OdbcTypeInfo,
 };
 use crate::transaction::Transaction;
 use either::Either;
+use sqlx_rt::spawn_blocking;
 mod odbc_bridge;
+use crate::odbc::{OdbcStatement, OdbcStatementMetadata};
 use futures_core::future::BoxFuture;
 use futures_util::future;
 use odbc_api::ConnectionTransitions;
-use odbc_bridge::{establish_connection, execute_sql};
-// no direct spawn_blocking here; use run_blocking helper
-use crate::odbc::{OdbcStatement, OdbcStatementMetadata};
 use odbc_api::{handles::StatementConnection, Prepared, ResultSetMetadata, SharedConnection};
+use odbc_bridge::{establish_connection, execute_sql};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -70,7 +69,7 @@ impl OdbcConnection {
         S: std::fmt::Display + Send + 'static,
     {
         let conn = Arc::clone(&self.conn);
-        run_blocking(move || {
+        spawn_blocking(move || {
             let mut conn_guard = conn.lock().map_err(|_| {
                 Error::Protocol(format!("ODBC {}: failed to lock connection", operation))
             })?;
@@ -80,7 +79,7 @@ impl OdbcConnection {
     }
 
     pub(crate) async fn establish(options: &OdbcConnectOptions) -> Result<Self, Error> {
-        let shared_conn = run_blocking({
+        let shared_conn = spawn_blocking({
             let options = options.clone();
             move || {
                 let conn = establish_connection(&options)?;
@@ -174,13 +173,13 @@ impl OdbcConnection {
         let conn = Arc::clone(&self.conn);
         let sql_arc = Arc::from(sql.to_string());
         let sql_clone = Arc::clone(&sql_arc);
-        let (prepared, metadata) = run_blocking(move || {
+        let (prepared, metadata) = spawn_blocking(move || {
             let mut prepared = conn.into_prepared(&sql_clone)?;
             let metadata = OdbcStatementMetadata {
                 columns: collect_columns(&mut prepared),
                 parameters: usize::from(prepared.num_params().unwrap_or(0)),
             };
-            Ok((prepared, metadata))
+            Ok::<_, Error>((prepared, metadata))
         })
         .await?;
         self.stmt_cache
