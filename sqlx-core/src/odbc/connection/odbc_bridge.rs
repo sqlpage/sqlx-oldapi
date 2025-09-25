@@ -1,8 +1,9 @@
-use crate::error::Error;
+THIS SHOULD BE A LINTER ERRORuse crate::error::Error;
 use crate::odbc::{
     connection::MaybePrepared, OdbcArgumentValue, OdbcArguments, OdbcColumn, OdbcQueryResult,
     OdbcRow, OdbcTypeInfo,
 };
+use crate::odbc::connection::decode_column_name;
 use either::Either;
 use flume::{SendError, Sender};
 use odbc_api::handles::{AsStatementRef, Statement};
@@ -139,25 +140,7 @@ where
     }
 }
 
-trait ColumnNameDecode {
-    fn decode_or_default(self, index: u16) -> String;
-}
-
-impl ColumnNameDecode for Vec<u8> {
-    fn decode_or_default(self, index: u16) -> String {
-        String::from_utf8(self).unwrap_or_else(|_| format!("col{}", index - 1))
-    }
-}
-
-impl ColumnNameDecode for Vec<u16> {
-    fn decode_or_default(self, index: u16) -> String {
-        String::from_utf16(&self).unwrap_or_else(|_| format!("col{}", index - 1))
-    }
-}
-
-fn decode_column_name<T: ColumnNameDecode>(name: T, index: u16) -> String {
-    name.decode_or_default(index)
-}
+// decode_column_name is provided by connection/mod.rs
 
 fn stream_rows<C>(cursor: &mut C, columns: &[OdbcColumn], tx: &ExecuteSender) -> Result<bool, Error>
 where

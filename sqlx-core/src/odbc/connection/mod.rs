@@ -40,7 +40,7 @@ fn create_column(stmt: &mut PreparedStatement, index: u16) -> OdbcColumn {
     }
 }
 
-trait ColumnNameDecode {
+pub(super) trait ColumnNameDecode {
     fn decode_or_default(self, index: u16) -> String;
 }
 
@@ -56,7 +56,7 @@ impl ColumnNameDecode for Vec<u16> {
     }
 }
 
-fn decode_column_name<T: ColumnNameDecode>(name: T, index: u16) -> String {
+pub(super) fn decode_column_name<T: ColumnNameDecode>(name: T, index: u16) -> String {
     name.decode_or_default(index)
 }
 
