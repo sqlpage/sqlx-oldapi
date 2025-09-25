@@ -214,7 +214,8 @@ impl<'r> Decode<'r, Odbc> for NaiveDate {
                 date_val.year as i32,
                 date_val.month as u32,
                 date_val.day as u32,
-            ).ok_or_else(|| "ODBC: invalid date values".to_string())?);
+            )
+            .ok_or_else(|| "ODBC: invalid date values".to_string())?);
         }
 
         // Handle text values first (most common for dates)
@@ -269,7 +270,8 @@ impl<'r> Decode<'r, Odbc> for NaiveTime {
                 time_val.hour as u32,
                 time_val.minute as u32,
                 time_val.second as u32,
-            ).ok_or_else(|| "ODBC: invalid time values".to_string())?);
+            )
+            .ok_or_else(|| "ODBC: invalid time values".to_string())?);
         }
 
         let mut s = <String as Decode<'r, Odbc>>::decode(value)?;
@@ -289,17 +291,16 @@ impl<'r> Decode<'r, Odbc> for NaiveDateTime {
         if let Some(ts_val) = value.timestamp() {
             // Convert odbc_api::sys::Timestamp to NaiveDateTime
             // The ODBC Timestamp structure typically has year, month, day, hour, minute, second fields
-            let date = NaiveDate::from_ymd_opt(
-                ts_val.year as i32,
-                ts_val.month as u32,
-                ts_val.day as u32,
-            ).ok_or_else(|| "ODBC: invalid date values in timestamp".to_string())?;
+            let date =
+                NaiveDate::from_ymd_opt(ts_val.year as i32, ts_val.month as u32, ts_val.day as u32)
+                    .ok_or_else(|| "ODBC: invalid date values in timestamp".to_string())?;
 
             let time = NaiveTime::from_hms_opt(
                 ts_val.hour as u32,
                 ts_val.minute as u32,
                 ts_val.second as u32,
-            ).ok_or_else(|| "ODBC: invalid time values in timestamp".to_string())?;
+            )
+            .ok_or_else(|| "ODBC: invalid time values in timestamp".to_string())?;
 
             return Ok(NaiveDateTime::new(date, time));
         }
@@ -331,16 +332,14 @@ impl<'r> Decode<'r, Odbc> for DateTime<Utc> {
             // Convert odbc_api::sys::Timestamp to DateTime<Utc>
             // The ODBC Timestamp structure typically has year, month, day, hour, minute, second fields
             let naive_dt = NaiveDateTime::new(
-                NaiveDate::from_ymd_opt(
-                    ts_val.year as i32,
-                    ts_val.month as u32,
-                    ts_val.day as u32,
-                ).ok_or_else(|| "ODBC: invalid date values in timestamp".to_string())?,
+                NaiveDate::from_ymd_opt(ts_val.year as i32, ts_val.month as u32, ts_val.day as u32)
+                    .ok_or_else(|| "ODBC: invalid date values in timestamp".to_string())?,
                 NaiveTime::from_hms_opt(
                     ts_val.hour as u32,
                     ts_val.minute as u32,
                     ts_val.second as u32,
-                ).ok_or_else(|| "ODBC: invalid time values in timestamp".to_string())?,
+                )
+                .ok_or_else(|| "ODBC: invalid time values in timestamp".to_string())?,
             );
 
             return Ok(DateTime::<Utc>::from_naive_utc_and_offset(naive_dt, Utc));
@@ -378,16 +377,14 @@ impl<'r> Decode<'r, Odbc> for DateTime<FixedOffset> {
             // Convert odbc_api::sys::Timestamp to DateTime<FixedOffset>
             // The ODBC Timestamp structure typically has year, month, day, hour, minute, second fields
             let naive_dt = NaiveDateTime::new(
-                NaiveDate::from_ymd_opt(
-                    ts_val.year as i32,
-                    ts_val.month as u32,
-                    ts_val.day as u32,
-                ).ok_or_else(|| "ODBC: invalid date values in timestamp".to_string())?,
+                NaiveDate::from_ymd_opt(ts_val.year as i32, ts_val.month as u32, ts_val.day as u32)
+                    .ok_or_else(|| "ODBC: invalid date values in timestamp".to_string())?,
                 NaiveTime::from_hms_opt(
                     ts_val.hour as u32,
                     ts_val.minute as u32,
                     ts_val.second as u32,
-                ).ok_or_else(|| "ODBC: invalid time values in timestamp".to_string())?,
+                )
+                .ok_or_else(|| "ODBC: invalid time values in timestamp".to_string())?,
             );
 
             return Ok(DateTime::<Utc>::from_naive_utc_and_offset(naive_dt, Utc).fixed_offset());
@@ -429,19 +426,19 @@ impl<'r> Decode<'r, Odbc> for DateTime<Local> {
             // Convert odbc_api::sys::Timestamp to DateTime<Local>
             // The ODBC Timestamp structure typically has year, month, day, hour, minute, second fields
             let naive_dt = NaiveDateTime::new(
-                NaiveDate::from_ymd_opt(
-                    ts_val.year as i32,
-                    ts_val.month as u32,
-                    ts_val.day as u32,
-                ).ok_or_else(|| "ODBC: invalid date values in timestamp".to_string())?,
+                NaiveDate::from_ymd_opt(ts_val.year as i32, ts_val.month as u32, ts_val.day as u32)
+                    .ok_or_else(|| "ODBC: invalid date values in timestamp".to_string())?,
                 NaiveTime::from_hms_opt(
                     ts_val.hour as u32,
                     ts_val.minute as u32,
                     ts_val.second as u32,
-                ).ok_or_else(|| "ODBC: invalid time values in timestamp".to_string())?,
+                )
+                .ok_or_else(|| "ODBC: invalid time values in timestamp".to_string())?,
             );
 
-            return Ok(DateTime::<Utc>::from_naive_utc_and_offset(naive_dt, Utc).with_timezone(&Local));
+            return Ok(
+                DateTime::<Utc>::from_naive_utc_and_offset(naive_dt, Utc).with_timezone(&Local)
+            );
         }
 
         let mut s = <String as Decode<'r, Odbc>>::decode(value)?;

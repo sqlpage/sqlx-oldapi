@@ -203,7 +203,7 @@ where
         | DataType::Varbinary { length }
         | DataType::LongVarbinary { length } => BufferDesc::Binary {
             length: if let Some(length) = length {
-                std::cmp::max(std::cmp::min(length.get(), MAX_TEXT_LEN), MIN_TEXT_LEN)
+                length.get().clamp(MIN_TEXT_LEN, MAX_TEXT_LEN)
             } else {
                 MAX_TEXT_LEN
             },
@@ -219,7 +219,7 @@ where
             ..
         } => BufferDesc::Text {
             max_str_len: if let Some(length) = length {
-                std::cmp::max(std::cmp::min(length.get(), MAX_TEXT_LEN), MIN_TEXT_LEN)
+                length.get().clamp(MIN_TEXT_LEN, MAX_TEXT_LEN)
             } else {
                 MAX_TEXT_LEN
             },

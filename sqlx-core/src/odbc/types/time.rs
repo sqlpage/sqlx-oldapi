@@ -233,7 +233,11 @@ impl<'r> Decode<'r, Odbc> for Date {
             // The ODBC Date structure typically has year, month, day fields
             let month = time::Month::try_from(date_val.month as u8)
                 .map_err(|_| "ODBC: invalid month value")?;
-            return Ok(Date::from_calendar_date(date_val.year as i32, month, date_val.day as u8)?);
+            return Ok(Date::from_calendar_date(
+                date_val.year as i32,
+                month,
+                date_val.day as u8,
+            )?);
         }
 
         // Handle numeric YYYYMMDD format first
