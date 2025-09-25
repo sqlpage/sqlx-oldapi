@@ -19,7 +19,8 @@ const BATCH_SIZE: usize = 128;
 const DEFAULT_TEXT_LEN: usize = 512;
 const DEFAULT_BINARY_LEN: usize = 1024;
 const DEFAULT_NUMERIC_TEXT_LEN: usize = 128;
-const MAX_TEXT_LEN: usize = 1024;
+const MIN_TEXT_LEN: usize = 1024;
+const MAX_TEXT_LEN: usize = 4096;
 const MAX_BINARY_LEN: usize = 1024;
 
 struct ColumnBinding {
@@ -204,14 +205,23 @@ where
                 length: DEFAULT_BINARY_LEN,
             }
         }
-        DataType::Char { .. }
-        | DataType::WChar { .. }
-        | DataType::Varchar { .. }
-        | DataType::WVarchar { .. }
-        | DataType::LongVarchar { .. }
-        | DataType::WLongVarchar { .. }
-        | DataType::Other { .. }
-        | DataType::Unknown => BufferDesc::Text {
+        DataType::Char { length }
+        | DataType::WChar { length }
+        | DataType::Varchar { length }
+        | DataType::WVarchar { length }
+        | DataType::LongVarchar { length }
+        | DataType::WLongVarchar { length }
+        | DataType::Other {
+            column_size: length,
+            ..
+        } => BufferDesc::Text {
+            max_str_len: if let Some(length) = length {
+                std::cmp::max(std::cmp::min(length.get(), MAX_TEXT_LEN), MIN_TEXT_LEN)
+            } else {
+                MAX_TEXT_LEN
+            },
+        },
+        DataType::Unknown => BufferDesc::Text {
             max_str_len: MAX_TEXT_LEN,
         },
         DataType::Decimal { .. } | DataType::Numeric { .. } => BufferDesc::Text {
