@@ -9,27 +9,27 @@ use either::Either;
 mod odbc_bridge;
 use futures_core::future::BoxFuture;
 use futures_util::future;
+use odbc_api::ConnectionTransitions;
 use odbc_bridge::{establish_connection, execute_sql};
 // no direct spawn_blocking here; use run_blocking helper
 use crate::odbc::{OdbcStatement, OdbcStatementMetadata};
-use odbc_api::ResultSetMetadata;
+use odbc_api::{handles::StatementConnection, Prepared, ResultSetMetadata, SharedConnection};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-fn collect_columns(
-    prepared: &mut odbc_api::Prepared<odbc_api::handles::StatementImpl<'_>>,
-) -> Vec<OdbcColumn> {
+mod executor;
+
+type PreparedStatement = Prepared<StatementConnection<SharedConnection<'static>>>;
+
+fn collect_columns(prepared: &mut PreparedStatement) -> Vec<OdbcColumn> {
     let count = prepared.num_result_cols().unwrap_or(0);
     (1..=count)
         .map(|i| create_column(prepared, i as u16))
         .collect()
 }
 
-fn create_column(
-    stmt: &mut odbc_api::Prepared<odbc_api::handles::StatementImpl<'_>>,
-    index: u16,
-) -> OdbcColumn {
+fn create_column(stmt: &mut PreparedStatement, index: u16) -> OdbcColumn {
     let mut cd = odbc_api::ColumnDescription::default();
     let _ = stmt.describe_col(index, &mut cd);
 
@@ -44,16 +44,21 @@ fn decode_column_name(name_bytes: Vec<u8>, index: u16) -> String {
     String::from_utf8(name_bytes).unwrap_or_else(|_| format!("col{}", index - 1))
 }
 
-mod executor;
-
 /// A connection to an ODBC-accessible database.
 ///
 /// ODBC uses a blocking C API, so we offload blocking calls to the runtime's blocking
 /// thread-pool via `spawn_blocking` and synchronize access with a mutex.
-#[derive(Debug)]
 pub struct OdbcConnection {
-    pub(crate) conn: odbc_api::SharedConnection<'static>,
-    pub(crate) stmt_cache: HashMap<u64, crate::odbc::statement::OdbcStatementMetadata>,
+    pub(crate) conn: SharedConnection<'static>,
+    pub(crate) stmt_cache: HashMap<Arc<str>, PreparedStatement>,
+}
+
+impl std::fmt::Debug for OdbcConnection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("OdbcConnection")
+            .field("conn", &self.conn)
+            .finish()
+    }
 }
 
 impl OdbcConnection {
@@ -139,11 +144,16 @@ impl OdbcConnection {
         args: Option<OdbcArguments>,
     ) -> Result<flume::Receiver<Result<Either<OdbcQueryResult, OdbcRow>, Error>>, Error> {
         let (tx, rx) = flume::bounded(64);
-        let sql = sql.to_string();
-        let args_move = args;
+
+        // !!TODO!!!:  Put back the prepared statement after usage
+        let maybe_prepared = if let Some(prepared) = self.stmt_cache.remove(sql) {
+            MaybePrepared::Prepared(prepared)
+        } else {
+            MaybePrepared::NotPrepared(sql.to_string())
+        };
 
         self.with_conn("execute_stream", move |conn| {
-            if let Err(e) = execute_sql(conn, &sql, args_move, &tx) {
+            if let Err(e) = execute_sql(conn, maybe_prepared, args, &tx) {
                 let _ = tx.send(Err(e));
             }
             Ok(())
@@ -153,59 +163,36 @@ impl OdbcConnection {
         Ok(rx)
     }
 
-    pub(crate) async fn prepare_metadata(
-        &mut self,
-        sql: &str,
-    ) -> Result<(u64, Vec<OdbcColumn>, usize), Error> {
-        use std::collections::hash_map::DefaultHasher;
-        use std::hash::{Hash, Hasher};
-
-        let mut hasher = DefaultHasher::new();
-        sql.hash(&mut hasher);
-        let key = hasher.finish();
-
-        // Check cache first
-        if let Some(metadata) = self.stmt_cache.get(&key) {
-            return Ok((key, metadata.columns.clone(), metadata.parameters));
-        }
-
-        // Create new prepared statement to get metadata
-        let sql = sql.to_string();
-        self.with_conn("prepare_metadata", move |conn| {
-            let mut prepared = conn.prepare(&sql)?;
-            let columns = collect_columns(&mut prepared);
-            let params = usize::from(prepared.num_params().unwrap_or(0));
-            Ok((columns, params))
-        })
-        .await
-        .map(|(columns, params)| {
-            // Cache the metadata
-            let metadata = crate::odbc::statement::OdbcStatementMetadata {
-                columns: columns.clone(),
-                parameters: params,
-            };
-            self.stmt_cache.insert(key, metadata);
-            (key, columns, params)
-        })
-    }
-
     pub(crate) async fn clear_cached_statements(&mut self) -> Result<(), Error> {
         // Clear the statement metadata cache
         self.stmt_cache.clear();
         Ok(())
     }
 
-    pub async fn prepare(&mut self, sql: &str) -> Result<OdbcStatement<'static>, Error> {
-        let (_, columns, parameters) = self.prepare_metadata(sql).await?;
-        let metadata = OdbcStatementMetadata {
-            columns,
-            parameters,
-        };
+    pub async fn prepare<'a>(&mut self, sql: &'a str) -> Result<OdbcStatement<'a>, Error> {
+        let conn = Arc::clone(&self.conn);
+        let sql_arc = Arc::from(sql.to_string());
+        let sql_clone = Arc::clone(&sql_arc);
+        let (prepared, metadata) = run_blocking(move || {
+            let mut prepared = conn.into_prepared(&sql_clone)?;
+            let metadata = OdbcStatementMetadata {
+                columns: collect_columns(&mut prepared),
+                parameters: usize::from(prepared.num_params().unwrap_or(0)),
+            };
+            Ok((prepared, metadata))
+        })
+        .await?;
+        self.stmt_cache.insert(Arc::clone(&sql_arc), prepared);
         Ok(OdbcStatement {
-            sql: Cow::Owned(sql.to_string()),
+            sql: Cow::Borrowed(sql),
             metadata,
         })
     }
+}
+
+pub(crate) enum MaybePrepared {
+    Prepared(PreparedStatement),
+    NotPrepared(String),
 }
 
 impl Connection for OdbcConnection {

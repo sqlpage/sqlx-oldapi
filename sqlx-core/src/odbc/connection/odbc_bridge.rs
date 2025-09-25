@@ -1,10 +1,12 @@
 use crate::error::Error;
 use crate::odbc::{
-    OdbcArgumentValue, OdbcArguments, OdbcColumn, OdbcQueryResult, OdbcRow, OdbcTypeInfo,
+    connection::MaybePrepared, OdbcArgumentValue, OdbcArguments, OdbcColumn, OdbcQueryResult,
+    OdbcRow, OdbcTypeInfo,
 };
 use either::Either;
 use flume::{SendError, Sender};
-use odbc_api::{Cursor, CursorRow, IntoParameter, Nullable, Preallocated, ResultSetMetadata};
+use odbc_api::handles::{AsStatementRef, Statement};
+use odbc_api::{Cursor, CursorRow, IntoParameter, Nullable, ResultSetMetadata};
 
 pub type ExecuteResult = Result<Either<OdbcQueryResult, OdbcRow>, Error>;
 pub type ExecuteSender = Sender<ExecuteResult>;
@@ -21,43 +23,49 @@ pub fn establish_connection(
 
 pub fn execute_sql(
     conn: &mut odbc_api::Connection<'static>,
-    sql: &str,
+    maybe_prepared: MaybePrepared,
     args: Option<OdbcArguments>,
     tx: &ExecuteSender,
 ) -> Result<(), Error> {
     let params = prepare_parameters(args);
 
-    let mut preallocated = conn.preallocate().map_err(Error::from)?;
+    let affected = match maybe_prepared {
+        MaybePrepared::Prepared(mut prepared) => {
+            if let Some(mut cursor) = prepared.execute(&params[..])? {
+                handle_cursor(&mut cursor, tx);
+            }
+            extract_rows_affected(&mut prepared)
+        }
+        MaybePrepared::NotPrepared(sql) => {
+            let mut preallocated = conn.preallocate().map_err(Error::from)?;
+            if let Some(mut cursor) = preallocated.execute(&sql, &params[..])? {
+                handle_cursor(&mut cursor, tx);
+            }
+            extract_rows_affected(&mut preallocated)
+        }
+    };
 
-    if let Some(mut cursor) = preallocated.execute(sql, &params[..])? {
-        handle_cursor(&mut cursor, tx);
-        return Ok(());
-    }
-
-    let affected = extract_rows_affected(&mut preallocated);
     let _ = send_done(tx, affected);
     Ok(())
 }
 
-fn extract_rows_affected<S>(stmt: &mut Preallocated<S>) -> u64
-where
-    S: odbc_api::handles::AsStatementRef,
-{
-    let count_opt = match stmt.row_count() {
-        Ok(count_opt) => count_opt,
-        Err(_) => {
+fn extract_rows_affected<S: AsStatementRef>(stmt: &mut S) -> u64 {
+    let mut stmt_ref = stmt.as_stmt_ref();
+    let count = match stmt_ref.row_count().into_result(&stmt_ref) {
+        Ok(count) => count,
+        Err(e) => {
+            log::warn!("Failed to get row count: {}", e);
             return 0;
         }
     };
 
-    let count = match count_opt {
-        Some(count) => count,
-        None => {
-            return 0;
+    match u64::try_from(count) {
+        Ok(count) => count,
+        Err(e) => {
+            log::warn!("Failed to get row count: {}", e);
+            0
         }
-    };
-
-    u64::try_from(count).unwrap_or_default()
+    }
 }
 
 fn prepare_parameters(
