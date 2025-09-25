@@ -16,11 +16,12 @@ use crate::odbc::{OdbcStatement, OdbcStatementMetadata};
 use odbc_api::{handles::StatementConnection, Prepared, ResultSetMetadata, SharedConnection};
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 mod executor;
 
 type PreparedStatement = Prepared<StatementConnection<SharedConnection<'static>>>;
+type SharedPreparedStatement = Arc<Mutex<PreparedStatement>>;
 
 fn collect_columns(prepared: &mut PreparedStatement) -> Vec<OdbcColumn> {
     let count = prepared.num_result_cols().unwrap_or(0);
@@ -50,7 +51,7 @@ fn decode_column_name(name_bytes: Vec<u8>, index: u16) -> String {
 /// thread-pool via `spawn_blocking` and synchronize access with a mutex.
 pub struct OdbcConnection {
     pub(crate) conn: SharedConnection<'static>,
-    pub(crate) stmt_cache: HashMap<Arc<str>, PreparedStatement>,
+    pub(crate) stmt_cache: HashMap<Arc<str>, SharedPreparedStatement>,
 }
 
 impl std::fmt::Debug for OdbcConnection {
@@ -146,8 +147,8 @@ impl OdbcConnection {
         let (tx, rx) = flume::bounded(64);
 
         // !!TODO!!!:  Put back the prepared statement after usage
-        let maybe_prepared = if let Some(prepared) = self.stmt_cache.remove(sql) {
-            MaybePrepared::Prepared(prepared)
+        let maybe_prepared = if let Some(prepared) = self.stmt_cache.get(sql) {
+            MaybePrepared::Prepared(Arc::clone(prepared))
         } else {
             MaybePrepared::NotPrepared(sql.to_string())
         };
@@ -182,7 +183,8 @@ impl OdbcConnection {
             Ok((prepared, metadata))
         })
         .await?;
-        self.stmt_cache.insert(Arc::clone(&sql_arc), prepared);
+        self.stmt_cache
+            .insert(Arc::clone(&sql_arc), Arc::new(Mutex::new(prepared)));
         Ok(OdbcStatement {
             sql: Cow::Borrowed(sql),
             metadata,
@@ -191,7 +193,7 @@ impl OdbcConnection {
 }
 
 pub(crate) enum MaybePrepared {
-    Prepared(PreparedStatement),
+    Prepared(SharedPreparedStatement),
     NotPrepared(String),
 }
 

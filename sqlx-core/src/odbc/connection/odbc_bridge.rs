@@ -30,11 +30,12 @@ pub fn execute_sql(
     let params = prepare_parameters(args);
 
     let affected = match maybe_prepared {
-        MaybePrepared::Prepared(mut prepared) => {
+        MaybePrepared::Prepared(prepared) => {
+            let mut prepared = prepared.lock().expect("prepared statement lock");
             if let Some(mut cursor) = prepared.execute(&params[..])? {
                 handle_cursor(&mut cursor, tx);
             }
-            extract_rows_affected(&mut prepared)
+            extract_rows_affected(&mut *prepared)
         }
         MaybePrepared::NotPrepared(sql) => {
             let mut preallocated = conn.preallocate().map_err(Error::from)?;
