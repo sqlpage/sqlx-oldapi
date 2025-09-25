@@ -202,6 +202,10 @@ impl Connection for SqliteConnection {
     fn should_flush(&self) -> bool {
         false
     }
+
+    fn dbms_name(&mut self) -> BoxFuture<'_, Result<String, Error>> {
+        Box::pin(async move { Ok("SQLite".to_string()) })
+    }
 }
 
 impl LockedSqliteHandle<'_> {
