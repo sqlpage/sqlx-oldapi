@@ -48,8 +48,11 @@ jobs:
             -- -D warnings
 
   test:
-    name: Unit Test
-    runs-on: ubuntu-24.04
+    name: Unit Test ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
@@ -57,6 +60,7 @@ jobs:
           prefix-key: v1-sqlx
           save-if: ${{ false }}
       - run: sudo apt-get update && sudo apt-get install -y libodbc2 unixodbc-dev
+        if: ${{ matrix.os == 'ubuntu-latest' }}
       - run: cargo test
           --manifest-path sqlx-core/Cargo.toml
           --features offline,all-databases,all-types,runtime-tokio-rustls
@@ -347,17 +351,3 @@ jobs:
         run: cargo test --no-default-features --features any,odbc,macros,all-types,runtime-tokio-rustls
         env:
           DATABASE_URL: Driver={SQLite3};Database=./tests/odbc/sqlite.db
-
-  windows-build:
-    name: Windows Build (sqlx-core)
-    runs-on: windows-latest
-    needs: check
-    steps:
-      - uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@v2
-        with:
-          prefix-key: v1-sqlx
-          save-if: ${{ false }}
-      - name: Build core with ODBC (Windows)
-        run: |
-          cargo build --manifest-path sqlx-core/Cargo.toml --no-default-features --features odbc,all-types,runtime-tokio-rustls
