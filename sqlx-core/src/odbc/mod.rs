@@ -24,7 +24,6 @@
 use crate::executor::Executor;
 
 mod arguments;
-mod blocking;
 mod column;
 mod connection;
 mod database;
