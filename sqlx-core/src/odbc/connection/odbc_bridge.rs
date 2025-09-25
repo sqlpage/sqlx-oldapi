@@ -1,9 +1,9 @@
+use super::decode_column_name;
 use crate::error::Error;
 use crate::odbc::{
     connection::MaybePrepared, OdbcArgumentValue, OdbcArguments, OdbcColumn, OdbcQueryResult,
     OdbcRow, OdbcTypeInfo,
 };
-use super::decode_column_name;
 use either::Either;
 use flume::{SendError, Sender};
 use odbc_api::handles::{AsStatementRef, Statement};
@@ -139,8 +139,6 @@ where
         ordinal: usize::from(index.checked_sub(1).unwrap()),
     }
 }
-
-// decode_column_name is provided by connection/mod.rs
 
 fn stream_rows<C>(cursor: &mut C, columns: &[OdbcColumn], tx: &ExecuteSender) -> Result<bool, Error>
 where
