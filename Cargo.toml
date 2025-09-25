@@ -19,7 +19,10 @@ members = [
 ]
 
 [workspace.lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(postgres_14)', 'cfg(postgres_9_6)'] }
+unexpected_cfgs = { level = "warn", check-cfg = [
+    'cfg(postgres_14)',
+    'cfg(postgres_9_6)',
+] }
 
 [package]
 name = "sqlx-oldapi"
@@ -30,7 +33,7 @@ repository = "https://github.com/lovasoa/sqlx"
 documentation = "https://docs.rs/sqlx"
 description = "🧰 The Rust SQL Toolkit. An async, pure Rust SQL crate featuring compile-time checked queries without a DSL. Supports PostgreSQL, MySQL, SQLite, MSSQL, and ODBC."
 edition = "2021"
-keywords = ["async", "postgres", "mysql", "sqlite", "mssql", "odbc"]
+keywords = ["postgres", "mysql", "sqlite", "mssql", "odbc"]
 categories = ["database", "asynchronous"]
 authors = [
     "Ryan Leckey <leckey.ryan@gmail.com>",
@@ -152,7 +155,7 @@ bstr = ["sqlx-core/bstr"]
 git2 = ["sqlx-core/git2"]
 
 [dependencies]
-sqlx-core = { package = "sqlx-core-oldapi",  version = "0.6.49-beta", path = "sqlx-core", default-features = false }
+sqlx-core = { package = "sqlx-core-oldapi", version = "0.6.49-beta", path = "sqlx-core", default-features = false }
 sqlx-macros = { package = "sqlx-macros-oldapi", version = "0.6.49-beta", path = "sqlx-macros", default-features = false, optional = true }
 
 [dev-dependencies]
