@@ -139,8 +139,11 @@ where
     }
 }
 
-fn decode_column_name(name_bytes: Vec<u8>, index: u16) -> String {
-    String::from_utf8(name_bytes).unwrap_or_else(|_| format!("col{}", index - 1))
+fn decode_column_name(name_words: Vec<u16>, index: u16) -> String {
+    match String::from_utf16(&name_words) {
+        Ok(s) => s,
+        Err(_) => format!("col{}", index - 1),
+    }
 }
 
 fn stream_rows<C>(cursor: &mut C, columns: &[OdbcColumn], tx: &ExecuteSender) -> Result<bool, Error>
