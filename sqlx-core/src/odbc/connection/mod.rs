@@ -138,29 +138,29 @@ impl OdbcConnection {
         .await
     }
 
-    pub(crate) async fn execute_stream(
+    /// Launches a background task to execute the SQL statement and send the results to the returned channel.
+    pub(crate) fn execute_stream(
         &mut self,
         sql: &str,
         args: Option<OdbcArguments>,
-    ) -> Result<flume::Receiver<Result<Either<OdbcQueryResult, OdbcRow>, Error>>, Error> {
+    ) -> flume::Receiver<Result<Either<OdbcQueryResult, OdbcRow>, Error>> {
         let (tx, rx) = flume::bounded(64);
 
-        // !!TODO!!!:  Put back the prepared statement after usage
         let maybe_prepared = if let Some(prepared) = self.stmt_cache.get(sql) {
             MaybePrepared::Prepared(Arc::clone(prepared))
         } else {
             MaybePrepared::NotPrepared(sql.to_string())
         };
 
-        self.with_conn("execute_stream", move |conn| {
-            if let Err(e) = execute_sql(conn, maybe_prepared, args, &tx) {
+        let conn = Arc::clone(&self.conn);
+        sqlx_rt::spawn(sqlx_rt::spawn_blocking(move || {
+            let mut conn = conn.lock().expect("failed to lock connection");
+            if let Err(e) = execute_sql(&mut conn, maybe_prepared, args, &tx) {
                 let _ = tx.send(Err(e));
             }
-            Ok(())
-        })
-        .await?;
+        }));
 
-        Ok(rx)
+        rx
     }
 
     pub(crate) async fn clear_cached_statements(&mut self) -> Result<(), Error> {

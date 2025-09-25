@@ -20,15 +20,8 @@ impl<'c> Executor<'c> for &'c mut OdbcConnection {
         'c: 'e,
         E: Execute<'q, Self::Database> + 'q,
     {
-        let sql = query.sql().to_string();
         let args = query.take_arguments();
-        Box::pin(try_stream! {
-            let rx = self.execute_stream(&sql, args).await?;
-            while let Ok(item) = rx.recv_async().await {
-                r#yield!(item?);
-            }
-            Ok(())
-        })
+        Box::pin(self.execute_stream(query.sql(), args).into_stream())
     }
 
     fn fetch_optional<'e, 'q: 'e, E>(
