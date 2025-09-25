@@ -1,7 +1,7 @@
 use crate::error::Error;
 use crate::odbc::{
-    connection::MaybePrepared, OdbcArgumentValue, OdbcArguments, OdbcColumn, OdbcQueryResult,
-    OdbcRow, OdbcTypeInfo, OdbcValue,
+    connection::MaybePrepared, ColumnData, OdbcArgumentValue, OdbcArguments, OdbcColumn,
+    OdbcQueryResult, OdbcRow, OdbcTypeInfo, OdbcValue,
 };
 use either::Either;
 use flume::{SendError, Sender};
@@ -10,6 +10,7 @@ use odbc_api::handles::{AsStatementRef, Nullability, Statement};
 use odbc_api::DataType;
 use odbc_api::{Cursor, IntoParameter, ResultSetMetadata};
 use std::cmp::min;
+use std::sync::Arc;
 
 // Bulk fetch implementation using columnar buffers instead of row-by-row fetching
 // This provides significant performance improvements by fetching rows in batches
@@ -18,8 +19,8 @@ const BATCH_SIZE: usize = 128;
 const DEFAULT_TEXT_LEN: usize = 512;
 const DEFAULT_BINARY_LEN: usize = 1024;
 const DEFAULT_NUMERIC_TEXT_LEN: usize = 128;
-const MAX_TEXT_LEN: usize = 1024 * 1024;
-const MAX_BINARY_LEN: usize = 1024 * 1024;
+const MAX_TEXT_LEN: usize = 1024;
+const MAX_BINARY_LEN: usize = 1024;
 
 struct ColumnBinding {
     column: OdbcColumn,
@@ -238,21 +239,24 @@ where
     while let Some(batch) = row_set_cursor.fetch()? {
         let columns: Vec<_> = bindings.iter().map(|b| b.column.clone()).collect();
 
+        // Create ColumnData instances that can be shared across rows
+        let column_data_vec: Vec<_> = bindings
+            .iter()
+            .enumerate()
+            .map(|(col_index, binding)| {
+                create_column_data(batch.column(col_index), &binding.column.type_info)
+            })
+            .collect();
+
         for row_index in 0..batch.num_rows() {
-            let row_values: Vec<_> = bindings
+            let row_values: Vec<_> = column_data_vec
                 .iter()
-                .enumerate()
-                .map(|(col_index, binding)| {
-                    let type_info = binding.column.type_info.clone();
-                    let value =
-                        extract_value_from_buffer(batch.column(col_index), row_index, &type_info);
-                    (type_info, value)
-                })
+                .map(|column_data| OdbcValue::new(Arc::clone(column_data), row_index))
                 .collect();
 
             let row = OdbcRow {
                 columns: columns.clone(),
-                values: row_values.into_iter().map(|(_, value)| value).collect(),
+                values: row_values,
             };
 
             if send_row(tx, row).is_err() {
@@ -269,237 +273,11 @@ where
     Ok(receiver_open)
 }
 
-fn extract_value_from_buffer(
-    slice: AnySlice<'_>,
-    row_index: usize,
-    type_info: &OdbcTypeInfo,
-) -> OdbcValue {
-    match slice {
-        AnySlice::I8(s) => OdbcValue {
-            type_info: type_info.clone(),
-            is_null: false,
-            text: None,
-            blob: None,
-            int: Some(s[row_index] as i64),
-            float: None,
-        },
-        AnySlice::I16(s) => OdbcValue {
-            type_info: type_info.clone(),
-            is_null: false,
-            text: None,
-            blob: None,
-            int: Some(s[row_index] as i64),
-            float: None,
-        },
-        AnySlice::I32(s) => OdbcValue {
-            type_info: type_info.clone(),
-            is_null: false,
-            text: None,
-            blob: None,
-            int: Some(s[row_index] as i64),
-            float: None,
-        },
-        AnySlice::I64(s) => OdbcValue {
-            type_info: type_info.clone(),
-            is_null: false,
-            text: None,
-            blob: None,
-            int: Some(s[row_index]),
-            float: None,
-        },
-        AnySlice::F32(s) => OdbcValue {
-            type_info: type_info.clone(),
-            is_null: false,
-            text: None,
-            blob: None,
-            int: None,
-            float: Some(s[row_index] as f64),
-        },
-        AnySlice::F64(s) => OdbcValue {
-            type_info: type_info.clone(),
-            is_null: false,
-            text: None,
-            blob: None,
-            int: None,
-            float: Some(s[row_index]),
-        },
-        AnySlice::Bit(s) => OdbcValue {
-            type_info: type_info.clone(),
-            is_null: false,
-            text: None,
-            blob: None,
-            int: Some(s[row_index].0 as i64),
-            float: None,
-        },
-        AnySlice::Text(s) => {
-            let text = s
-                .get(row_index)
-                .map(|bytes| String::from_utf8_lossy(bytes).to_string());
-            OdbcValue {
-                type_info: type_info.clone(),
-                is_null: text.is_none(),
-                text,
-                blob: None,
-                int: None,
-                float: None,
-            }
-        }
-        AnySlice::Binary(s) => {
-            let blob = s.get(row_index).map(|bytes| bytes.to_vec());
-            OdbcValue {
-                type_info: type_info.clone(),
-                is_null: blob.is_none(),
-                text: None,
-                blob,
-                int: None,
-                float: None,
-            }
-        }
-        AnySlice::NullableI8(s) => {
-            let (is_null, int) = if let Some(&val) = s.get(row_index) {
-                (false, Some(val as i64))
-            } else {
-                (true, None)
-            };
-            OdbcValue {
-                type_info: type_info.clone(),
-                is_null,
-                text: None,
-                blob: None,
-                int,
-                float: None,
-            }
-        }
-        AnySlice::NullableI16(s) => {
-            let (is_null, int) = if let Some(&val) = s.get(row_index) {
-                (false, Some(val as i64))
-            } else {
-                (true, None)
-            };
-            OdbcValue {
-                type_info: type_info.clone(),
-                is_null,
-                text: None,
-                blob: None,
-                int,
-                float: None,
-            }
-        }
-        AnySlice::NullableI32(s) => {
-            let (is_null, int) = if let Some(&val) = s.get(row_index) {
-                (false, Some(val as i64))
-            } else {
-                (true, None)
-            };
-            OdbcValue {
-                type_info: type_info.clone(),
-                is_null,
-                text: None,
-                blob: None,
-                int,
-                float: None,
-            }
-        }
-        AnySlice::NullableI64(s) => {
-            let (is_null, int) = if let Some(&val) = s.get(row_index) {
-                (false, Some(val))
-            } else {
-                (true, None)
-            };
-            OdbcValue {
-                type_info: type_info.clone(),
-                is_null,
-                text: None,
-                blob: None,
-                int,
-                float: None,
-            }
-        }
-        AnySlice::NullableF32(s) => {
-            let (is_null, float) = if let Some(&val) = s.get(row_index) {
-                (false, Some(val as f64))
-            } else {
-                (true, None)
-            };
-            OdbcValue {
-                type_info: type_info.clone(),
-                is_null,
-                text: None,
-                blob: None,
-                int: None,
-                float,
-            }
-        }
-        AnySlice::NullableF64(s) => {
-            let (is_null, float) = if let Some(&val) = s.get(row_index) {
-                (false, Some(val))
-            } else {
-                (true, None)
-            };
-            OdbcValue {
-                type_info: type_info.clone(),
-                is_null,
-                text: None,
-                blob: None,
-                int: None,
-                float,
-            }
-        }
-        AnySlice::NullableBit(s) => {
-            let (is_null, int) = if let Some(&val) = s.get(row_index) {
-                (false, Some(val.0 as i64))
-            } else {
-                (true, None)
-            };
-            OdbcValue {
-                type_info: type_info.clone(),
-                is_null,
-                text: None,
-                blob: None,
-                int,
-                float: None,
-            }
-        }
-        AnySlice::Date(s) => {
-            let text = s.get(row_index).map(|date| format!("{:?}", date));
-            OdbcValue {
-                type_info: type_info.clone(),
-                is_null: text.is_none(),
-                text,
-                blob: None,
-                int: None,
-                float: None,
-            }
-        }
-        AnySlice::Time(s) => {
-            let text = s.get(row_index).map(|time| format!("{:?}", time));
-            OdbcValue {
-                type_info: type_info.clone(),
-                is_null: text.is_none(),
-                text,
-                blob: None,
-                int: None,
-                float: None,
-            }
-        }
-        AnySlice::Timestamp(s) => {
-            let text = s.get(row_index).map(|ts| format!("{:?}", ts));
-            OdbcValue {
-                type_info: type_info.clone(),
-                is_null: text.is_none(),
-                text,
-                blob: None,
-                int: None,
-                float: None,
-            }
-        }
-        _ => OdbcValue {
-            type_info: type_info.clone(),
-            is_null: true,
-            text: None,
-            blob: None,
-            int: None,
-            float: None,
-        },
-    }
+fn create_column_data(slice: AnySlice<'_>, type_info: &OdbcTypeInfo) -> Arc<ColumnData> {
+    use crate::odbc::value::convert_any_slice_to_value_vec;
+
+    Arc::new(ColumnData {
+        values: convert_any_slice_to_value_vec(slice),
+        type_info: type_info.clone(),
+    })
 }

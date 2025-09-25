@@ -103,20 +103,20 @@ fn parse_unix_timestamp_as_offset_datetime(timestamp: i64) -> Option<OffsetDateT
 impl<'r> Decode<'r, Odbc> for OffsetDateTime {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
         // Handle numeric timestamps (Unix epoch seconds) first
-        if let Some(int_val) = value.int {
+        if let Some(int_val) = value.int() {
             if let Some(dt) = parse_unix_timestamp_as_offset_datetime(int_val) {
                 return Ok(dt);
             }
         }
 
-        if let Some(float_val) = value.float {
+        if let Some(float_val) = value.float::<f64>() {
             if let Some(dt) = parse_unix_timestamp_as_offset_datetime(float_val as i64) {
                 return Ok(dt);
             }
         }
 
         // Handle text values
-        if let Some(text) = value.text {
+        if let Some(text) = value.text() {
             let trimmed = text.trim();
             // Try parsing as ISO-8601 timestamp with timezone
             if let Ok(dt) = OffsetDateTime::parse(
@@ -148,14 +148,14 @@ impl<'r> Decode<'r, Odbc> for OffsetDateTime {
 impl<'r> Decode<'r, Odbc> for PrimitiveDateTime {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
         // Handle numeric timestamps (Unix epoch seconds) first
-        if let Some(int_val) = value.int {
+        if let Some(int_val) = value.int() {
             if let Some(offset_dt) = parse_unix_timestamp_as_offset_datetime(int_val) {
                 let utc_dt = offset_dt.to_offset(time::UtcOffset::UTC);
                 return Ok(PrimitiveDateTime::new(utc_dt.date(), utc_dt.time()));
             }
         }
 
-        if let Some(float_val) = value.float {
+        if let Some(float_val) = value.float::<f64>() {
             if let Some(offset_dt) = parse_unix_timestamp_as_offset_datetime(float_val as i64) {
                 let utc_dt = offset_dt.to_offset(time::UtcOffset::UTC);
                 return Ok(PrimitiveDateTime::new(utc_dt.date(), utc_dt.time()));
@@ -163,7 +163,7 @@ impl<'r> Decode<'r, Odbc> for PrimitiveDateTime {
         }
 
         // Handle text values
-        if let Some(text) = value.text {
+        if let Some(text) = value.text() {
             let trimmed = text.trim();
             // Try parsing as ISO-8601
             if let Ok(dt) = PrimitiveDateTime::parse(
@@ -228,7 +228,7 @@ fn parse_yyyymmdd_text_as_time_date(s: &str) -> Option<Date> {
 impl<'r> Decode<'r, Odbc> for Date {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
         // Handle numeric YYYYMMDD format first
-        if let Some(int_val) = value.int {
+        if let Some(int_val) = value.int() {
             if let Some(date) = parse_yyyymmdd_as_time_date(int_val) {
                 return Ok(date);
             }
@@ -243,14 +243,14 @@ impl<'r> Decode<'r, Odbc> for Date {
         }
 
         // Handle float values
-        if let Some(float_val) = value.float {
+        if let Some(float_val) = value.float::<f64>() {
             if let Some(date) = parse_yyyymmdd_as_time_date(float_val as i64) {
                 return Ok(date);
             }
         }
 
         // Handle text values
-        if let Some(text) = value.text {
+        if let Some(text) = value.text() {
             let trimmed = text.trim();
             if let Some(date) = parse_yyyymmdd_text_as_time_date(trimmed) {
                 return Ok(date);
@@ -290,20 +290,20 @@ fn parse_seconds_as_time(seconds: i64) -> Option<Time> {
 impl<'r> Decode<'r, Odbc> for Time {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
         // Handle numeric time (seconds since midnight)
-        if let Some(int_val) = value.int {
+        if let Some(int_val) = value.int::<i64>() {
             if let Some(time) = parse_seconds_as_time(int_val) {
                 return Ok(time);
             }
         }
 
-        if let Some(float_val) = value.float {
+        if let Some(float_val) = value.float::<f64>() {
             if let Some(time) = parse_seconds_as_time(float_val as i64) {
                 return Ok(time);
             }
         }
 
         // Handle text values
-        if let Some(text) = value.text {
+        if let Some(text) = value.text() {
             let trimmed = text.trim();
             if let Ok(time) = Time::parse(
                 trimmed,

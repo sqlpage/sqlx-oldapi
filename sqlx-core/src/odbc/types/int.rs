@@ -263,10 +263,10 @@ fn parse_numeric_as_i64(s: &str) -> Option<i64> {
 }
 
 fn get_text_for_numeric_parsing(value: &OdbcValueRef<'_>) -> Result<Option<String>, BoxDynError> {
-    if let Some(text) = value.text {
+    if let Some(text) = value.text() {
         return Ok(Some(text.trim().to_string()));
     }
-    if let Some(bytes) = value.blob {
+    if let Some(bytes) = value.blob() {
         let s = std::str::from_utf8(bytes)?;
         return Ok(Some(s.trim().to_string()));
     }
@@ -275,64 +275,49 @@ fn get_text_for_numeric_parsing(value: &OdbcValueRef<'_>) -> Result<Option<Strin
 
 impl<'r> Decode<'r, Odbc> for i64 {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        if let Some(i) = value.int {
-            return Ok(i);
-        }
-        if let Some(f) = value.float {
-            return Ok(f as i64);
-        }
-        if let Some(text) = get_text_for_numeric_parsing(&value)? {
-            if let Some(parsed) = parse_numeric_as_i64(&text) {
-                return Ok(parsed);
-            }
-        }
-        Err("ODBC: cannot decode i64".into())
+        Ok(value.try_int::<i64>()?)
     }
 }
 
 impl<'r> Decode<'r, Odbc> for i32 {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        Ok(<i64 as Decode<'r, Odbc>>::decode(value)? as i32)
+        Ok(value.try_int::<i32>()?)
     }
 }
 
 impl<'r> Decode<'r, Odbc> for i16 {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        Ok(<i64 as Decode<'r, Odbc>>::decode(value)? as i16)
+        Ok(value.try_int::<i16>()?)
     }
 }
 
 impl<'r> Decode<'r, Odbc> for i8 {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        Ok(<i64 as Decode<'r, Odbc>>::decode(value)? as i8)
+        Ok(value.try_int::<i8>()?)
     }
 }
 
 impl<'r> Decode<'r, Odbc> for u8 {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        let i = <i64 as Decode<'r, Odbc>>::decode(value)?;
-        Ok(u8::try_from(i)?)
+        Ok(value.try_int::<u8>()?)
     }
 }
 
 impl<'r> Decode<'r, Odbc> for u16 {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        let i = <i64 as Decode<'r, Odbc>>::decode(value)?;
-        Ok(u16::try_from(i)?)
+        Ok(value.try_int::<u16>()?)
     }
 }
 
 impl<'r> Decode<'r, Odbc> for u32 {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        let i = <i64 as Decode<'r, Odbc>>::decode(value)?;
-        Ok(u32::try_from(i)?)
+        Ok(value.try_int::<u32>()?)
     }
 }
 
 impl<'r> Decode<'r, Odbc> for u64 {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        let i = <i64 as Decode<'r, Odbc>>::decode(value)?;
-        Ok(u64::try_from(i)?)
+        Ok(value.try_int::<u64>()?)
     }
 }
 
@@ -342,37 +327,29 @@ mod tests {
     use crate::odbc::{OdbcTypeInfo, OdbcValueRef};
     use odbc_api::DataType;
 
-    fn create_test_value_text(text: &'static str, data_type: DataType) -> OdbcValueRef<'static> {
-        OdbcValueRef {
+    fn make_ref(value_vec: OdbcValueVec, data_type: DataType) -> OdbcValueRef<'static> {
+        let column = ColumnData {
+            values: value_vec,
             type_info: OdbcTypeInfo::new(data_type),
-            is_null: false,
-            text: Some(text),
-            blob: None,
-            int: None,
-            float: None,
-        }
+        };
+        let ptr = Box::leak(Box::new(column));
+        OdbcValueRef::new(ptr, 0)
+    }
+
+    fn create_test_value_text(text: &'static str, data_type: DataType) -> OdbcValueRef<'static> {
+        make_ref(OdbcValueVec::Text(vec![Some(text.to_string())]), data_type)
+    }
+
+    fn create_test_value_blob(data: &'static [u8], data_type: DataType) -> OdbcValueRef<'static> {
+        make_ref(OdbcValueVec::Binary(vec![Some(data.to_vec())]), data_type)
     }
 
     fn create_test_value_int(value: i64, data_type: DataType) -> OdbcValueRef<'static> {
-        OdbcValueRef {
-            type_info: OdbcTypeInfo::new(data_type),
-            is_null: false,
-            text: None,
-            blob: None,
-            int: Some(value),
-            float: None,
-        }
+        make_ref(OdbcValueVec::NullableBigInt(vec![Some(value)]), data_type)
     }
 
     fn create_test_value_float(value: f64, data_type: DataType) -> OdbcValueRef<'static> {
-        OdbcValueRef {
-            type_info: OdbcTypeInfo::new(data_type),
-            is_null: false,
-            text: None,
-            blob: None,
-            int: None,
-            float: Some(value),
-        }
+        make_ref(OdbcValueVec::NullableDouble(vec![Some(value)]), data_type)
     }
 
     #[test]
@@ -520,14 +497,12 @@ mod tests {
 
     #[test]
     fn test_decode_error_handling() {
-        let value = OdbcValueRef {
+        let column = ColumnData {
+            values: OdbcValueVec::Text(vec![Some("not_a_number".to_string())]),
             type_info: OdbcTypeInfo::INTEGER,
-            is_null: false,
-            text: None,
-            blob: None,
-            int: None,
-            float: None,
         };
+        let ptr = Box::leak(Box::new(column));
+        let value = OdbcValueRef::new(ptr, 0);
 
         let result = <i64 as Decode<Odbc>>::decode(value);
         assert!(result.is_err());

@@ -36,12 +36,13 @@ impl<'q> Encode<'q, Odbc> for Decimal {
 
 // Helper function for getting text from value for decimal parsing
 fn get_text_for_decimal_parsing(value: &OdbcValueRef<'_>) -> Result<Option<String>, BoxDynError> {
-    if let Some(text) = value.text {
+    if let Some(text) = value.text() {
         return Ok(Some(text.trim().to_string()));
     }
-    if let Some(bytes) = value.blob {
-        let s = std::str::from_utf8(bytes)?;
-        return Ok(Some(s.trim().to_string()));
+    if let Some(bytes) = value.blob() {
+        if let Ok(text) = std::str::from_utf8(bytes) {
+            return Ok(Some(text.trim().to_string()));
+        }
     }
     Ok(None)
 }
@@ -49,12 +50,12 @@ fn get_text_for_decimal_parsing(value: &OdbcValueRef<'_>) -> Result<Option<Strin
 impl<'r> Decode<'r, Odbc> for Decimal {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
         // Try integer conversion first (most precise)
-        if let Some(int_val) = value.int {
+        if let Some(int_val) = value.int::<i64>() {
             return Ok(Decimal::from(int_val));
         }
 
         // Try direct float conversion for better precision
-        if let Some(float_val) = value.float {
+        if let Some(float_val) = value.float::<f64>() {
             if let Ok(decimal) = Decimal::try_from(float_val) {
                 return Ok(decimal);
             }
@@ -77,37 +78,29 @@ mod tests {
     use odbc_api::DataType;
     use std::str::FromStr;
 
-    fn create_test_value_text(text: &str, data_type: DataType) -> OdbcValueRef<'_> {
-        OdbcValueRef {
+    fn make_ref(value_vec: OdbcValueVec, data_type: DataType) -> OdbcValueRef<'static> {
+        let column = ColumnData {
+            values: value_vec,
             type_info: OdbcTypeInfo::new(data_type),
-            is_null: false,
-            text: Some(text),
-            blob: None,
-            int: None,
-            float: None,
-        }
+        };
+        let ptr = Box::leak(Box::new(column));
+        OdbcValueRef::new(ptr, 0)
+    }
+
+    fn create_test_value_text(text: &'static str, data_type: DataType) -> OdbcValueRef<'static> {
+        make_ref(OdbcValueVec::Text(vec![Some(text.to_string())]), data_type)
+    }
+
+    fn create_test_value_bytes(bytes: &'static [u8], data_type: DataType) -> OdbcValueRef<'static> {
+        make_ref(OdbcValueVec::Binary(vec![Some(bytes.to_vec())]), data_type)
     }
 
     fn create_test_value_int(value: i64, data_type: DataType) -> OdbcValueRef<'static> {
-        OdbcValueRef {
-            type_info: OdbcTypeInfo::new(data_type),
-            is_null: false,
-            text: None,
-            blob: None,
-            int: Some(value),
-            float: None,
-        }
+        make_ref(OdbcValueVec::NullableBigInt(vec![Some(value)]), data_type)
     }
 
     fn create_test_value_float(value: f64, data_type: DataType) -> OdbcValueRef<'static> {
-        OdbcValueRef {
-            type_info: OdbcTypeInfo::new(data_type),
-            is_null: false,
-            text: None,
-            blob: None,
-            int: None,
-            float: Some(value),
-        }
+        make_ref(OdbcValueVec::NullableDouble(vec![Some(value)]), data_type)
     }
 
     #[test]

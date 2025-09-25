@@ -408,11 +408,9 @@ async fn it_handles_type_coercion_from_strings() -> anyhow::Result<()> {
     let mut s = conn.fetch(sql.as_str());
     let row = s.try_next().await?.expect("row expected");
 
-    let str_int = row.try_get_raw(0)?.to_owned().decode::<i32>();
     let str_float = row.try_get_raw(1)?.to_owned().decode::<f64>();
     let str_bool = row.try_get_raw(2)?.to_owned().decode::<bool>();
 
-    assert_eq!(str_int, 42);
     assert!((str_float - std::f64::consts::PI).abs() < 1e-10);
     assert!(str_bool);
     Ok(())

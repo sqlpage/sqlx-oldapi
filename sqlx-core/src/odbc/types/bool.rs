@@ -40,49 +40,43 @@ impl<'q> Encode<'q, Odbc> for bool {
 
 impl<'r> Decode<'r, Odbc> for bool {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        if let Some(i) = value.int {
+        if let Some(i) = value.int::<i64>() {
             return Ok(i != 0);
         }
 
-        // Handle float values (from DECIMAL/NUMERIC types)
-        if let Some(f) = value.float {
+        if let Some(f) = value.float::<f64>() {
             return Ok(f != 0.0);
         }
 
-        if let Some(text) = value.text {
+        if let Some(text) = value.text() {
             let text = text.trim();
-            // Try exact string matches first
             return Ok(match text {
                 "0" | "0.0" | "false" | "FALSE" | "f" | "F" => false,
                 "1" | "1.0" | "true" | "TRUE" | "t" | "T" => true,
                 _ => {
-                    // Try parsing as number first
                     if let Ok(num) = text.parse::<f64>() {
                         num != 0.0
                     } else if let Ok(num) = text.parse::<i64>() {
                         num != 0
                     } else {
-                        // Fall back to string parsing
                         text.parse()?
                     }
                 }
             });
         }
 
-        if let Some(bytes) = value.blob {
+        if let Some(bytes) = value.blob() {
             let s = std::str::from_utf8(bytes)?;
             let s = s.trim();
             return Ok(match s {
                 "0" | "0.0" | "false" | "FALSE" | "f" | "F" => false,
                 "1" | "1.0" | "true" | "TRUE" | "t" | "T" => true,
                 _ => {
-                    // Try parsing as number first
                     if let Ok(num) = s.parse::<f64>() {
                         num != 0.0
                     } else if let Ok(num) = s.parse::<i64>() {
                         num != 0
                     } else {
-                        // Fall back to string parsing
                         s.parse()?
                     }
                 }
@@ -96,41 +90,29 @@ impl<'r> Decode<'r, Odbc> for bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::odbc::{OdbcTypeInfo, OdbcValueRef};
+    use crate::odbc::{ColumnData, OdbcTypeInfo, OdbcValueVec};
     use crate::type_info::TypeInfo;
     use odbc_api::DataType;
 
-    fn create_test_value_text(text: &'static str, data_type: DataType) -> OdbcValueRef<'static> {
-        OdbcValueRef {
+    fn make_ref(value_vec: OdbcValueVec, data_type: DataType) -> OdbcValueRef<'static> {
+        let column = ColumnData {
+            values: value_vec,
             type_info: OdbcTypeInfo::new(data_type),
-            is_null: false,
-            text: Some(text),
-            blob: None,
-            int: None,
-            float: None,
-        }
+        };
+        let ptr = Box::leak(Box::new(column));
+        OdbcValueRef::new(ptr, 0)
+    }
+
+    fn create_test_value_text(text: &'static str, data_type: DataType) -> OdbcValueRef<'static> {
+        make_ref(OdbcValueVec::Text(vec![Some(text.to_string())]), data_type)
     }
 
     fn create_test_value_int(value: i64, data_type: DataType) -> OdbcValueRef<'static> {
-        OdbcValueRef {
-            type_info: OdbcTypeInfo::new(data_type),
-            is_null: false,
-            text: None,
-            blob: None,
-            int: Some(value),
-            float: None,
-        }
+        make_ref(OdbcValueVec::NullableBigInt(vec![Some(value)]), data_type)
     }
 
     fn create_test_value_float(value: f64, data_type: DataType) -> OdbcValueRef<'static> {
-        OdbcValueRef {
-            type_info: OdbcTypeInfo::new(data_type),
-            is_null: false,
-            text: None,
-            blob: None,
-            int: None,
-            float: Some(value),
-        }
+        make_ref(OdbcValueVec::NullableDouble(vec![Some(value)]), data_type)
     }
 
     #[test]

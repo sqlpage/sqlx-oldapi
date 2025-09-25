@@ -192,11 +192,11 @@ fn parse_yyyymmdd_text_as_naive_date(s: &str) -> Option<NaiveDate> {
 }
 
 fn get_text_from_value(value: &OdbcValueRef<'_>) -> Result<Option<String>, BoxDynError> {
-    if let Some(text) = value.text {
+    if let Some(text) = value.text() {
         let trimmed = text.trim_matches('\u{0}').trim();
         return Ok(Some(trimmed.to_string()));
     }
-    if let Some(bytes) = value.blob {
+    if let Some(bytes) = value.blob() {
         let s = std::str::from_utf8(bytes)?;
         let trimmed = s.trim_matches('\u{0}').trim();
         return Ok(Some(trimmed.to_string()));
@@ -207,8 +207,8 @@ fn get_text_from_value(value: &OdbcValueRef<'_>) -> Result<Option<String>, BoxDy
 impl<'r> Decode<'r, Odbc> for NaiveDate {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
         // Handle text values first (most common for dates)
-        if let Some(text) = get_text_from_value(&value)? {
-            if let Some(date) = parse_yyyymmdd_text_as_naive_date(&text) {
+        if let Some(text) = value.text() {
+            if let Some(date) = parse_yyyymmdd_text_as_naive_date(text) {
                 return Ok(date);
             }
             if let Ok(date) = text.parse() {
@@ -217,7 +217,7 @@ impl<'r> Decode<'r, Odbc> for NaiveDate {
         }
 
         // Handle numeric YYYYMMDD format (for databases that return as numbers)
-        if let Some(int_val) = value.int {
+        if let Some(int_val) = value.int() {
             if let Some(date) = parse_yyyymmdd_as_naive_date(int_val) {
                 return Ok(date);
             }
@@ -229,7 +229,7 @@ impl<'r> Decode<'r, Odbc> for NaiveDate {
         }
 
         // Handle float values similarly
-        if let Some(float_val) = value.float {
+        if let Some(float_val) = value.float::<f64>() {
             if let Some(date) = parse_yyyymmdd_as_naive_date(float_val as i64) {
                 return Ok(date);
             }
@@ -242,7 +242,7 @@ impl<'r> Decode<'r, Odbc> for NaiveDate {
 
         Err(format!(
             "ODBC: cannot decode NaiveDate from value with type '{}'",
-            value.type_info.name()
+            value.column_data.type_info.name()
         )
         .into())
     }
@@ -368,26 +368,29 @@ mod tests {
     use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
     use odbc_api::DataType;
 
-    fn create_test_value_text(text: &'static str, data_type: DataType) -> OdbcValueRef<'static> {
-        OdbcValueRef {
+    fn make_ref(value_vec: OdbcValueVec, data_type: DataType) -> OdbcValueRef<'static> {
+        let column = ColumnData {
+            values: value_vec,
             type_info: OdbcTypeInfo::new(data_type),
-            is_null: false,
-            text: Some(text),
-            blob: None,
-            int: None,
-            float: None,
-        }
+        };
+        let ptr = Box::leak(Box::new(column));
+        OdbcValueRef::new(ptr, 0)
+    }
+
+    fn create_test_value_text(text: &'static str, data_type: DataType) -> OdbcValueRef<'static> {
+        make_ref(OdbcValueVec::Text(vec![Some(text.to_string())]), data_type)
     }
 
     fn create_test_value_int(value: i64, data_type: DataType) -> OdbcValueRef<'static> {
-        OdbcValueRef {
-            type_info: OdbcTypeInfo::new(data_type),
-            is_null: false,
-            text: None,
-            blob: None,
-            int: Some(value),
-            float: None,
-        }
+        make_ref(OdbcValueVec::NullableBigInt(vec![Some(value)]), data_type)
+    }
+
+    fn create_test_value_float(value: f64, data_type: DataType) -> OdbcValueRef<'static> {
+        make_ref(OdbcValueVec::NullableDouble(vec![Some(value)]), data_type)
+    }
+
+    fn create_test_value_blob(data: &'static [u8], data_type: DataType) -> OdbcValueRef<'static> {
+        make_ref(OdbcValueVec::Binary(vec![Some(data.to_vec())]), data_type)
     }
 
     #[test]

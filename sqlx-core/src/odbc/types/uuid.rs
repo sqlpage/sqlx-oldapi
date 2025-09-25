@@ -34,16 +34,23 @@ impl<'q> Encode<'q, Odbc> for Uuid {
 
 impl<'r> Decode<'r, Odbc> for Uuid {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        if let Some(bytes) = value.blob {
-            if let Ok(uuid) = bytes.try_into() {
-                return Ok(Uuid::from_bytes(uuid));
+        if let Some(bytes) = value.blob() {
+            if bytes.len() == 16 {
+                return Ok(Uuid::from_slice(bytes)?);
+            }
+            if let Ok(s) = std::str::from_utf8(bytes) {
+                if let Ok(uuid) = Uuid::parse_str(s.trim()) {
+                    return Ok(uuid);
+                }
             }
         }
-        if let Some(s) = value.text {
-            if let Ok(uuid) = Uuid::try_parse(s) {
+
+        if let Some(s) = value.text() {
+            if let Ok(uuid) = Uuid::parse_str(s.trim()) {
                 return Ok(uuid);
             }
         }
+
         Err(format!("ODBC: cannot decode Uuid: {:?}", value).into())
     }
 }

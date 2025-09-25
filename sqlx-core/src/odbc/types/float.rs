@@ -71,21 +71,40 @@ impl<'q> Encode<'q, Odbc> for f64 {
 
 impl<'r> Decode<'r, Odbc> for f64 {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        if let Some(f) = value.float {
+        if let Some(f) = value.float::<f64>() {
             return Ok(f);
         }
-        if let Some(int) = value.int {
+
+        if let Some(int) = value.int::<i64>() {
             return Ok(int as f64);
         }
-        if let Some(s) = value.text {
-            return Ok(s.trim().parse()?);
+
+        if let Some(s) = value.text() {
+            if let Ok(parsed) = s.trim().parse::<f64>() {
+                return Ok(parsed);
+            }
         }
+
         Err(format!("ODBC: cannot decode f64: {:?}", value).into())
     }
 }
 
 impl<'r> Decode<'r, Odbc> for f32 {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        Ok(<f64 as Decode<'r, Odbc>>::decode(value)? as f32)
+        if let Some(f) = value.float::<f64>() {
+            return Ok(f as f32);
+        }
+
+        if let Some(int) = value.int::<i64>() {
+            return Ok(int as f32);
+        }
+
+        if let Some(s) = value.text() {
+            if let Ok(parsed) = s.trim().parse::<f32>() {
+                return Ok(parsed);
+            }
+        }
+
+        Err(format!("ODBC: cannot decode f32: {:?}", value).into())
     }
 }

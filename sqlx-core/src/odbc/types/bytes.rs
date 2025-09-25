@@ -40,19 +40,22 @@ impl<'q> Encode<'q, Odbc> for &'q [u8] {
 
 impl<'r> Decode<'r, Odbc> for Vec<u8> {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        Ok(<&[u8] as Decode<'r, Odbc>>::decode(value)?.to_vec())
+        if let Some(bytes) = value.blob() {
+            Ok(bytes.to_vec())
+        } else if let Some(text) = value.text() {
+            Ok(text.as_bytes().to_vec())
+        } else {
+            Err("ODBC: cannot decode as Vec<u8>".into())
+        }
     }
 }
 
 impl<'r> Decode<'r, Odbc> for &'r [u8] {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        if let Some(bytes) = value.blob {
-            return Ok(bytes);
-        }
-        if let Some(text) = value.text {
-            return Ok(text.as_bytes());
-        }
-        Err(format!("ODBC: cannot decode {:?} as &[u8]", value).into())
+        value
+            .blob()
+            .or_else(|| value.text().map(|text| text.as_bytes()))
+            .ok_or(format!("ODBC: cannot decode as &[u8]: {:?}", value).into())
     }
 }
 
@@ -68,30 +71,25 @@ impl Type<Odbc> for [u8] {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::odbc::{OdbcTypeInfo, OdbcValueRef};
+    use crate::odbc::{ColumnData, OdbcTypeInfo, OdbcValueVec};
     use crate::type_info::TypeInfo;
     use odbc_api::DataType;
 
-    fn create_test_value_text(text: &'static str, data_type: DataType) -> OdbcValueRef<'static> {
-        OdbcValueRef {
+    fn make_ref(value_vec: OdbcValueVec, data_type: DataType) -> OdbcValueRef<'static> {
+        let column = ColumnData {
+            values: value_vec,
             type_info: OdbcTypeInfo::new(data_type),
-            is_null: false,
-            text: Some(text),
-            blob: None,
-            int: None,
-            float: None,
-        }
+        };
+        let ptr = Box::leak(Box::new(column));
+        OdbcValueRef::new(ptr, 0)
+    }
+
+    fn create_test_value_text(text: &'static str, data_type: DataType) -> OdbcValueRef<'static> {
+        make_ref(OdbcValueVec::Text(vec![Some(text.to_string())]), data_type)
     }
 
     fn create_test_value_blob(data: &'static [u8], data_type: DataType) -> OdbcValueRef<'static> {
-        OdbcValueRef {
-            type_info: OdbcTypeInfo::new(data_type),
-            is_null: false,
-            text: None,
-            blob: Some(data),
-            int: None,
-            float: None,
-        }
+        make_ref(OdbcValueVec::Binary(vec![Some(data.to_vec())]), data_type)
     }
 
     #[test]
@@ -160,11 +158,11 @@ mod tests {
     fn test_vec_u8_encode() {
         let mut buf = Vec::new();
         let data = vec![65, 66, 67, 68, 69]; // "ABCDE"
-        let result = <Vec<u8> as Encode<Odbc>>::encode(data, &mut buf);
+        let result = <Vec<u8> as Encode<Odbc>>::encode(data.clone(), &mut buf);
         assert!(matches!(result, crate::encode::IsNull::No));
         assert_eq!(buf.len(), 1);
         if let OdbcArgumentValue::Bytes(bytes) = &buf[0] {
-            assert_eq!(*bytes, vec![65, 66, 67, 68, 69]);
+            assert_eq!(*bytes, data);
         } else {
             panic!("Expected Bytes argument");
         }
