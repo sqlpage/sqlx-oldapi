@@ -139,11 +139,24 @@ where
     }
 }
 
-fn decode_column_name(name_words: Vec<u16>, index: u16) -> String {
-    match String::from_utf16(&name_words) {
-        Ok(s) => s,
-        Err(_) => format!("col{}", index - 1),
+trait ColumnNameDecode {
+    fn decode_or_default(self, index: u16) -> String;
+}
+
+impl ColumnNameDecode for Vec<u8> {
+    fn decode_or_default(self, index: u16) -> String {
+        String::from_utf8(self).unwrap_or_else(|_| format!("col{}", index - 1))
     }
+}
+
+impl ColumnNameDecode for Vec<u16> {
+    fn decode_or_default(self, index: u16) -> String {
+        String::from_utf16(&self).unwrap_or_else(|_| format!("col{}", index - 1))
+    }
+}
+
+fn decode_column_name<T: ColumnNameDecode>(name: T, index: u16) -> String {
+    name.decode_or_default(index)
 }
 
 fn stream_rows<C>(cursor: &mut C, columns: &[OdbcColumn], tx: &ExecuteSender) -> Result<bool, Error>
