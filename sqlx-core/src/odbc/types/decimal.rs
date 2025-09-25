@@ -73,7 +73,7 @@ impl<'r> Decode<'r, Odbc> for Decimal {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::odbc::{OdbcTypeInfo, OdbcValueRef};
+    use crate::odbc::{ColumnData, OdbcTypeInfo, OdbcValueRef, OdbcValueVec};
     use crate::type_info::TypeInfo;
     use odbc_api::DataType;
     use std::str::FromStr;
@@ -252,14 +252,12 @@ mod tests {
 
     #[test]
     fn test_decimal_decode_error_handling() {
-        let value = OdbcValueRef {
+        let column = ColumnData {
+            values: OdbcValueVec::Text(vec![Some("not_a_number".to_string())]),
             type_info: OdbcTypeInfo::decimal(10, 2),
-            is_null: false,
-            text: None,
-            blob: None,
-            int: None,
-            float: None,
         };
+        let ptr = Box::leak(Box::new(column));
+        let value = OdbcValueRef::new(ptr, 0);
 
         let result = <Decimal as Decode<Odbc>>::decode(value);
         assert!(result.is_err());

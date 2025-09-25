@@ -59,7 +59,7 @@ impl<'r> Decode<'r, Odbc> for bool {
                     } else if let Ok(num) = text.parse::<i64>() {
                         num != 0
                     } else {
-                        text.parse()?
+                        return Err("provided string was not `true` or `false`".into());
                     }
                 }
             });
@@ -77,7 +77,7 @@ impl<'r> Decode<'r, Odbc> for bool {
                     } else if let Ok(num) = s.parse::<i64>() {
                         num != 0
                     } else {
-                        s.parse()?
+                        return Err("provided string was not `true` or `false`".into());
                     }
                 }
             });
@@ -304,17 +304,20 @@ mod tests {
 
     #[test]
     fn test_bool_decode_error_handling() {
-        let value = OdbcValueRef {
+        let column = ColumnData {
+            values: OdbcValueVec::Text(vec![Some("not_a_bool".to_string())]),
             type_info: OdbcTypeInfo::BIT,
-            is_null: false,
-            text: None,
-            blob: None,
-            int: None,
-            float: None,
         };
+        let ptr = Box::leak(Box::new(column));
+        let value = OdbcValueRef::new(ptr, 0);
 
         let result = <bool as Decode<Odbc>>::decode(value);
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err().to_string(), "ODBC: cannot decode bool");
+        // The new implementation returns the parsing error before the final fallback
+        let error_msg = result.unwrap_err().to_string();
+        assert!(
+            error_msg.contains("provided string was not")
+                || error_msg.contains("ODBC: cannot decode bool")
+        );
     }
 }

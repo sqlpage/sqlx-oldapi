@@ -169,7 +169,25 @@ impl<'r> OdbcValueRef<'r> {
     }
 
     pub fn try_int<T: TryFromInt + crate::types::Type<Odbc>>(&self) -> crate::error::Result<T> {
+        if !T::compatible(&self.column_data.type_info) {
+            return Err(crate::error::Error::Decode(
+                crate::error::mismatched_types::<Odbc, T>(&self.column_data.type_info),
+            ));
+        }
         self.int::<T>().ok_or_else(|| {
+            crate::error::Error::Decode(crate::error::mismatched_types::<Odbc, T>(
+                &self.column_data.type_info,
+            ))
+        })
+    }
+
+    pub fn try_float<T: TryFromFloat + crate::types::Type<Odbc>>(&self) -> crate::error::Result<T> {
+        if !T::compatible(&self.column_data.type_info) {
+            return Err(crate::error::Error::Decode(
+                crate::error::mismatched_types::<Odbc, T>(&self.column_data.type_info),
+            ));
+        }
+        self.float::<T>().ok_or_else(|| {
             crate::error::Error::Decode(crate::error::mismatched_types::<Odbc, T>(
                 &self.column_data.type_info,
             ))
@@ -388,6 +406,7 @@ pub trait TryFromInt:
     + TryFrom<u16>
     + TryFrom<u32>
     + TryFrom<u64>
+    + std::str::FromStr
 {
 }
 
@@ -399,7 +418,8 @@ impl<
             + TryFrom<i8>
             + TryFrom<u16>
             + TryFrom<u32>
-            + TryFrom<u64>,
+            + TryFrom<u64>
+            + std::str::FromStr,
     > TryFromInt for T
 {
 }
@@ -416,6 +436,13 @@ fn value_vec_int<T: TryFromInt>(values: &OdbcValueVec, row_index: usize) -> Opti
         OdbcValueVec::NullableInteger(v) => T::try_from((*v.get(row_index)?)?).ok(),
         OdbcValueVec::NullableBigInt(v) => T::try_from((*v.get(row_index)?)?).ok(),
         OdbcValueVec::NullableBit(v) => T::try_from((*v.get(row_index)?)?.0).ok(),
+        OdbcValueVec::Text(v) => {
+            if let Some(Some(text)) = v.get(row_index) {
+                text.trim().parse().ok()
+            } else {
+                None
+            }
+        }
         _ => None,
     }
 }

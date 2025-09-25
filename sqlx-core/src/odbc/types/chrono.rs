@@ -363,7 +363,7 @@ impl<'r> Decode<'r, Odbc> for DateTime<Local> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::odbc::{OdbcTypeInfo, OdbcValueRef};
+    use crate::odbc::{ColumnData, OdbcTypeInfo, OdbcValueRef, OdbcValueVec};
     use crate::type_info::TypeInfo;
     use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
     use odbc_api::DataType;
@@ -524,14 +524,12 @@ mod tests {
         assert_eq!(get_text_from_value(&value)?, Some("test".to_string()));
 
         // From empty
-        let value = OdbcValueRef {
+        let column = ColumnData {
+            values: OdbcValueVec::Text(vec![None]),
             type_info: OdbcTypeInfo::new(DataType::Date),
-            is_null: false,
-            text: None,
-            blob: None,
-            int: None,
-            float: None,
         };
+        let ptr = Box::leak(Box::new(column));
+        let value = OdbcValueRef::new(ptr, 0);
         assert_eq!(get_text_from_value(&value)?, None);
 
         Ok(())

@@ -53,20 +53,18 @@ impl<'r> Decode<'r, Odbc> for Value {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::odbc::{OdbcTypeInfo, OdbcValueRef};
+    use crate::odbc::{ColumnData, OdbcTypeInfo, OdbcValueRef, OdbcValueVec};
     use crate::type_info::TypeInfo;
     use odbc_api::DataType;
     use serde_json::{json, Value};
 
     fn create_test_value_text(text: &'static str, data_type: DataType) -> OdbcValueRef<'static> {
-        OdbcValueRef {
+        let column = ColumnData {
+            values: OdbcValueVec::Text(vec![Some(text.to_string())]),
             type_info: OdbcTypeInfo::new(data_type),
-            is_null: false,
-            text: Some(text),
-            blob: None,
-            int: None,
-            float: None,
-        }
+        };
+        let ptr = Box::leak(Box::new(column));
+        OdbcValueRef::new(ptr, 0)
     }
 
     #[test]
