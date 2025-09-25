@@ -1,4 +1,4 @@
-THIS SHOULD BE A LINTER ERRORuse crate::error::Error;
+use crate::error::Error;
 use crate::odbc::{
     connection::MaybePrepared, OdbcArgumentValue, OdbcArguments, OdbcColumn, OdbcQueryResult,
     OdbcRow, OdbcTypeInfo,
