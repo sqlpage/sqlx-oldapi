@@ -1,12 +1,51 @@
 use crate::error::Error;
 use crate::odbc::{
     connection::MaybePrepared, OdbcArgumentValue, OdbcArguments, OdbcColumn, OdbcQueryResult,
-    OdbcRow, OdbcTypeInfo,
+    OdbcRow, OdbcTypeInfo, OdbcValue,
 };
 use either::Either;
 use flume::{SendError, Sender};
-use odbc_api::handles::{AsStatementRef, Statement};
-use odbc_api::{Cursor, CursorRow, IntoParameter, Nullable, ResultSetMetadata};
+use odbc_api::buffers::{AnySlice, BufferDesc, ColumnarAnyBuffer};
+use odbc_api::handles::{AsStatementRef, Nullability, Statement};
+use odbc_api::DataType;
+use odbc_api::{Cursor, IntoParameter, ResultSetMetadata};
+use std::cmp::min;
+
+// Bulk fetch implementation using columnar buffers instead of row-by-row fetching
+// This provides significant performance improvements by fetching rows in batches
+// and avoiding the slow `next_row()` method from odbc-api
+const BATCH_SIZE: usize = 128;
+const DEFAULT_TEXT_LEN: usize = 512;
+const DEFAULT_BINARY_LEN: usize = 1024;
+const DEFAULT_NUMERIC_TEXT_LEN: usize = 128;
+const MAX_TEXT_LEN: usize = 1024 * 1024;
+const MAX_BINARY_LEN: usize = 1024 * 1024;
+
+struct ColumnBinding {
+    column: OdbcColumn,
+    buffer_desc: BufferDesc,
+}
+
+fn build_bindings<C>(cursor: &mut C) -> Result<Vec<ColumnBinding>, Error>
+where
+    C: ResultSetMetadata,
+{
+    let column_count = cursor.num_result_cols().unwrap_or(0);
+    let mut bindings = Vec::with_capacity(column_count as usize);
+    for index in 1..=column_count {
+        let column = create_column(cursor, index as u16);
+        let nullable = cursor
+            .col_nullability(index as u16)
+            .unwrap_or(Nullability::Unknown)
+            .could_be_nullable();
+        let buffer_desc = map_buffer_desc(cursor, index as u16, &column.type_info, nullable)?;
+        bindings.push(ColumnBinding {
+            column,
+            buffer_desc,
+        });
+    }
+    Ok(bindings)
+}
 
 pub type ExecuteResult = Result<Either<OdbcQueryResult, OdbcRow>, Error>;
 pub type ExecuteSender = Sender<ExecuteResult>;
@@ -32,15 +71,15 @@ pub fn execute_sql(
     let affected = match maybe_prepared {
         MaybePrepared::Prepared(prepared) => {
             let mut prepared = prepared.lock().expect("prepared statement lock");
-            if let Some(mut cursor) = prepared.execute(&params[..])? {
-                handle_cursor(&mut cursor, tx);
+            if let Some(cursor) = prepared.execute(&params[..])? {
+                handle_cursor(cursor, tx);
             }
             extract_rows_affected(&mut *prepared)
         }
         MaybePrepared::NotPrepared(sql) => {
             let mut preallocated = conn.preallocate().map_err(Error::from)?;
-            if let Some(mut cursor) = preallocated.execute(&sql, &params[..])? {
-                handle_cursor(&mut cursor, tx);
+            if let Some(cursor) = preallocated.execute(&sql, &params[..])? {
+                handle_cursor(cursor, tx);
             }
             extract_rows_affected(&mut preallocated)
         }
@@ -86,13 +125,19 @@ fn to_param(arg: OdbcArgumentValue) -> Box<dyn odbc_api::parameter::InputParamet
     }
 }
 
-fn handle_cursor<C>(cursor: &mut C, tx: &ExecuteSender)
+fn handle_cursor<C>(mut cursor: C, tx: &ExecuteSender)
 where
     C: Cursor + ResultSetMetadata,
 {
-    let columns = collect_columns(cursor);
+    let bindings = match build_bindings(&mut cursor) {
+        Ok(b) => b,
+        Err(e) => {
+            send_error(tx, e);
+            return;
+        }
+    };
 
-    match stream_rows(cursor, &columns, tx) {
+    match stream_rows(cursor, bindings, tx) {
         Ok(true) => {
             let _ = send_done(tx, 0);
         }
@@ -115,16 +160,6 @@ fn send_row(tx: &ExecuteSender, row: OdbcRow) -> Result<(), SendError<ExecuteRes
     tx.send(Ok(Either::Right(row)))
 }
 
-fn collect_columns<C>(cursor: &mut C) -> Vec<OdbcColumn>
-where
-    C: ResultSetMetadata,
-{
-    let count = cursor.num_result_cols().unwrap_or(0);
-    (1..=count)
-        .map(|i| create_column(cursor, i as u16))
-        .collect()
-}
-
 fn create_column<C>(cursor: &mut C, index: u16) -> OdbcColumn
 where
     C: ResultSetMetadata,
@@ -143,185 +178,328 @@ fn decode_column_name(name_bytes: Vec<u8>, index: u16) -> String {
     String::from_utf8(name_bytes).unwrap_or_else(|_| format!("col{}", index - 1))
 }
 
-fn stream_rows<C>(cursor: &mut C, columns: &[OdbcColumn], tx: &ExecuteSender) -> Result<bool, Error>
+fn map_buffer_desc<C>(
+    _cursor: &mut C,
+    _column_index: u16,
+    type_info: &OdbcTypeInfo,
+    nullable: bool,
+) -> Result<BufferDesc, Error>
 where
-    C: Cursor,
+    C: ResultSetMetadata,
 {
+    let data_type = type_info.data_type();
+    let buffer_desc = match data_type {
+        DataType::TinyInt | DataType::SmallInt | DataType::Integer | DataType::BigInt => {
+            BufferDesc::I64 { nullable }
+        }
+        DataType::Real => BufferDesc::F32 { nullable },
+        DataType::Float { .. } | DataType::Double => BufferDesc::F64 { nullable },
+        DataType::Bit => BufferDesc::Bit { nullable },
+        DataType::Date => BufferDesc::Date { nullable },
+        DataType::Time { .. } => BufferDesc::Time { nullable },
+        DataType::Timestamp { .. } => BufferDesc::Timestamp { nullable },
+        DataType::Binary { .. } | DataType::Varbinary { .. } | DataType::LongVarbinary { .. } => {
+            BufferDesc::Binary {
+                length: DEFAULT_BINARY_LEN,
+            }
+        }
+        DataType::Char { .. }
+        | DataType::WChar { .. }
+        | DataType::Varchar { .. }
+        | DataType::WVarchar { .. }
+        | DataType::LongVarchar { .. }
+        | DataType::WLongVarchar { .. }
+        | DataType::Other { .. }
+        | DataType::Unknown => BufferDesc::Text {
+            max_str_len: MAX_TEXT_LEN,
+        },
+        DataType::Decimal { .. } | DataType::Numeric { .. } => BufferDesc::Text {
+            max_str_len: min(DEFAULT_NUMERIC_TEXT_LEN, MAX_TEXT_LEN),
+        },
+    };
+
+    Ok(buffer_desc)
+}
+
+fn stream_rows<C>(
+    cursor: C,
+    bindings: Vec<ColumnBinding>,
+    tx: &ExecuteSender,
+) -> Result<bool, Error>
+where
+    C: Cursor + ResultSetMetadata,
+{
+    let buffer_descriptions: Vec<_> = bindings.iter().map(|b| b.buffer_desc).collect();
+    let buffer = ColumnarAnyBuffer::from_descs(BATCH_SIZE, buffer_descriptions);
+    let mut row_set_cursor = cursor.bind_buffer(buffer)?;
+
     let mut receiver_open = true;
 
-    while let Some(mut row) = cursor.next_row()? {
-        let values = collect_row_values(&mut row, columns)?;
-        let row_data = OdbcRow {
-            columns: columns.to_vec(),
-            values: values.into_iter().map(|(_, value)| value).collect(),
-        };
+    while let Some(batch) = row_set_cursor.fetch()? {
+        let columns: Vec<_> = bindings.iter().map(|b| b.column.clone()).collect();
 
-        if send_row(tx, row_data).is_err() {
-            receiver_open = false;
+        for row_index in 0..batch.num_rows() {
+            let row_values: Vec<_> = bindings
+                .iter()
+                .enumerate()
+                .map(|(col_index, binding)| {
+                    let type_info = binding.column.type_info.clone();
+                    let value =
+                        extract_value_from_buffer(batch.column(col_index), row_index, &type_info);
+                    (type_info, value)
+                })
+                .collect();
+
+            let row = OdbcRow {
+                columns: columns.clone(),
+                values: row_values.into_iter().map(|(_, value)| value).collect(),
+            };
+
+            if send_row(tx, row).is_err() {
+                receiver_open = false;
+                break;
+            }
+        }
+
+        if !receiver_open {
             break;
         }
     }
+
     Ok(receiver_open)
 }
 
-fn collect_row_values(
-    row: &mut CursorRow<'_>,
-    columns: &[OdbcColumn],
-) -> Result<Vec<(OdbcTypeInfo, crate::odbc::OdbcValue)>, Error> {
-    columns
-        .iter()
-        .enumerate()
-        .map(|(i, column)| collect_column_value(row, i, column))
-        .collect()
-}
-
-fn collect_column_value(
-    row: &mut CursorRow<'_>,
-    index: usize,
-    column: &OdbcColumn,
-) -> Result<(OdbcTypeInfo, crate::odbc::OdbcValue), Error> {
-    use odbc_api::DataType;
-
-    let col_idx = (index + 1) as u16;
-    let type_info = column.type_info.clone();
-    let data_type = type_info.data_type();
-
-    let value = match data_type {
-        DataType::TinyInt
-        | DataType::SmallInt
-        | DataType::Integer
-        | DataType::BigInt
-        | DataType::Bit => extract_int(row, col_idx, &type_info)?,
-
-        DataType::Real => extract_float::<f32>(row, col_idx, &type_info)?,
-        DataType::Float { .. } | DataType::Double => {
-            extract_float::<f64>(row, col_idx, &type_info)?
-        }
-
-        DataType::Char { .. }
-        | DataType::Varchar { .. }
-        | DataType::LongVarchar { .. }
-        | DataType::WChar { .. }
-        | DataType::WVarchar { .. }
-        | DataType::WLongVarchar { .. }
-        | DataType::Date
-        | DataType::Time { .. }
-        | DataType::Timestamp { .. }
-        | DataType::Decimal { .. }
-        | DataType::Numeric { .. } => extract_text(row, col_idx, &type_info)?,
-
-        DataType::Binary { .. } | DataType::Varbinary { .. } | DataType::LongVarbinary { .. } => {
-            extract_binary(row, col_idx, &type_info)?
-        }
-
-        DataType::Unknown | DataType::Other { .. } => {
-            match extract_text(row, col_idx, &type_info) {
-                Ok(v) => v,
-                Err(_) => extract_binary(row, col_idx, &type_info)?,
+fn extract_value_from_buffer(
+    slice: AnySlice<'_>,
+    row_index: usize,
+    type_info: &OdbcTypeInfo,
+) -> OdbcValue {
+    match slice {
+        AnySlice::I8(s) => OdbcValue {
+            type_info: type_info.clone(),
+            is_null: false,
+            text: None,
+            blob: None,
+            int: Some(s[row_index] as i64),
+            float: None,
+        },
+        AnySlice::I16(s) => OdbcValue {
+            type_info: type_info.clone(),
+            is_null: false,
+            text: None,
+            blob: None,
+            int: Some(s[row_index] as i64),
+            float: None,
+        },
+        AnySlice::I32(s) => OdbcValue {
+            type_info: type_info.clone(),
+            is_null: false,
+            text: None,
+            blob: None,
+            int: Some(s[row_index] as i64),
+            float: None,
+        },
+        AnySlice::I64(s) => OdbcValue {
+            type_info: type_info.clone(),
+            is_null: false,
+            text: None,
+            blob: None,
+            int: Some(s[row_index]),
+            float: None,
+        },
+        AnySlice::F32(s) => OdbcValue {
+            type_info: type_info.clone(),
+            is_null: false,
+            text: None,
+            blob: None,
+            int: None,
+            float: Some(s[row_index] as f64),
+        },
+        AnySlice::F64(s) => OdbcValue {
+            type_info: type_info.clone(),
+            is_null: false,
+            text: None,
+            blob: None,
+            int: None,
+            float: Some(s[row_index]),
+        },
+        AnySlice::Bit(s) => OdbcValue {
+            type_info: type_info.clone(),
+            is_null: false,
+            text: None,
+            blob: None,
+            int: Some(s[row_index].0 as i64),
+            float: None,
+        },
+        AnySlice::Text(s) => {
+            let text = s
+                .get(row_index)
+                .map(|bytes| String::from_utf8_lossy(bytes).to_string());
+            OdbcValue {
+                type_info: type_info.clone(),
+                is_null: text.is_none(),
+                text,
+                blob: None,
+                int: None,
+                float: None,
             }
         }
-    };
-
-    Ok((type_info, value))
-}
-
-fn extract_int(
-    row: &mut CursorRow<'_>,
-    col_idx: u16,
-    type_info: &OdbcTypeInfo,
-) -> Result<crate::odbc::OdbcValue, Error> {
-    let mut nullable = Nullable::<i64>::null();
-    row.get_data(col_idx, &mut nullable)?;
-
-    let (is_null, int) = match nullable.into_opt() {
-        None => (true, None),
-        Some(v) => (false, Some(v)),
-    };
-
-    Ok(crate::odbc::OdbcValue {
-        type_info: type_info.clone(),
-        is_null,
-        text: None,
-        blob: None,
-        int,
-        float: None,
-    })
-}
-
-fn extract_float<T>(
-    row: &mut CursorRow<'_>,
-    col_idx: u16,
-    type_info: &OdbcTypeInfo,
-) -> Result<crate::odbc::OdbcValue, Error>
-where
-    T: Into<f64> + Default,
-    odbc_api::Nullable<T>: odbc_api::parameter::CElement + odbc_api::handles::CDataMut,
-{
-    let mut nullable = Nullable::<T>::null();
-    row.get_data(col_idx, &mut nullable)?;
-
-    let (is_null, float) = match nullable.into_opt() {
-        None => (true, None),
-        Some(v) => (false, Some(v.into())),
-    };
-
-    Ok(crate::odbc::OdbcValue {
-        type_info: type_info.clone(),
-        is_null,
-        text: None,
-        blob: None,
-        int: None,
-        float,
-    })
-}
-
-fn extract_text(
-    row: &mut CursorRow<'_>,
-    col_idx: u16,
-    type_info: &OdbcTypeInfo,
-) -> Result<crate::odbc::OdbcValue, Error> {
-    let mut buf = Vec::new();
-    let is_some = row.get_text(col_idx, &mut buf)?;
-
-    let (is_null, text) = if !is_some {
-        (true, None)
-    } else {
-        match String::from_utf8(buf) {
-            Ok(s) => (false, Some(s)),
-            Err(e) => return Err(Error::Decode(e.into())),
+        AnySlice::Binary(s) => {
+            let blob = s.get(row_index).map(|bytes| bytes.to_vec());
+            OdbcValue {
+                type_info: type_info.clone(),
+                is_null: blob.is_none(),
+                text: None,
+                blob,
+                int: None,
+                float: None,
+            }
         }
-    };
-
-    Ok(crate::odbc::OdbcValue {
-        type_info: type_info.clone(),
-        is_null,
-        text,
-        blob: None,
-        int: None,
-        float: None,
-    })
-}
-
-fn extract_binary(
-    row: &mut CursorRow<'_>,
-    col_idx: u16,
-    type_info: &OdbcTypeInfo,
-) -> Result<crate::odbc::OdbcValue, Error> {
-    let mut buf = Vec::new();
-    let is_some = row.get_binary(col_idx, &mut buf)?;
-
-    let (is_null, blob) = if !is_some {
-        (true, None)
-    } else {
-        (false, Some(buf))
-    };
-
-    Ok(crate::odbc::OdbcValue {
-        type_info: type_info.clone(),
-        is_null,
-        text: None,
-        blob,
-        int: None,
-        float: None,
-    })
+        AnySlice::NullableI8(s) => {
+            let (is_null, int) = if let Some(&val) = s.get(row_index) {
+                (false, Some(val as i64))
+            } else {
+                (true, None)
+            };
+            OdbcValue {
+                type_info: type_info.clone(),
+                is_null,
+                text: None,
+                blob: None,
+                int,
+                float: None,
+            }
+        }
+        AnySlice::NullableI16(s) => {
+            let (is_null, int) = if let Some(&val) = s.get(row_index) {
+                (false, Some(val as i64))
+            } else {
+                (true, None)
+            };
+            OdbcValue {
+                type_info: type_info.clone(),
+                is_null,
+                text: None,
+                blob: None,
+                int,
+                float: None,
+            }
+        }
+        AnySlice::NullableI32(s) => {
+            let (is_null, int) = if let Some(&val) = s.get(row_index) {
+                (false, Some(val as i64))
+            } else {
+                (true, None)
+            };
+            OdbcValue {
+                type_info: type_info.clone(),
+                is_null,
+                text: None,
+                blob: None,
+                int,
+                float: None,
+            }
+        }
+        AnySlice::NullableI64(s) => {
+            let (is_null, int) = if let Some(&val) = s.get(row_index) {
+                (false, Some(val))
+            } else {
+                (true, None)
+            };
+            OdbcValue {
+                type_info: type_info.clone(),
+                is_null,
+                text: None,
+                blob: None,
+                int,
+                float: None,
+            }
+        }
+        AnySlice::NullableF32(s) => {
+            let (is_null, float) = if let Some(&val) = s.get(row_index) {
+                (false, Some(val as f64))
+            } else {
+                (true, None)
+            };
+            OdbcValue {
+                type_info: type_info.clone(),
+                is_null,
+                text: None,
+                blob: None,
+                int: None,
+                float,
+            }
+        }
+        AnySlice::NullableF64(s) => {
+            let (is_null, float) = if let Some(&val) = s.get(row_index) {
+                (false, Some(val))
+            } else {
+                (true, None)
+            };
+            OdbcValue {
+                type_info: type_info.clone(),
+                is_null,
+                text: None,
+                blob: None,
+                int: None,
+                float,
+            }
+        }
+        AnySlice::NullableBit(s) => {
+            let (is_null, int) = if let Some(&val) = s.get(row_index) {
+                (false, Some(val.0 as i64))
+            } else {
+                (true, None)
+            };
+            OdbcValue {
+                type_info: type_info.clone(),
+                is_null,
+                text: None,
+                blob: None,
+                int,
+                float: None,
+            }
+        }
+        AnySlice::Date(s) => {
+            let text = s.get(row_index).map(|date| format!("{:?}", date));
+            OdbcValue {
+                type_info: type_info.clone(),
+                is_null: text.is_none(),
+                text,
+                blob: None,
+                int: None,
+                float: None,
+            }
+        }
+        AnySlice::Time(s) => {
+            let text = s.get(row_index).map(|time| format!("{:?}", time));
+            OdbcValue {
+                type_info: type_info.clone(),
+                is_null: text.is_none(),
+                text,
+                blob: None,
+                int: None,
+                float: None,
+            }
+        }
+        AnySlice::Timestamp(s) => {
+            let text = s.get(row_index).map(|ts| format!("{:?}", ts));
+            OdbcValue {
+                type_info: type_info.clone(),
+                is_null: text.is_none(),
+                text,
+                blob: None,
+                int: None,
+                float: None,
+            }
+        }
+        _ => OdbcValue {
+            type_info: type_info.clone(),
+            is_null: true,
+            text: None,
+            blob: None,
+            int: None,
+            float: None,
+        },
+    }
 }
