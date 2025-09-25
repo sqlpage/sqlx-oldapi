@@ -21,7 +21,6 @@ const DEFAULT_BINARY_LEN: usize = 1024;
 const DEFAULT_NUMERIC_TEXT_LEN: usize = 128;
 const MIN_TEXT_LEN: usize = 1024;
 const MAX_TEXT_LEN: usize = 4096;
-const MAX_BINARY_LEN: usize = 1024;
 
 struct ColumnBinding {
     column: OdbcColumn,
@@ -200,11 +199,15 @@ where
         DataType::Date => BufferDesc::Date { nullable },
         DataType::Time { .. } => BufferDesc::Time { nullable },
         DataType::Timestamp { .. } => BufferDesc::Timestamp { nullable },
-        DataType::Binary { .. } | DataType::Varbinary { .. } | DataType::LongVarbinary { .. } => {
-            BufferDesc::Binary {
-                length: DEFAULT_BINARY_LEN,
-            }
-        }
+        DataType::Binary { length }
+        | DataType::Varbinary { length }
+        | DataType::LongVarbinary { length } => BufferDesc::Binary {
+            length: if let Some(length) = length {
+                std::cmp::max(std::cmp::min(length.get(), MAX_TEXT_LEN), MIN_TEXT_LEN)
+            } else {
+                MAX_TEXT_LEN
+            },
+        },
         DataType::Char { length }
         | DataType::WChar { length }
         | DataType::Varchar { length }
