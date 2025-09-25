@@ -208,6 +208,48 @@ impl<'r> OdbcValueRef<'r> {
     pub fn blob(&self) -> Option<&'r [u8]> {
         value_vec_blob(&self.column_data.values, self.row_index)
     }
+
+    /// Try to get the raw ODBC Date value
+    pub fn date(&self) -> Option<odbc_api::sys::Date> {
+        match &self.column_data.values {
+            OdbcValueVec::Date { raw_values, nulls } => {
+                if nulls.get(self.row_index).copied().unwrap_or(false) {
+                    None
+                } else {
+                    raw_values.get(self.row_index).copied()
+                }
+            }
+            _ => None,
+        }
+    }
+
+    /// Try to get the raw ODBC Time value
+    pub fn time(&self) -> Option<odbc_api::sys::Time> {
+        match &self.column_data.values {
+            OdbcValueVec::Time { raw_values, nulls } => {
+                if nulls.get(self.row_index).copied().unwrap_or(false) {
+                    None
+                } else {
+                    raw_values.get(self.row_index).copied()
+                }
+            }
+            _ => None,
+        }
+    }
+
+    /// Try to get the raw ODBC Timestamp value
+    pub fn timestamp(&self) -> Option<odbc_api::sys::Timestamp> {
+        match &self.column_data.values {
+            OdbcValueVec::Timestamp { raw_values, nulls } => {
+                if nulls.get(self.row_index).copied().unwrap_or(false) {
+                    None
+                } else {
+                    raw_values.get(self.row_index).copied()
+                }
+            }
+            _ => None,
+        }
+    }
 }
 
 /// Individual ODBC value type

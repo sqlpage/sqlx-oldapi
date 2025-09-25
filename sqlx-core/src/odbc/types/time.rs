@@ -227,6 +227,15 @@ fn parse_yyyymmdd_text_as_time_date(s: &str) -> Option<Date> {
 
 impl<'r> Decode<'r, Odbc> for Date {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
+        // Handle raw ODBC Date values first
+        if let Some(date_val) = value.date() {
+            // Convert odbc_api::sys::Date to time::Date
+            // The ODBC Date structure typically has year, month, day fields
+            let month = time::Month::try_from(date_val.month as u8)
+                .map_err(|_| "ODBC: invalid month value")?;
+            return Ok(Date::from_calendar_date(date_val.year as i32, month, date_val.day as u8)?);
+        }
+
         // Handle numeric YYYYMMDD format first
         if let Some(int_val) = value.int() {
             if let Some(date) = parse_yyyymmdd_as_time_date(int_val) {
