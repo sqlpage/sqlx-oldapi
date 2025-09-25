@@ -3,7 +3,7 @@ use crate::odbc::{
     connection::MaybePrepared, OdbcArgumentValue, OdbcArguments, OdbcColumn, OdbcQueryResult,
     OdbcRow, OdbcTypeInfo,
 };
-use crate::odbc::connection::decode_column_name;
+use super::decode_column_name;
 use either::Either;
 use flume::{SendError, Sender};
 use odbc_api::handles::{AsStatementRef, Statement};
