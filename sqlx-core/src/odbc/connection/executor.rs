@@ -5,7 +5,7 @@ use crate::odbc::{Odbc, OdbcConnection, OdbcQueryResult, OdbcRow, OdbcStatement,
 use either::Either;
 use futures_core::future::BoxFuture;
 use futures_core::stream::BoxStream;
-use futures_util::TryStreamExt;
+use futures_util::{future, FutureExt, StreamExt};
 
 // run method removed; fetch_many implements streaming directly
 
@@ -32,15 +32,12 @@ impl<'c> Executor<'c> for &'c mut OdbcConnection {
         'c: 'e,
         E: Execute<'q, Self::Database> + 'q,
     {
-        let mut s = self.fetch_many(query);
-        Box::pin(async move {
-            while let Some(v) = s.try_next().await? {
-                if let Either::Right(r) = v {
-                    return Ok(Some(r));
-                }
-            }
-            Ok(None)
-        })
+        Box::pin(self.fetch_many(query).into_future().then(|(v, _)| match v {
+            Some(Ok(Either::Right(r))) => future::ok(Some(r)),
+            Some(Ok(Either::Left(_))) => future::ok(None),
+            Some(Err(e)) => future::err(e),
+            None => future::ok(None),
+        }))
     }
 
     fn prepare_with<'e, 'q: 'e>(
