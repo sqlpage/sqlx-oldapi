@@ -72,7 +72,7 @@ fn convert_path(test_path: &str) -> String {
         .into_os_string()
         .into_string()
         .expect("path should be UTF-8");
-    s.replace('\\', '/')
+    s.replace("\\", "/")
 }
 
 #[test]
