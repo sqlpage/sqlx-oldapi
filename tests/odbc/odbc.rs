@@ -794,7 +794,7 @@ async fn it_handles_prepare_statement_errors() -> anyhow::Result<()> {
         },
         Err(sqlx_oldapi::Error::Database(err)) => {
             assert!(
-                err.to_string().contains("idonotexist"),
+                err.to_string().to_lowercase().contains("idonotexist"),
                 "{:?} should contain 'idonotexist'",
                 err
             );

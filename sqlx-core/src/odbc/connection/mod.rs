@@ -40,8 +40,24 @@ fn create_column(stmt: &mut PreparedStatement, index: u16) -> OdbcColumn {
     }
 }
 
-fn decode_column_name(name_bytes: Vec<u8>, index: u16) -> String {
-    String::from_utf8(name_bytes).unwrap_or_else(|_| format!("col{}", index - 1))
+pub(super) trait ColumnNameDecode {
+    fn decode_or_default(self, index: u16) -> String;
+}
+
+impl ColumnNameDecode for Vec<u8> {
+    fn decode_or_default(self, index: u16) -> String {
+        String::from_utf8(self).unwrap_or_else(|_| format!("col{}", index - 1))
+    }
+}
+
+impl ColumnNameDecode for Vec<u16> {
+    fn decode_or_default(self, index: u16) -> String {
+        String::from_utf16(&self).unwrap_or_else(|_| format!("col{}", index - 1))
+    }
+}
+
+pub(super) fn decode_column_name<T: ColumnNameDecode>(name: T, index: u16) -> String {
+    name.decode_or_default(index)
 }
 
 /// A connection to an ODBC-accessible database.
