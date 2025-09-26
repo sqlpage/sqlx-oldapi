@@ -103,20 +103,20 @@ fn parse_unix_timestamp_as_offset_datetime(timestamp: i64) -> Option<OffsetDateT
 impl<'r> Decode<'r, Odbc> for OffsetDateTime {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
         // Handle numeric timestamps (Unix epoch seconds) first
-        if let Some(int_val) = value.int {
+        if let Some(int_val) = value.int() {
             if let Some(dt) = parse_unix_timestamp_as_offset_datetime(int_val) {
                 return Ok(dt);
             }
         }
 
-        if let Some(float_val) = value.float {
+        if let Some(float_val) = value.float::<f64>() {
             if let Some(dt) = parse_unix_timestamp_as_offset_datetime(float_val as i64) {
                 return Ok(dt);
             }
         }
 
         // Handle text values
-        if let Some(text) = value.text {
+        if let Some(text) = value.text() {
             let trimmed = text.trim();
             // Try parsing as ISO-8601 timestamp with timezone
             if let Ok(dt) = OffsetDateTime::parse(
@@ -148,14 +148,14 @@ impl<'r> Decode<'r, Odbc> for OffsetDateTime {
 impl<'r> Decode<'r, Odbc> for PrimitiveDateTime {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
         // Handle numeric timestamps (Unix epoch seconds) first
-        if let Some(int_val) = value.int {
+        if let Some(int_val) = value.int() {
             if let Some(offset_dt) = parse_unix_timestamp_as_offset_datetime(int_val) {
                 let utc_dt = offset_dt.to_offset(time::UtcOffset::UTC);
                 return Ok(PrimitiveDateTime::new(utc_dt.date(), utc_dt.time()));
             }
         }
 
-        if let Some(float_val) = value.float {
+        if let Some(float_val) = value.float::<f64>() {
             if let Some(offset_dt) = parse_unix_timestamp_as_offset_datetime(float_val as i64) {
                 let utc_dt = offset_dt.to_offset(time::UtcOffset::UTC);
                 return Ok(PrimitiveDateTime::new(utc_dt.date(), utc_dt.time()));
@@ -163,7 +163,7 @@ impl<'r> Decode<'r, Odbc> for PrimitiveDateTime {
         }
 
         // Handle text values
-        if let Some(text) = value.text {
+        if let Some(text) = value.text() {
             let trimmed = text.trim();
             // Try parsing as ISO-8601
             if let Ok(dt) = PrimitiveDateTime::parse(
@@ -227,8 +227,21 @@ fn parse_yyyymmdd_text_as_time_date(s: &str) -> Option<Date> {
 
 impl<'r> Decode<'r, Odbc> for Date {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
+        // Handle raw ODBC Date values first
+        if let Some(date_val) = value.date() {
+            // Convert odbc_api::sys::Date to time::Date
+            // The ODBC Date structure typically has year, month, day fields
+            let month = time::Month::try_from(date_val.month as u8)
+                .map_err(|_| "ODBC: invalid month value")?;
+            return Ok(Date::from_calendar_date(
+                date_val.year as i32,
+                month,
+                date_val.day as u8,
+            )?);
+        }
+
         // Handle numeric YYYYMMDD format first
-        if let Some(int_val) = value.int {
+        if let Some(int_val) = value.int() {
             if let Some(date) = parse_yyyymmdd_as_time_date(int_val) {
                 return Ok(date);
             }
@@ -243,14 +256,14 @@ impl<'r> Decode<'r, Odbc> for Date {
         }
 
         // Handle float values
-        if let Some(float_val) = value.float {
+        if let Some(float_val) = value.float::<f64>() {
             if let Some(date) = parse_yyyymmdd_as_time_date(float_val as i64) {
                 return Ok(date);
             }
         }
 
         // Handle text values
-        if let Some(text) = value.text {
+        if let Some(text) = value.text() {
             let trimmed = text.trim();
             if let Some(date) = parse_yyyymmdd_text_as_time_date(trimmed) {
                 return Ok(date);
@@ -290,20 +303,20 @@ fn parse_seconds_as_time(seconds: i64) -> Option<Time> {
 impl<'r> Decode<'r, Odbc> for Time {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
         // Handle numeric time (seconds since midnight)
-        if let Some(int_val) = value.int {
+        if let Some(int_val) = value.int::<i64>() {
             if let Some(time) = parse_seconds_as_time(int_val) {
                 return Ok(time);
             }
         }
 
-        if let Some(float_val) = value.float {
+        if let Some(float_val) = value.float::<f64>() {
             if let Some(time) = parse_seconds_as_time(float_val as i64) {
                 return Ok(time);
             }
         }
 
         // Handle text values
-        if let Some(text) = value.text {
+        if let Some(text) = value.text() {
             let trimmed = text.trim();
             if let Ok(time) = Time::parse(
                 trimmed,
@@ -326,30 +339,26 @@ impl<'r> Decode<'r, Odbc> for Time {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::odbc::{OdbcTypeInfo, OdbcValueRef};
+    use crate::odbc::{ColumnData, OdbcTypeInfo, OdbcValueRef, OdbcValueVec};
     use odbc_api::DataType;
     use time::{macros::date, macros::time as time_macro};
 
-    fn create_test_value_text(text: &str, data_type: DataType) -> OdbcValueRef<'_> {
-        OdbcValueRef {
+    fn create_test_value_text(text: &str, data_type: DataType) -> OdbcValueRef<'static> {
+        let column = ColumnData {
+            values: OdbcValueVec::Text(vec![Some(text.to_string())]),
             type_info: OdbcTypeInfo::new(data_type),
-            is_null: false,
-            text: Some(text),
-            blob: None,
-            int: None,
-            float: None,
-        }
+        };
+        let ptr = Box::leak(Box::new(column));
+        OdbcValueRef::new(ptr, 0)
     }
 
     fn create_test_value_int(value: i64, data_type: DataType) -> OdbcValueRef<'static> {
-        OdbcValueRef {
+        let column = ColumnData {
+            values: OdbcValueVec::NullableBigInt(vec![Some(value)]),
             type_info: OdbcTypeInfo::new(data_type),
-            is_null: false,
-            text: None,
-            blob: None,
-            int: Some(value),
-            float: None,
-        }
+        };
+        let ptr = Box::leak(Box::new(column));
+        OdbcValueRef::new(ptr, 0)
     }
 
     #[test]
@@ -437,14 +446,12 @@ mod tests {
 
     #[test]
     fn test_decode_error_handling() {
-        let value = OdbcValueRef {
+        let column = ColumnData {
+            values: OdbcValueVec::Text(vec![Some("not_a_datetime".to_string())]),
             type_info: OdbcTypeInfo::TIMESTAMP,
-            is_null: false,
-            text: None,
-            blob: None,
-            int: None,
-            float: None,
         };
+        let ptr = Box::leak(Box::new(column));
+        let value = OdbcValueRef::new(ptr, 0);
 
         let result = <PrimitiveDateTime as Decode<Odbc>>::decode(value);
         assert!(result.is_err());

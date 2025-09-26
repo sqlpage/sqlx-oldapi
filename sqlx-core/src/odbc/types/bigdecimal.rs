@@ -3,7 +3,7 @@ use crate::encode::Encode;
 use crate::error::BoxDynError;
 use crate::odbc::{DataTypeExt, Odbc, OdbcArgumentValue, OdbcTypeInfo, OdbcValueRef};
 use crate::types::Type;
-use bigdecimal::{BigDecimal, FromPrimitive};
+use bigdecimal::BigDecimal;
 use odbc_api::DataType;
 use std::str::FromStr;
 
@@ -36,19 +36,22 @@ impl<'q> Encode<'q, Odbc> for BigDecimal {
 
 impl<'r> Decode<'r, Odbc> for BigDecimal {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        if let Some(int) = value.int {
-            return Ok(BigDecimal::from(int));
+        if let Some(int) = value.int::<i64>() {
+            Ok(BigDecimal::from(int))
+        } else if let Some(float) = value.float::<f64>() {
+            Ok(BigDecimal::try_from(float)?)
+        } else if let Some(text) = value.text() {
+            let text = text.trim();
+            Ok(BigDecimal::from_str(text).map_err(|e| format!("bad decimal text: {}", e))?)
+        } else if let Some(bytes) = value.blob() {
+            if let Ok(s) = std::str::from_utf8(bytes) {
+                Ok(BigDecimal::parse_bytes(s.as_bytes(), 10)
+                    .ok_or(format!("bad base10 bytes: {:?}", bytes))?)
+            } else {
+                Err(format!("bad utf8 bytes: {:?}", bytes).into())
+            }
+        } else {
+            Err(format!("ODBC: cannot decode BigDecimal: {:?}", value).into())
         }
-        if let Some(float) = value.float {
-            return Ok(BigDecimal::from_f64(float).ok_or(format!("bad float: {}", float))?);
-        }
-        if let Some(text) = value.text {
-            return Ok(BigDecimal::from_str(text).map_err(|e| format!("bad decimal text: {}", e))?);
-        }
-        if let Some(bytes) = value.blob {
-            return Ok(BigDecimal::parse_bytes(bytes, 10)
-                .ok_or(format!("bad base10 bytes: {:?}", bytes))?);
-        }
-        Err(format!("ODBC: cannot decode BigDecimal: {:?}", value).into())
     }
 }

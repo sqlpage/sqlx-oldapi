@@ -47,7 +47,7 @@ pub use row::OdbcRow;
 pub use statement::{OdbcStatement, OdbcStatementMetadata};
 pub use transaction::OdbcTransactionManager;
 pub use type_info::{DataTypeExt, OdbcTypeInfo};
-pub use value::{OdbcValue, OdbcValueRef};
+pub use value::{ColumnData, OdbcValue, OdbcValueRef, OdbcValueType, OdbcValueVec};
 
 /// An alias for [`Pool`][crate::pool::Pool], specialized for ODBC.
 pub type OdbcPool = crate::pool::Pool<Odbc>;

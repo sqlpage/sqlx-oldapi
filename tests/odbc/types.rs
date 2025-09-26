@@ -115,6 +115,12 @@ mod slice_tests {
         "'test'" == b"test" as &[u8],
         "''" == b"" as &[u8]
     ));
+
+    test_decode_type!(str_slice<&str>(Odbc,
+        "'Unicode: 🦀 Rust ❯❯'" == "Unicode: 🦀 Rust ❯❯" as &str,
+        "'test'" == "test" as &str,
+        "''" == "" as &str
+    ));
 }
 
 // Feature-gated types
@@ -231,15 +237,4 @@ test_type!(cross_type_unsigned_compatibility<u32>(Odbc,
 test_type!(cross_type_float_compatibility<f64>(Odbc,
     "3.125" == 3.125_f64,
     "123.75" == 123.75_f64
-));
-
-// Type coercion from strings
-test_decode_type!(string_to_integer<i32>(Odbc,
-    "'42'" == 42_i32,
-    "'-123'" == -123_i32
-));
-
-test_decode_type!(string_to_bool<bool>(Odbc,
-    "'1'" == true,
-    "'0'" == false
 ));

@@ -3,7 +3,6 @@ use crate::encode::Encode;
 use crate::error::BoxDynError;
 use crate::odbc::{DataTypeExt, Odbc, OdbcArgumentValue, OdbcTypeInfo, OdbcValueRef};
 use crate::types::Type;
-use serde::de::Error;
 use serde_json::Value;
 
 impl Type<Odbc> for Value {
@@ -35,38 +34,37 @@ impl<'q> Encode<'q, Odbc> for Value {
 
 impl<'r> Decode<'r, Odbc> for Value {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        if let Some(bytes) = value.blob {
-            serde_json::from_slice(bytes)
-        } else if let Some(text) = value.text {
-            serde_json::from_str(text)
-        } else if let Some(i) = value.int {
-            Ok(serde_json::Value::from(i))
-        } else if let Some(f) = value.float {
-            Ok(serde_json::Value::from(f))
-        } else {
-            Err(serde_json::Error::custom("not a valid json type"))
+        if let Some(bytes) = value.blob() {
+            return serde_json::from_slice(bytes)
+                .map_err(|e| format!("ODBC: cannot decode JSON from {:?}: {}", value, e).into());
+        } else if let Some(text) = value.text() {
+            return serde_json::from_str(text)
+                .map_err(|e| format!("ODBC: cannot decode JSON from {:?}: {}", value, e).into());
+        } else if let Some(i) = value.int::<i64>() {
+            return Ok(Value::from(i));
+        } else if let Some(f) = value.float::<f64>() {
+            return Ok(Value::from(f));
         }
-        .map_err(|e| format!("ODBC: cannot decode JSON from {:?}: {}", value, e).into())
+
+        Err(format!("ODBC: cannot decode JSON from {:?}", value).into())
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::odbc::{OdbcTypeInfo, OdbcValueRef};
+    use crate::odbc::{ColumnData, OdbcTypeInfo, OdbcValueRef, OdbcValueVec};
     use crate::type_info::TypeInfo;
     use odbc_api::DataType;
     use serde_json::{json, Value};
 
     fn create_test_value_text(text: &'static str, data_type: DataType) -> OdbcValueRef<'static> {
-        OdbcValueRef {
+        let column = ColumnData {
+            values: OdbcValueVec::Text(vec![Some(text.to_string())]),
             type_info: OdbcTypeInfo::new(data_type),
-            is_null: false,
-            text: Some(text),
-            blob: None,
-            int: None,
-            float: None,
-        }
+        };
+        let ptr = Box::leak(Box::new(column));
+        OdbcValueRef::new(ptr, 0)
     }
 
     #[test]

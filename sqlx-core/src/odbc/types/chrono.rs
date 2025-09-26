@@ -192,11 +192,11 @@ fn parse_yyyymmdd_text_as_naive_date(s: &str) -> Option<NaiveDate> {
 }
 
 fn get_text_from_value(value: &OdbcValueRef<'_>) -> Result<Option<String>, BoxDynError> {
-    if let Some(text) = value.text {
+    if let Some(text) = value.text() {
         let trimmed = text.trim_matches('\u{0}').trim();
         return Ok(Some(trimmed.to_string()));
     }
-    if let Some(bytes) = value.blob {
+    if let Some(bytes) = value.blob() {
         let s = std::str::from_utf8(bytes)?;
         let trimmed = s.trim_matches('\u{0}').trim();
         return Ok(Some(trimmed.to_string()));
@@ -206,9 +206,21 @@ fn get_text_from_value(value: &OdbcValueRef<'_>) -> Result<Option<String>, BoxDy
 
 impl<'r> Decode<'r, Odbc> for NaiveDate {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
+        // Handle raw ODBC Date values first
+        if let Some(date_val) = value.date() {
+            // Convert odbc_api::sys::Date to NaiveDate
+            // The ODBC Date structure typically has year, month, day fields
+            return Ok(NaiveDate::from_ymd_opt(
+                date_val.year as i32,
+                date_val.month as u32,
+                date_val.day as u32,
+            )
+            .ok_or_else(|| "ODBC: invalid date values".to_string())?);
+        }
+
         // Handle text values first (most common for dates)
-        if let Some(text) = get_text_from_value(&value)? {
-            if let Some(date) = parse_yyyymmdd_text_as_naive_date(&text) {
+        if let Some(text) = value.text() {
+            if let Some(date) = parse_yyyymmdd_text_as_naive_date(text) {
                 return Ok(date);
             }
             if let Ok(date) = text.parse() {
@@ -217,7 +229,7 @@ impl<'r> Decode<'r, Odbc> for NaiveDate {
         }
 
         // Handle numeric YYYYMMDD format (for databases that return as numbers)
-        if let Some(int_val) = value.int {
+        if let Some(int_val) = value.int() {
             if let Some(date) = parse_yyyymmdd_as_naive_date(int_val) {
                 return Ok(date);
             }
@@ -229,7 +241,7 @@ impl<'r> Decode<'r, Odbc> for NaiveDate {
         }
 
         // Handle float values similarly
-        if let Some(float_val) = value.float {
+        if let Some(float_val) = value.float::<f64>() {
             if let Some(date) = parse_yyyymmdd_as_naive_date(float_val as i64) {
                 return Ok(date);
             }
@@ -242,7 +254,7 @@ impl<'r> Decode<'r, Odbc> for NaiveDate {
 
         Err(format!(
             "ODBC: cannot decode NaiveDate from value with type '{}'",
-            value.type_info.name()
+            value.column_data.type_info.name()
         )
         .into())
     }
@@ -250,6 +262,18 @@ impl<'r> Decode<'r, Odbc> for NaiveDate {
 
 impl<'r> Decode<'r, Odbc> for NaiveTime {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
+        // Handle raw ODBC Time values first
+        if let Some(time_val) = value.time() {
+            // Convert odbc_api::sys::Time to NaiveTime
+            // The ODBC Time structure typically has hour, minute, second fields
+            return Ok(NaiveTime::from_hms_opt(
+                time_val.hour as u32,
+                time_val.minute as u32,
+                time_val.second as u32,
+            )
+            .ok_or_else(|| "ODBC: invalid time values".to_string())?);
+        }
+
         let mut s = <String as Decode<'r, Odbc>>::decode(value)?;
         if s.ends_with('\u{0}') {
             s = s.trim_end_matches('\u{0}').to_string();
@@ -263,6 +287,24 @@ impl<'r> Decode<'r, Odbc> for NaiveTime {
 
 impl<'r> Decode<'r, Odbc> for NaiveDateTime {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
+        // Handle raw ODBC Timestamp values first
+        if let Some(ts_val) = value.timestamp() {
+            // Convert odbc_api::sys::Timestamp to NaiveDateTime
+            // The ODBC Timestamp structure typically has year, month, day, hour, minute, second fields
+            let date =
+                NaiveDate::from_ymd_opt(ts_val.year as i32, ts_val.month as u32, ts_val.day as u32)
+                    .ok_or_else(|| "ODBC: invalid date values in timestamp".to_string())?;
+
+            let time = NaiveTime::from_hms_opt(
+                ts_val.hour as u32,
+                ts_val.minute as u32,
+                ts_val.second as u32,
+            )
+            .ok_or_else(|| "ODBC: invalid time values in timestamp".to_string())?;
+
+            return Ok(NaiveDateTime::new(date, time));
+        }
+
         let mut s = <String as Decode<'r, Odbc>>::decode(value)?;
         // Some ODBC drivers (e.g. PostgreSQL) may include trailing spaces or NULs
         // in textual representations of timestamps. Trim them before parsing.
@@ -285,6 +327,24 @@ impl<'r> Decode<'r, Odbc> for NaiveDateTime {
 
 impl<'r> Decode<'r, Odbc> for DateTime<Utc> {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
+        // Handle raw ODBC Timestamp values first
+        if let Some(ts_val) = value.timestamp() {
+            // Convert odbc_api::sys::Timestamp to DateTime<Utc>
+            // The ODBC Timestamp structure typically has year, month, day, hour, minute, second fields
+            let naive_dt = NaiveDateTime::new(
+                NaiveDate::from_ymd_opt(ts_val.year as i32, ts_val.month as u32, ts_val.day as u32)
+                    .ok_or_else(|| "ODBC: invalid date values in timestamp".to_string())?,
+                NaiveTime::from_hms_opt(
+                    ts_val.hour as u32,
+                    ts_val.minute as u32,
+                    ts_val.second as u32,
+                )
+                .ok_or_else(|| "ODBC: invalid time values in timestamp".to_string())?,
+            );
+
+            return Ok(DateTime::<Utc>::from_naive_utc_and_offset(naive_dt, Utc));
+        }
+
         let mut s = <String as Decode<'r, Odbc>>::decode(value)?;
         if s.ends_with('\u{0}') {
             s = s.trim_end_matches('\u{0}').to_string();
@@ -312,6 +372,24 @@ impl<'r> Decode<'r, Odbc> for DateTime<Utc> {
 
 impl<'r> Decode<'r, Odbc> for DateTime<FixedOffset> {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
+        // Handle raw ODBC Timestamp values first
+        if let Some(ts_val) = value.timestamp() {
+            // Convert odbc_api::sys::Timestamp to DateTime<FixedOffset>
+            // The ODBC Timestamp structure typically has year, month, day, hour, minute, second fields
+            let naive_dt = NaiveDateTime::new(
+                NaiveDate::from_ymd_opt(ts_val.year as i32, ts_val.month as u32, ts_val.day as u32)
+                    .ok_or_else(|| "ODBC: invalid date values in timestamp".to_string())?,
+                NaiveTime::from_hms_opt(
+                    ts_val.hour as u32,
+                    ts_val.minute as u32,
+                    ts_val.second as u32,
+                )
+                .ok_or_else(|| "ODBC: invalid time values in timestamp".to_string())?,
+            );
+
+            return Ok(DateTime::<Utc>::from_naive_utc_and_offset(naive_dt, Utc).fixed_offset());
+        }
+
         let mut s = <String as Decode<'r, Odbc>>::decode(value)?;
         if s.ends_with('\u{0}') {
             s = s.trim_end_matches('\u{0}').to_string();
@@ -343,6 +421,26 @@ impl<'r> Decode<'r, Odbc> for DateTime<FixedOffset> {
 
 impl<'r> Decode<'r, Odbc> for DateTime<Local> {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
+        // Handle raw ODBC Timestamp values first
+        if let Some(ts_val) = value.timestamp() {
+            // Convert odbc_api::sys::Timestamp to DateTime<Local>
+            // The ODBC Timestamp structure typically has year, month, day, hour, minute, second fields
+            let naive_dt = NaiveDateTime::new(
+                NaiveDate::from_ymd_opt(ts_val.year as i32, ts_val.month as u32, ts_val.day as u32)
+                    .ok_or_else(|| "ODBC: invalid date values in timestamp".to_string())?,
+                NaiveTime::from_hms_opt(
+                    ts_val.hour as u32,
+                    ts_val.minute as u32,
+                    ts_val.second as u32,
+                )
+                .ok_or_else(|| "ODBC: invalid time values in timestamp".to_string())?,
+            );
+
+            return Ok(
+                DateTime::<Utc>::from_naive_utc_and_offset(naive_dt, Utc).with_timezone(&Local)
+            );
+        }
+
         let mut s = <String as Decode<'r, Odbc>>::decode(value)?;
         if s.ends_with('\u{0}') {
             s = s.trim_end_matches('\u{0}').to_string();
@@ -363,31 +461,34 @@ impl<'r> Decode<'r, Odbc> for DateTime<Local> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::odbc::{OdbcTypeInfo, OdbcValueRef};
+    use crate::odbc::{ColumnData, OdbcTypeInfo, OdbcValueRef, OdbcValueVec};
     use crate::type_info::TypeInfo;
     use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
     use odbc_api::DataType;
 
-    fn create_test_value_text(text: &'static str, data_type: DataType) -> OdbcValueRef<'static> {
-        OdbcValueRef {
+    fn make_ref(value_vec: OdbcValueVec, data_type: DataType) -> OdbcValueRef<'static> {
+        let column = ColumnData {
+            values: value_vec,
             type_info: OdbcTypeInfo::new(data_type),
-            is_null: false,
-            text: Some(text),
-            blob: None,
-            int: None,
-            float: None,
-        }
+        };
+        let ptr = Box::leak(Box::new(column));
+        OdbcValueRef::new(ptr, 0)
+    }
+
+    fn create_test_value_text(text: &'static str, data_type: DataType) -> OdbcValueRef<'static> {
+        make_ref(OdbcValueVec::Text(vec![Some(text.to_string())]), data_type)
     }
 
     fn create_test_value_int(value: i64, data_type: DataType) -> OdbcValueRef<'static> {
-        OdbcValueRef {
-            type_info: OdbcTypeInfo::new(data_type),
-            is_null: false,
-            text: None,
-            blob: None,
-            int: Some(value),
-            float: None,
-        }
+        make_ref(OdbcValueVec::NullableBigInt(vec![Some(value)]), data_type)
+    }
+
+    fn create_test_value_float(value: f64, data_type: DataType) -> OdbcValueRef<'static> {
+        make_ref(OdbcValueVec::NullableDouble(vec![Some(value)]), data_type)
+    }
+
+    fn create_test_value_blob(data: &'static [u8], data_type: DataType) -> OdbcValueRef<'static> {
+        make_ref(OdbcValueVec::Binary(vec![Some(data.to_vec())]), data_type)
     }
 
     #[test]
@@ -521,14 +622,12 @@ mod tests {
         assert_eq!(get_text_from_value(&value)?, Some("test".to_string()));
 
         // From empty
-        let value = OdbcValueRef {
+        let column = ColumnData {
+            values: OdbcValueVec::Text(vec![None]),
             type_info: OdbcTypeInfo::new(DataType::Date),
-            is_null: false,
-            text: None,
-            blob: None,
-            int: None,
-            float: None,
         };
+        let ptr = Box::leak(Box::new(column));
+        let value = OdbcValueRef::new(ptr, 0);
         assert_eq!(get_text_from_value(&value)?, None);
 
         Ok(())

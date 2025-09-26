@@ -48,11 +48,11 @@ impl<'q> Encode<'q, Odbc> for &'q str {
 
 impl<'r> Decode<'r, Odbc> for String {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        if let Some(text) = value.text {
-            return Ok(text.to_owned());
+        if let Some(text) = value.text() {
+            return Ok(text.to_string());
         }
-        if let Some(bytes) = value.blob {
-            return Ok(std::str::from_utf8(bytes)?.to_owned());
+        if let Some(bytes) = value.blob() {
+            return Ok(String::from_utf8(bytes.to_vec())?);
         }
         Err("ODBC: cannot decode String".into())
     }
@@ -60,12 +60,12 @@ impl<'r> Decode<'r, Odbc> for String {
 
 impl<'r> Decode<'r, Odbc> for &'r str {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
-        if let Some(text) = value.text {
+        if let Some(text) = value.text() {
             return Ok(text);
         }
-        if let Some(bytes) = value.blob {
+        if let Some(bytes) = value.blob() {
             return Ok(std::str::from_utf8(bytes)?);
         }
-        Err("ODBC: cannot decode &str".into())
+        Err(format!("ODBC: cannot decode &str: {:?}", value).into())
     }
 }

@@ -74,9 +74,11 @@ impl From<OdbcRow> for crate::any::AnyRow {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::odbc::{OdbcColumn, OdbcTypeInfo};
+    use crate::odbc::{ColumnData, OdbcColumn, OdbcTypeInfo, OdbcValueVec};
     use crate::type_info::TypeInfo;
+    use crate::value::ValueRef;
     use odbc_api::DataType;
+    use std::sync::Arc;
 
     fn create_test_row() -> OdbcRow {
         use crate::odbc::OdbcValue;
@@ -100,29 +102,35 @@ mod tests {
                 },
             ],
             values: vec![
-                OdbcValue {
-                    type_info: OdbcTypeInfo::new(DataType::Integer),
-                    is_null: false,
-                    text: None,
-                    blob: None,
-                    int: Some(42),
-                    float: None,
+                {
+                    let column = ColumnData {
+                        values: OdbcValueVec::NullableBigInt(vec![Some(42)]),
+                        type_info: OdbcTypeInfo::new(DataType::Integer),
+                    };
+                    OdbcValue {
+                        column_data: Arc::new(column),
+                        row_index: 0,
+                    }
                 },
-                OdbcValue {
-                    type_info: OdbcTypeInfo::new(DataType::Varchar { length: None }),
-                    is_null: false,
-                    text: Some("test".to_string()),
-                    blob: None,
-                    int: None,
-                    float: None,
+                {
+                    let column = ColumnData {
+                        values: OdbcValueVec::Text(vec![Some("test".to_string())]),
+                        type_info: OdbcTypeInfo::new(DataType::Varchar { length: None }),
+                    };
+                    OdbcValue {
+                        column_data: Arc::new(column),
+                        row_index: 0,
+                    }
                 },
-                OdbcValue {
-                    type_info: OdbcTypeInfo::new(DataType::Double),
-                    is_null: false,
-                    text: None,
-                    blob: None,
-                    int: None,
-                    float: Some(std::f64::consts::PI),
+                {
+                    let column = ColumnData {
+                        values: OdbcValueVec::NullableDouble(vec![Some(std::f64::consts::PI)]),
+                        type_info: OdbcTypeInfo::new(DataType::Double),
+                    };
+                    OdbcValue {
+                        column_data: Arc::new(column),
+                        row_index: 0,
+                    }
                 },
             ],
         }
@@ -171,18 +179,18 @@ mod tests {
 
         // Test accessing by exact name
         let value = row.try_get_raw("lowercase_col").unwrap();
-        assert!(!value.is_null);
-        assert_eq!(value.type_info.name(), "INTEGER");
+        assert!(!value.is_null());
+        assert_eq!(value.type_info().name(), "INTEGER");
 
         // Test accessing by case-insensitive name
         let value = row.try_get_raw("LOWERCASE_COL").unwrap();
-        assert!(!value.is_null);
-        assert_eq!(value.type_info.name(), "INTEGER");
+        assert!(!value.is_null());
+        assert_eq!(value.type_info().name(), "INTEGER");
 
         // Test accessing uppercase column with lowercase name
         let value = row.try_get_raw("uppercase_col").unwrap();
-        assert!(!value.is_null);
-        assert_eq!(value.type_info.name(), "VARCHAR");
+        assert!(!value.is_null());
+        assert_eq!(value.type_info().name(), "VARCHAR");
     }
 
     #[test]
