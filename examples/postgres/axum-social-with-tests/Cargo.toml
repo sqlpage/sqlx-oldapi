@@ -9,7 +9,7 @@ publish = false
 [dependencies]
 # Primary crates
 axum = { version = "0.5.13", features = ["macros"] }
-sqlx = { package = "sqlx-oldapi",  version = "0.6.49-beta", path = "../../../", features = ["runtime-tokio-rustls", "postgres", "time", "uuid"] }
+sqlx = { package = "sqlx-oldapi",  version = "0.6.49-beta.3", path = "../../../", features = ["runtime-tokio-rustls", "postgres", "time", "uuid"] }
 tokio = { version = "1.20.1", features = ["rt-multi-thread", "macros"] }
 
 # Important secondary crates

@@ -40,8 +40,24 @@ fn create_column(stmt: &mut PreparedStatement, index: u16) -> OdbcColumn {
     }
 }
 
-fn decode_column_name(name_bytes: Vec<u8>, index: u16) -> String {
-    String::from_utf8(name_bytes).unwrap_or_else(|_| format!("col{}", index - 1))
+pub(super) trait ColumnNameDecode {
+    fn decode_or_default(self, index: u16) -> String;
+}
+
+impl ColumnNameDecode for Vec<u8> {
+    fn decode_or_default(self, index: u16) -> String {
+        String::from_utf8(self).unwrap_or_else(|_| format!("col{}", index - 1))
+    }
+}
+
+impl ColumnNameDecode for Vec<u16> {
+    fn decode_or_default(self, index: u16) -> String {
+        String::from_utf16(&self).unwrap_or_else(|_| format!("col{}", index - 1))
+    }
+}
+
+pub(super) fn decode_column_name<T: ColumnNameDecode>(name: T, index: u16) -> String {
+    name.decode_or_default(index)
 }
 
 /// A connection to an ODBC-accessible database.
@@ -95,14 +111,7 @@ impl OdbcConnection {
         })
     }
 
-    /// Returns the name of the actual Database Management System (DBMS) this
-    /// connection is talking to as reported by the ODBC driver.
-    pub async fn dbms_name(&mut self) -> Result<String, Error> {
-        self.with_conn("dbms_name", move |conn| {
-            Ok(conn.database_management_system_name()?)
-        })
-        .await
-    }
+    // (dbms_name moved to the Connection trait implementation)
 
     pub(crate) async fn ping_blocking(&mut self) -> Result<(), Error> {
         self.with_conn("ping", move |conn| {
@@ -236,6 +245,15 @@ impl Connection for OdbcConnection {
 
     fn clear_cached_statements(&mut self) -> BoxFuture<'_, Result<(), Error>> {
         Box::pin(self.clear_cached_statements())
+    }
+
+    fn dbms_name(&mut self) -> BoxFuture<'_, Result<String, Error>> {
+        Box::pin(async move {
+            self.with_conn("dbms_name", move |conn| {
+                Ok(conn.database_management_system_name()?)
+            })
+            .await
+        })
     }
 }
 

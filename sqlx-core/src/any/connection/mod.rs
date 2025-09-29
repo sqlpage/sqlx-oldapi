@@ -87,34 +87,6 @@ impl AnyConnection {
     pub fn private_get_mut(&mut self) -> &mut AnyConnectionKind {
         &mut self.0
     }
-
-    /// Returns the runtime DBMS name for this connection.
-    ///
-    /// For most built-in drivers this returns a well-known constant string:
-    /// - Postgres -> "PostgreSQL"
-    /// - MySQL -> "MySQL"
-    /// - SQLite -> "SQLite"
-    /// - MSSQL -> "Microsoft SQL Server"
-    ///
-    /// For ODBC, this queries the driver at runtime via `SQL_DBMS_NAME`.
-    pub async fn dbms_name(&mut self) -> Result<String, Error> {
-        match &mut self.0 {
-            #[cfg(feature = "postgres")]
-            AnyConnectionKind::Postgres(_) => Ok("PostgreSQL".to_string()),
-
-            #[cfg(feature = "mysql")]
-            AnyConnectionKind::MySql(_) => Ok("MySQL".to_string()),
-
-            #[cfg(feature = "sqlite")]
-            AnyConnectionKind::Sqlite(_) => Ok("SQLite".to_string()),
-
-            #[cfg(feature = "mssql")]
-            AnyConnectionKind::Mssql(_) => Ok("Microsoft SQL Server".to_string()),
-
-            #[cfg(feature = "odbc")]
-            AnyConnectionKind::Odbc(conn) => conn.dbms_name().await,
-        }
-    }
 }
 
 macro_rules! delegate_to {
@@ -263,6 +235,25 @@ impl Connection for AnyConnection {
     #[doc(hidden)]
     fn should_flush(&self) -> bool {
         delegate_to!(self.should_flush())
+    }
+
+    fn dbms_name(&mut self) -> BoxFuture<'_, Result<String, Error>> {
+        match &mut self.0 {
+            #[cfg(feature = "postgres")]
+            AnyConnectionKind::Postgres(conn) => conn.dbms_name(),
+
+            #[cfg(feature = "mysql")]
+            AnyConnectionKind::MySql(conn) => conn.dbms_name(),
+
+            #[cfg(feature = "sqlite")]
+            AnyConnectionKind::Sqlite(conn) => conn.dbms_name(),
+
+            #[cfg(feature = "mssql")]
+            AnyConnectionKind::Mssql(conn) => conn.dbms_name(),
+
+            #[cfg(feature = "odbc")]
+            AnyConnectionKind::Odbc(conn) => conn.dbms_name(),
+        }
     }
 }
 

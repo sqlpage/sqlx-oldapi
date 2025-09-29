@@ -68,9 +68,11 @@ fn convert_path(test_path: &str) -> String {
 
     path.set_extension("sqlite");
 
-    path.into_os_string()
+    let s = path
+        .into_os_string()
         .into_string()
-        .expect("path should be UTF-8")
+        .expect("path should be UTF-8");
+    s.replace("\\", "/")
 }
 
 #[test]

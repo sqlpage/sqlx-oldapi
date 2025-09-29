@@ -48,8 +48,11 @@ jobs:
             -- -D warnings
 
   test:
-    name: Unit Test
-    runs-on: ubuntu-24.04
+    name: Unit Test ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
@@ -57,6 +60,7 @@ jobs:
           prefix-key: v1-sqlx
           save-if: ${{ false }}
       - run: sudo apt-get update && sudo apt-get install -y libodbc2 unixodbc-dev
+        if: ${{ matrix.os == 'ubuntu-latest' }}
       - run: cargo test
           --manifest-path sqlx-core/Cargo.toml
           --features offline,all-databases,all-types,runtime-tokio-rustls

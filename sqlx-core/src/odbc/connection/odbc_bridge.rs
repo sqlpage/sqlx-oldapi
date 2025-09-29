@@ -1,3 +1,4 @@
+use super::decode_column_name;
 use crate::error::Error;
 use crate::odbc::{
     connection::MaybePrepared, ColumnData, OdbcArgumentValue, OdbcArguments, OdbcColumn,
@@ -173,10 +174,6 @@ where
         type_info: OdbcTypeInfo::new(cd.data_type),
         ordinal: usize::from(index.checked_sub(1).unwrap()),
     }
-}
-
-fn decode_column_name(name_bytes: Vec<u8>, index: u16) -> String {
-    String::from_utf8(name_bytes).unwrap_or_else(|_| format!("col{}", index - 1))
 }
 
 fn map_buffer_desc<C>(
