@@ -286,8 +286,10 @@ where
 fn create_column_data(slice: AnySlice<'_>, type_info: &OdbcTypeInfo) -> Arc<ColumnData> {
     use crate::odbc::value::convert_any_slice_to_value_vec;
 
+    let (values, nulls) = convert_any_slice_to_value_vec(slice);
     Arc::new(ColumnData {
-        values: convert_any_slice_to_value_vec(slice),
+        values,
         type_info: type_info.clone(),
+        nulls,
     })
 }

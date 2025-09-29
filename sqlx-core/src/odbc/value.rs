@@ -8,31 +8,18 @@ use std::sync::Arc;
 /// Enum containing owned column data for all supported ODBC types
 #[derive(Debug, Clone)]
 pub enum OdbcValueVec {
-    // Non-nullable integer types
+    // Integer types
     TinyInt(Vec<i8>),
     SmallInt(Vec<i16>),
     Integer(Vec<i32>),
     BigInt(Vec<i64>),
 
-    // Non-nullable floating point types
+    // Floating point types
     Real(Vec<f32>),
     Double(Vec<f64>),
 
-    // Non-nullable bit type
+    // Bit type
     Bit(Vec<odbc_api::Bit>),
-
-    // Nullable integer types
-    NullableTinyInt(Vec<Option<i8>>),
-    NullableSmallInt(Vec<Option<i16>>),
-    NullableInteger(Vec<Option<i32>>),
-    NullableBigInt(Vec<Option<i64>>),
-
-    // Nullable floating point types
-    NullableReal(Vec<Option<f32>>),
-    NullableDouble(Vec<Option<f64>>),
-
-    // Nullable bit type
-    NullableBit(Vec<Option<odbc_api::Bit>>),
 
     // Text types (inherently nullable in ODBC)
     Text(Vec<Option<String>>),
@@ -41,18 +28,9 @@ pub enum OdbcValueVec {
     Binary(Vec<Option<Vec<u8>>>),
 
     // Date/Time types
-    Date {
-        raw_values: Vec<odbc_api::sys::Date>,
-        nulls: Vec<bool>,
-    },
-    Time {
-        raw_values: Vec<odbc_api::sys::Time>,
-        nulls: Vec<bool>,
-    },
-    Timestamp {
-        raw_values: Vec<odbc_api::sys::Timestamp>,
-        nulls: Vec<bool>,
-    },
+    Date(Vec<odbc_api::sys::Date>),
+    Time(Vec<odbc_api::sys::Time>),
+    Timestamp(Vec<odbc_api::sys::Timestamp>),
 }
 
 /// Container for column data with type information
@@ -60,6 +38,7 @@ pub enum OdbcValueVec {
 pub struct ColumnData {
     pub values: OdbcValueVec,
     pub type_info: OdbcTypeInfo,
+    pub nulls: Vec<bool>,
 }
 
 #[derive(Debug)]
@@ -89,7 +68,7 @@ impl<'r> ValueRef<'r> for OdbcValueRef<'r> {
     }
 
     fn is_null(&self) -> bool {
-        value_vec_is_null(&self.column_data.values, self.row_index)
+        value_vec_is_null(self.column_data, self.row_index)
     }
 }
 
@@ -108,7 +87,7 @@ impl Value for OdbcValue {
     }
 
     fn is_null(&self) -> bool {
-        value_vec_is_null(&self.column_data.values, self.row_index)
+        value_vec_is_null(&self.column_data, self.row_index)
     }
 }
 
@@ -211,43 +190,37 @@ impl<'r> OdbcValueRef<'r> {
 
     /// Try to get the raw ODBC Date value
     pub fn date(&self) -> Option<odbc_api::sys::Date> {
-        match &self.column_data.values {
-            OdbcValueVec::Date { raw_values, nulls } => {
-                if nulls.get(self.row_index).copied().unwrap_or(false) {
-                    None
-                } else {
-                    raw_values.get(self.row_index).copied()
-                }
+        if self.is_null() {
+            None
+        } else {
+            match &self.column_data.values {
+                OdbcValueVec::Date(raw_values) => raw_values.get(self.row_index).copied(),
+                _ => None,
             }
-            _ => None,
         }
     }
 
     /// Try to get the raw ODBC Time value
     pub fn time(&self) -> Option<odbc_api::sys::Time> {
-        match &self.column_data.values {
-            OdbcValueVec::Time { raw_values, nulls } => {
-                if nulls.get(self.row_index).copied().unwrap_or(false) {
-                    None
-                } else {
-                    raw_values.get(self.row_index).copied()
-                }
+        if self.is_null() {
+            None
+        } else {
+            match &self.column_data.values {
+                OdbcValueVec::Time(raw_values) => raw_values.get(self.row_index).copied(),
+                _ => None,
             }
-            _ => None,
         }
     }
 
     /// Try to get the raw ODBC Timestamp value
     pub fn timestamp(&self) -> Option<odbc_api::sys::Timestamp> {
-        match &self.column_data.values {
-            OdbcValueVec::Timestamp { raw_values, nulls } => {
-                if nulls.get(self.row_index).copied().unwrap_or(false) {
-                    None
-                } else {
-                    raw_values.get(self.row_index).copied()
-                }
+        if self.is_null() {
+            None
+        } else {
+            match &self.column_data.values {
+                OdbcValueVec::Timestamp(raw_values) => raw_values.get(self.row_index).copied(),
+                _ => None,
             }
-            _ => None,
         }
     }
 }
@@ -269,41 +242,86 @@ pub enum OdbcValueType {
     Timestamp(odbc_api::sys::Timestamp),
 }
 
-/// Convert AnySlice to owned OdbcValueVec, preserving original types
-pub fn convert_any_slice_to_value_vec(slice: AnySlice<'_>) -> OdbcValueVec {
+/// Convert AnySlice to owned OdbcValueVec and nulls vector, preserving original types
+pub fn convert_any_slice_to_value_vec(slice: AnySlice<'_>) -> (OdbcValueVec, Vec<bool>) {
     match slice {
-        AnySlice::I8(s) => OdbcValueVec::TinyInt(s.to_vec()),
-        AnySlice::I16(s) => OdbcValueVec::SmallInt(s.to_vec()),
-        AnySlice::I32(s) => OdbcValueVec::Integer(s.to_vec()),
-        AnySlice::I64(s) => OdbcValueVec::BigInt(s.to_vec()),
-        AnySlice::F32(s) => OdbcValueVec::Real(s.to_vec()),
-        AnySlice::F64(s) => OdbcValueVec::Double(s.to_vec()),
-        AnySlice::Bit(s) => OdbcValueVec::Bit(s.to_vec()),
+        AnySlice::I8(s) => (OdbcValueVec::TinyInt(s.to_vec()), vec![false; s.len()]),
+        AnySlice::I16(s) => (OdbcValueVec::SmallInt(s.to_vec()), vec![false; s.len()]),
+        AnySlice::I32(s) => (OdbcValueVec::Integer(s.to_vec()), vec![false; s.len()]),
+        AnySlice::I64(s) => (OdbcValueVec::BigInt(s.to_vec()), vec![false; s.len()]),
+        AnySlice::F32(s) => (OdbcValueVec::Real(s.to_vec()), vec![false; s.len()]),
+        AnySlice::F64(s) => (OdbcValueVec::Double(s.to_vec()), vec![false; s.len()]),
+        AnySlice::Bit(s) => (OdbcValueVec::Bit(s.to_vec()), vec![false; s.len()]),
 
         AnySlice::NullableI8(s) => {
-            OdbcValueVec::NullableTinyInt(s.map(|opt| opt.copied()).collect())
+            let values: Vec<Option<i8>> = s.map(|opt| opt.copied()).collect();
+            let nulls = values.iter().map(|opt| opt.is_none()).collect();
+            (
+                OdbcValueVec::TinyInt(values.into_iter().map(|opt| opt.unwrap_or(0)).collect()),
+                nulls,
+            )
         }
         AnySlice::NullableI16(s) => {
-            OdbcValueVec::NullableSmallInt(s.map(|opt| opt.copied()).collect())
+            let values: Vec<Option<i16>> = s.map(|opt| opt.copied()).collect();
+            let nulls = values.iter().map(|opt| opt.is_none()).collect();
+            (
+                OdbcValueVec::SmallInt(values.into_iter().map(|opt| opt.unwrap_or(0)).collect()),
+                nulls,
+            )
         }
         AnySlice::NullableI32(s) => {
-            OdbcValueVec::NullableInteger(s.map(|opt| opt.copied()).collect())
+            let values: Vec<Option<i32>> = s.map(|opt| opt.copied()).collect();
+            let nulls = values.iter().map(|opt| opt.is_none()).collect();
+            (
+                OdbcValueVec::Integer(values.into_iter().map(|opt| opt.unwrap_or(0)).collect()),
+                nulls,
+            )
         }
         AnySlice::NullableI64(s) => {
-            OdbcValueVec::NullableBigInt(s.map(|opt| opt.copied()).collect())
+            let values: Vec<Option<i64>> = s.map(|opt| opt.copied()).collect();
+            let nulls = values.iter().map(|opt| opt.is_none()).collect();
+            (
+                OdbcValueVec::BigInt(values.into_iter().map(|opt| opt.unwrap_or(0)).collect()),
+                nulls,
+            )
         }
-        AnySlice::NullableF32(s) => OdbcValueVec::NullableReal(s.map(|opt| opt.copied()).collect()),
+        AnySlice::NullableF32(s) => {
+            let values: Vec<Option<f32>> = s.map(|opt| opt.copied()).collect();
+            let nulls = values.iter().map(|opt| opt.is_none()).collect();
+            (
+                OdbcValueVec::Real(values.into_iter().map(|opt| opt.unwrap_or(0.0)).collect()),
+                nulls,
+            )
+        }
         AnySlice::NullableF64(s) => {
-            OdbcValueVec::NullableDouble(s.map(|opt| opt.copied()).collect())
+            let values: Vec<Option<f64>> = s.map(|opt| opt.copied()).collect();
+            let nulls = values.iter().map(|opt| opt.is_none()).collect();
+            (
+                OdbcValueVec::Double(values.into_iter().map(|opt| opt.unwrap_or(0.0)).collect()),
+                nulls,
+            )
         }
-        AnySlice::NullableBit(s) => OdbcValueVec::NullableBit(s.map(|opt| opt.copied()).collect()),
+        AnySlice::NullableBit(s) => {
+            let values: Vec<Option<odbc_api::Bit>> = s.map(|opt| opt.copied()).collect();
+            let nulls = values.iter().map(|opt| opt.is_none()).collect();
+            (
+                OdbcValueVec::Bit(
+                    values
+                        .into_iter()
+                        .map(|opt| opt.unwrap_or(odbc_api::Bit(0)))
+                        .collect(),
+                ),
+                nulls,
+            )
+        }
 
         AnySlice::Text(s) => {
             let texts: Vec<Option<String>> = s
                 .iter()
                 .map(|bytes_opt| bytes_opt.map(|bytes| String::from_utf8_lossy(bytes).to_string()))
                 .collect();
-            OdbcValueVec::Text(texts)
+            let nulls = texts.iter().map(|opt| opt.is_none()).collect();
+            (OdbcValueVec::Text(texts), nulls)
         }
 
         AnySlice::Binary(s) => {
@@ -311,69 +329,35 @@ pub fn convert_any_slice_to_value_vec(slice: AnySlice<'_>) -> OdbcValueVec {
                 .iter()
                 .map(|bytes_opt| bytes_opt.map(|bytes| bytes.to_vec()))
                 .collect();
-            OdbcValueVec::Binary(binaries)
+            let nulls = binaries.iter().map(|opt| opt.is_none()).collect();
+            (OdbcValueVec::Binary(binaries), nulls)
         }
 
-        AnySlice::Date(s) => OdbcValueVec::Date {
-            raw_values: s.to_vec(),
-            nulls: vec![false; s.len()],
-        },
-        AnySlice::Time(s) => OdbcValueVec::Time {
-            raw_values: s.to_vec(),
-            nulls: vec![false; s.len()],
-        },
-        AnySlice::Timestamp(s) => OdbcValueVec::Timestamp {
-            raw_values: s.to_vec(),
-            nulls: vec![false; s.len()],
-        },
+        AnySlice::Date(s) => (OdbcValueVec::Date(s.to_vec()), vec![false; s.len()]),
+        AnySlice::Time(s) => (OdbcValueVec::Time(s.to_vec()), vec![false; s.len()]),
+        AnySlice::Timestamp(s) => (OdbcValueVec::Timestamp(s.to_vec()), vec![false; s.len()]),
         AnySlice::NullableDate(s) => {
             let (raw_values, indicators) = s.raw_values();
-            OdbcValueVec::Date {
-                raw_values: raw_values.to_vec(),
-                nulls: indicators.iter().map(|&ind| ind == NULL_DATA).collect(),
-            }
+            let nulls = indicators.iter().map(|&ind| ind == NULL_DATA).collect();
+            (OdbcValueVec::Date(raw_values.to_vec()), nulls)
         }
         AnySlice::NullableTime(s) => {
             let (raw_values, indicators) = s.raw_values();
-            OdbcValueVec::Time {
-                raw_values: raw_values.to_vec(),
-                nulls: indicators.iter().map(|&ind| ind == NULL_DATA).collect(),
-            }
+            let nulls = indicators.iter().map(|&ind| ind == NULL_DATA).collect();
+            (OdbcValueVec::Time(raw_values.to_vec()), nulls)
         }
         AnySlice::NullableTimestamp(s) => {
             let (raw_values, indicators) = s.raw_values();
-            OdbcValueVec::Timestamp {
-                raw_values: raw_values.to_vec(),
-                nulls: indicators.iter().map(|&ind| ind == NULL_DATA).collect(),
-            }
+            let nulls = indicators.iter().map(|&ind| ind == NULL_DATA).collect();
+            (OdbcValueVec::Timestamp(raw_values.to_vec()), nulls)
         }
 
         _ => panic!("Unsupported AnySlice variant"),
     }
 }
 
-fn value_vec_is_null(values: &OdbcValueVec, row_index: usize) -> bool {
-    match values {
-        OdbcValueVec::TinyInt(_) => false,
-        OdbcValueVec::SmallInt(_) => false,
-        OdbcValueVec::Integer(_) => false,
-        OdbcValueVec::BigInt(_) => false,
-        OdbcValueVec::Real(_) => false,
-        OdbcValueVec::Double(_) => false,
-        OdbcValueVec::Bit(_) => false,
-        OdbcValueVec::NullableTinyInt(v) => v.get(row_index).is_none_or(|opt| opt.is_none()),
-        OdbcValueVec::NullableSmallInt(v) => v.get(row_index).is_none_or(|opt| opt.is_none()),
-        OdbcValueVec::NullableInteger(v) => v.get(row_index).is_none_or(|opt| opt.is_none()),
-        OdbcValueVec::NullableBigInt(v) => v.get(row_index).is_none_or(|opt| opt.is_none()),
-        OdbcValueVec::NullableReal(v) => v.get(row_index).is_none_or(|opt| opt.is_none()),
-        OdbcValueVec::NullableDouble(v) => v.get(row_index).is_none_or(|opt| opt.is_none()),
-        OdbcValueVec::NullableBit(v) => v.get(row_index).is_none_or(|opt| opt.is_none()),
-        OdbcValueVec::Text(v) => v.get(row_index).is_none_or(|opt| opt.is_none()),
-        OdbcValueVec::Binary(v) => v.get(row_index).is_none_or(|opt| opt.is_none()),
-        OdbcValueVec::Date { nulls, .. } => nulls.get(row_index).copied().unwrap_or(false),
-        OdbcValueVec::Time { nulls, .. } => nulls.get(row_index).copied().unwrap_or(false),
-        OdbcValueVec::Timestamp { nulls, .. } => nulls.get(row_index).copied().unwrap_or(false),
-    }
+fn value_vec_is_null(column_data: &ColumnData, row_index: usize) -> bool {
+    column_data.nulls.get(row_index).copied().unwrap_or(false)
 }
 
 fn value_vec_get_raw(values: &OdbcValueVec, row_index: usize) -> Option<OdbcValueType> {
@@ -385,57 +369,22 @@ fn value_vec_get_raw(values: &OdbcValueVec, row_index: usize) -> Option<OdbcValu
         OdbcValueVec::Real(v) => v.get(row_index).map(|&val| OdbcValueType::Real(val)),
         OdbcValueVec::Double(v) => v.get(row_index).map(|&val| OdbcValueType::Double(val)),
         OdbcValueVec::Bit(v) => v.get(row_index).map(|&val| OdbcValueType::Bit(val)),
-        OdbcValueVec::NullableTinyInt(v) => v
-            .get(row_index)
-            .and_then(|opt| opt.map(OdbcValueType::TinyInt)),
-        OdbcValueVec::NullableSmallInt(v) => v
-            .get(row_index)
-            .and_then(|opt| opt.map(OdbcValueType::SmallInt)),
-        OdbcValueVec::NullableInteger(v) => v
-            .get(row_index)
-            .and_then(|opt| opt.map(OdbcValueType::Integer)),
-        OdbcValueVec::NullableBigInt(v) => v
-            .get(row_index)
-            .and_then(|opt| opt.map(OdbcValueType::BigInt)),
-        OdbcValueVec::NullableReal(v) => v
-            .get(row_index)
-            .and_then(|opt| opt.map(OdbcValueType::Real)),
-        OdbcValueVec::NullableDouble(v) => v
-            .get(row_index)
-            .and_then(|opt| opt.map(OdbcValueType::Double)),
-        OdbcValueVec::NullableBit(v) => {
-            v.get(row_index).and_then(|opt| opt.map(OdbcValueType::Bit))
-        }
         OdbcValueVec::Text(v) => v
             .get(row_index)
             .and_then(|opt| opt.clone().map(OdbcValueType::Text)),
         OdbcValueVec::Binary(v) => v
             .get(row_index)
             .and_then(|opt| opt.clone().map(OdbcValueType::Binary)),
-        OdbcValueVec::Date { raw_values, nulls } => {
-            if nulls.get(row_index).copied().unwrap_or(false) {
-                None
-            } else {
-                raw_values.get(row_index).copied().map(OdbcValueType::Date)
-            }
+        OdbcValueVec::Date(raw_values) => {
+            raw_values.get(row_index).copied().map(OdbcValueType::Date)
         }
-        OdbcValueVec::Time { raw_values, nulls } => {
-            if nulls.get(row_index).copied().unwrap_or(false) {
-                None
-            } else {
-                raw_values.get(row_index).copied().map(OdbcValueType::Time)
-            }
+        OdbcValueVec::Time(raw_values) => {
+            raw_values.get(row_index).copied().map(OdbcValueType::Time)
         }
-        OdbcValueVec::Timestamp { raw_values, nulls } => {
-            if nulls.get(row_index).copied().unwrap_or(false) {
-                None
-            } else {
-                raw_values
-                    .get(row_index)
-                    .copied()
-                    .map(OdbcValueType::Timestamp)
-            }
-        }
+        OdbcValueVec::Timestamp(raw_values) => raw_values
+            .get(row_index)
+            .copied()
+            .map(OdbcValueType::Timestamp),
     }
 }
 
@@ -473,11 +422,6 @@ fn value_vec_int<T: TryFromInt>(values: &OdbcValueVec, row_index: usize) -> Opti
         OdbcValueVec::Integer(v) => T::try_from(*v.get(row_index)?).ok(),
         OdbcValueVec::BigInt(v) => T::try_from(*v.get(row_index)?).ok(),
         OdbcValueVec::Bit(v) => T::try_from(v.get(row_index)?.0).ok(),
-        OdbcValueVec::NullableTinyInt(v) => T::try_from((*v.get(row_index)?)?).ok(),
-        OdbcValueVec::NullableSmallInt(v) => T::try_from((*v.get(row_index)?)?).ok(),
-        OdbcValueVec::NullableInteger(v) => T::try_from((*v.get(row_index)?)?).ok(),
-        OdbcValueVec::NullableBigInt(v) => T::try_from((*v.get(row_index)?)?).ok(),
-        OdbcValueVec::NullableBit(v) => T::try_from((*v.get(row_index)?)?.0).ok(),
         OdbcValueVec::Text(v) => {
             if let Some(Some(text)) = v.get(row_index) {
                 text.trim().parse().ok()
@@ -497,8 +441,6 @@ fn value_vec_float<T: TryFromFloat>(values: &OdbcValueVec, row_index: usize) -> 
     match values {
         OdbcValueVec::Real(v) => T::try_from(*v.get(row_index)?).ok(),
         OdbcValueVec::Double(v) => T::try_from(*v.get(row_index)?).ok(),
-        OdbcValueVec::NullableReal(v) => T::try_from((*v.get(row_index)?)?).ok(),
-        OdbcValueVec::NullableDouble(v) => T::try_from((*v.get(row_index)?)?).ok(),
         _ => None,
     }
 }
