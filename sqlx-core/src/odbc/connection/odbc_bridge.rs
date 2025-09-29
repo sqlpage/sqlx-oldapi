@@ -456,7 +456,7 @@ where
         nulls: &mut Vec<bool>,
     ) {
         let mut buf = Vec::new();
-        nulls.push(cursor_row.get_text(col_index, &mut buf).is_err());
+        nulls.push(cursor_row.get_binary(col_index, &mut buf).is_err());
         vec.push(buf);
     }
 
