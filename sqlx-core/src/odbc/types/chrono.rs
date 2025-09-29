@@ -461,18 +461,31 @@ impl<'r> Decode<'r, Odbc> for DateTime<Local> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::odbc::{ColumnData, OdbcTypeInfo, OdbcValueRef, OdbcValueVec};
+    use crate::odbc::{
+        ColumnData, OdbcBatch, OdbcColumn, OdbcTypeInfo, OdbcValueRef, OdbcValueVec,
+    };
     use crate::type_info::TypeInfo;
     use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
     use odbc_api::DataType;
+    use std::sync::Arc;
 
     fn make_ref(value_vec: OdbcValueVec, data_type: DataType) -> OdbcValueRef<'static> {
         let column = ColumnData {
             values: value_vec,
             type_info: OdbcTypeInfo::new(data_type),
+            nulls: vec![false],
         };
-        let ptr = Box::leak(Box::new(column));
-        OdbcValueRef::new(ptr, 0)
+        let column_data = vec![Arc::new(column)];
+        let batch = OdbcBatch {
+            columns: Arc::new([OdbcColumn {
+                name: "test".to_string(),
+                type_info: OdbcTypeInfo::new(data_type),
+                ordinal: 0,
+            }]),
+            column_data,
+        };
+        let batch_ptr = Box::leak(Box::new(batch));
+        OdbcValueRef::new(batch_ptr, 0, 0)
     }
 
     fn create_test_value_text(text: &'static str, data_type: DataType) -> OdbcValueRef<'static> {
@@ -480,11 +493,11 @@ mod tests {
     }
 
     fn create_test_value_int(value: i64, data_type: DataType) -> OdbcValueRef<'static> {
-        make_ref(OdbcValueVec::NullableBigInt(vec![Some(value)]), data_type)
+        make_ref(OdbcValueVec::BigInt(vec![value]), data_type)
     }
 
     fn create_test_value_float(value: f64, data_type: DataType) -> OdbcValueRef<'static> {
-        make_ref(OdbcValueVec::NullableDouble(vec![Some(value)]), data_type)
+        make_ref(OdbcValueVec::Double(vec![value]), data_type)
     }
 
     fn create_test_value_blob(data: &'static [u8], data_type: DataType) -> OdbcValueRef<'static> {
@@ -625,9 +638,19 @@ mod tests {
         let column = ColumnData {
             values: OdbcValueVec::Text(vec![None]),
             type_info: OdbcTypeInfo::new(DataType::Date),
+            nulls: vec![true],
         };
-        let ptr = Box::leak(Box::new(column));
-        let value = OdbcValueRef::new(ptr, 0);
+        let column_data = vec![Arc::new(column)];
+        let batch = OdbcBatch {
+            columns: Arc::new([OdbcColumn {
+                name: "test".to_string(),
+                type_info: OdbcTypeInfo::new(DataType::Date),
+                ordinal: 0,
+            }]),
+            column_data,
+        };
+        let batch_ptr = Box::leak(Box::new(batch));
+        let value = OdbcValueRef::new(batch_ptr, 0, 0);
         assert_eq!(get_text_from_value(&value)?, None);
 
         Ok(())

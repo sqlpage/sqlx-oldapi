@@ -25,8 +25,9 @@
 //!
 //! You can configure buffer settings for performance tuning:
 //!
-//! ```rust
-//! use sqlx::odbc::{OdbcConnectOptions, OdbcBufferSettings};
+//! ```rust,no_run
+//! use std::str::FromStr;
+//! use sqlx_core_oldapi::odbc::{OdbcConnectOptions, OdbcBufferSettings};
 //!
 //! let mut opts = OdbcConnectOptions::from_str("DSN=MyDataSource")?;
 //!

@@ -69,15 +69,16 @@ impl OdbcConnectOptions {
     /// when fetching data from ODBC data sources.
     ///
     /// # Example
-    /// ```rust
-    /// use sqlx::odbc::{OdbcConnectOptions, OdbcBufferSettings};
+    /// ```rust,no_run
+    /// use std::str::FromStr;
+    /// use sqlx_core_oldapi::odbc::{OdbcConnectOptions, OdbcBufferSettings};
     ///
     /// let mut opts = OdbcConnectOptions::from_str("DSN=MyDataSource")?;
     /// opts.buffer_settings(OdbcBufferSettings {
     ///     batch_size: 256,
     ///     max_column_size: 2048,
     /// });
-    /// # Ok::<(), sqlx::Error>(())
+    /// # Ok::<(), sqlx_core_oldapi::error::Error>(())
     /// ```
     pub fn buffer_settings(&mut self, settings: OdbcBufferSettings) -> &mut Self {
         self.buffer_settings = settings;

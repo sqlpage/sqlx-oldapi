@@ -88,7 +88,7 @@ mod tests {
     use std::sync::Arc;
 
     fn create_test_row() -> OdbcRow {
-        let columns = vec![
+        let columns = Arc::new([
             OdbcColumn {
                 name: "lowercase_col".to_string(),
                 type_info: OdbcTypeInfo::new(DataType::Integer),
@@ -104,24 +104,24 @@ mod tests {
                 type_info: OdbcTypeInfo::new(DataType::Double),
                 ordinal: 2,
             },
-        ];
+        ]);
 
         let column_data = vec![
-            ColumnData {
-                values: OdbcValueVec::NullableBigInt(vec![Some(42)]),
+            Arc::new(ColumnData {
+                values: OdbcValueVec::BigInt(vec![42]),
                 type_info: OdbcTypeInfo::new(DataType::Integer),
                 nulls: vec![false],
-            },
-            ColumnData {
+            }),
+            Arc::new(ColumnData {
                 values: OdbcValueVec::Text(vec![Some("test".to_string())]),
                 type_info: OdbcTypeInfo::new(DataType::Varchar { length: None }),
                 nulls: vec![false],
-            },
-            ColumnData {
-                values: OdbcValueVec::NullableDouble(vec![Some(std::f64::consts::PI)]),
+            }),
+            Arc::new(ColumnData {
+                values: OdbcValueVec::Double(vec![std::f64::consts::PI]),
                 type_info: OdbcTypeInfo::new(DataType::Double),
                 nulls: vec![false],
-            },
+            }),
         ];
 
         OdbcRow {

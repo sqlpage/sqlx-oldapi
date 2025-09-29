@@ -53,18 +53,31 @@ impl<'r> Decode<'r, Odbc> for Value {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::odbc::{ColumnData, OdbcTypeInfo, OdbcValueRef, OdbcValueVec};
+    use crate::odbc::{
+        ColumnData, OdbcBatch, OdbcColumn, OdbcTypeInfo, OdbcValueRef, OdbcValueVec,
+    };
     use crate::type_info::TypeInfo;
     use odbc_api::DataType;
     use serde_json::{json, Value};
+    use std::sync::Arc;
 
     fn create_test_value_text(text: &'static str, data_type: DataType) -> OdbcValueRef<'static> {
         let column = ColumnData {
             values: OdbcValueVec::Text(vec![Some(text.to_string())]),
             type_info: OdbcTypeInfo::new(data_type),
+            nulls: vec![false],
         };
-        let ptr = Box::leak(Box::new(column));
-        OdbcValueRef::new(ptr, 0)
+        let column_data = vec![Arc::new(column)];
+        let batch = OdbcBatch {
+            columns: Arc::new([OdbcColumn {
+                name: "test".to_string(),
+                type_info: OdbcTypeInfo::new(data_type),
+                ordinal: 0,
+            }]),
+            column_data,
+        };
+        let batch_ptr = Box::leak(Box::new(batch));
+        OdbcValueRef::new(batch_ptr, 0, 0)
     }
 
     #[test]
