@@ -246,6 +246,9 @@ where
 
     let mut receiver_open = true;
 
+    let columns: Vec<OdbcColumn> = bindings.iter().map(|b| b.column.clone()).collect();
+    let col_arc: Arc<[OdbcColumn]> = Arc::from(columns);
+
     while let Some(batch) = row_set_cursor.fetch()? {
         // Create ColumnData instances that can be shared across rows
         let column_data: Vec<_> = bindings
@@ -257,7 +260,7 @@ where
             .collect();
 
         let odbc_batch = Arc::new(OdbcBatch {
-            columns: bindings.iter().map(|b| b.column.clone()).collect(),
+            columns: Arc::clone(&col_arc),
             column_data,
         });
 

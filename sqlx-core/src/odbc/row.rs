@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct OdbcBatch {
-    pub(crate) columns: Vec<OdbcColumn>,
+    pub(crate) columns: Arc<[OdbcColumn]>,
     pub(crate) column_data: Vec<Arc<crate::odbc::ColumnData>>,
 }
 
