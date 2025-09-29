@@ -20,7 +20,7 @@ pub enum OdbcValueVec {
     Double(Vec<f64>),
 
     // Bit type
-    Bit(Vec<odbc_api::Bit>),
+    Bit(Vec<bool>),
 
     // Text types (inherently nullable in ODBC)
     Text(Vec<String>),
@@ -245,7 +245,7 @@ pub enum OdbcValueType {
     BigInt(i64),
     Real(f32),
     Double(f64),
-    Bit(odbc_api::Bit),
+    Bit(bool),
     Text(String),
     Binary(Vec<u8>),
     Date(odbc_api::sys::Date),
@@ -301,7 +301,10 @@ pub fn convert_any_slice_to_value_vec(slice: AnySlice<'_>) -> (OdbcValueVec, Vec
         AnySlice::F64(s) => handle_non_nullable_slice(s, OdbcValueVec::Double),
 
         // Non-nullable other types
-        AnySlice::Bit(s) => handle_non_nullable_slice(s, OdbcValueVec::Bit),
+        AnySlice::Bit(s) => {
+            let vec: Vec<bool> = s.iter().map(|bit| bit.as_bool()).collect();
+            (OdbcValueVec::Bit(vec), vec![false; s.len()])
+        }
         AnySlice::Date(s) => handle_non_nullable_slice(s, OdbcValueVec::Date),
         AnySlice::Time(s) => handle_non_nullable_slice(s, OdbcValueVec::Time),
         AnySlice::Timestamp(s) => handle_non_nullable_slice(s, OdbcValueVec::Timestamp),
@@ -320,7 +323,7 @@ pub fn convert_any_slice_to_value_vec(slice: AnySlice<'_>) -> (OdbcValueVec, Vec
                 OdbcValueVec::Bit(
                     values
                         .into_iter()
-                        .map(|opt| opt.unwrap_or(odbc_api::Bit(0)))
+                        .map(|opt| opt.map_or(false, |bit| bit.as_bool()))
                         .collect(),
                 ),
                 nulls,
@@ -332,16 +335,8 @@ pub fn convert_any_slice_to_value_vec(slice: AnySlice<'_>) -> (OdbcValueVec, Vec
             let mut values = Vec::with_capacity(s.len());
             let mut nulls = Vec::with_capacity(s.len());
             for bytes_opt in s.iter() {
-                match bytes_opt {
-                    Some(bytes) => {
-                        values.push(String::from_utf8_lossy(bytes).to_string());
-                        nulls.push(false);
-                    }
-                    None => {
-                        values.push(String::new());
-                        nulls.push(true);
-                    }
-                }
+                nulls.push(bytes_opt.is_none());
+                values.push(String::from_utf8_lossy(bytes_opt.unwrap_or_default()).into_owned());
             }
             (OdbcValueVec::Text(values), nulls)
         }
@@ -349,16 +344,8 @@ pub fn convert_any_slice_to_value_vec(slice: AnySlice<'_>) -> (OdbcValueVec, Vec
             let mut values = Vec::with_capacity(s.len());
             let mut nulls = Vec::with_capacity(s.len());
             for bytes_opt in s.iter() {
-                match bytes_opt {
-                    Some(bytes) => {
-                        values.push(bytes.to_vec());
-                        nulls.push(false);
-                    }
-                    None => {
-                        values.push(Vec::new());
-                        nulls.push(true);
-                    }
-                }
+                nulls.push(bytes_opt.is_none());
+                values.push(bytes_opt.unwrap_or_default().to_vec());
             }
             (OdbcValueVec::Binary(values), nulls)
         }
@@ -444,9 +431,6 @@ macro_rules! impl_int_conversion {
     ($vec:expr, $row_index:expr, $type:ty) => {
         <$type>::try_from(*$vec.get($row_index)?).ok()
     };
-    ($vec:expr, $row_index:expr, $type:ty, bit) => {
-        <$type>::try_from($vec.get($row_index)?.0).ok()
-    };
     ($vec:expr, $row_index:expr, $type:ty, text) => {
         if let Some(Some(text)) = $vec.get($row_index) {
             text.trim().parse().ok()
@@ -465,7 +449,7 @@ fn value_vec_int<T: TryFromInt>(column_data: &ColumnData, row_index: usize) -> O
         OdbcValueVec::SmallInt(v) => impl_int_conversion!(v, row_index, T),
         OdbcValueVec::Integer(v) => impl_int_conversion!(v, row_index, T),
         OdbcValueVec::BigInt(v) => impl_int_conversion!(v, row_index, T),
-        OdbcValueVec::Bit(v) => impl_int_conversion!(v, row_index, T, bit),
+        OdbcValueVec::Bit(v) => T::try_from(*v.get(row_index)? as u8).ok(),
         OdbcValueVec::Text(v) => v.get(row_index).and_then(|text| text.trim().parse().ok()),
         _ => None,
     }

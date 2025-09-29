@@ -440,16 +440,17 @@ async fn it_handles_binary_data() -> anyhow::Result<()> {
     let mut conn = new::<Odbc>().await?;
 
     // Test binary data - use UTF-8 safe bytes for PostgreSQL compatibility
-    let binary_data = b"ABCDE";
+    let binary_data = "Héllö world! 😀".as_bytes();
     let stmt = conn.prepare("SELECT ? AS binary_data").await?;
     let row = stmt
-        .query()
-        .bind(&binary_data[..])
-        .fetch_one(&mut conn)
-        .await?;
+        .query_as::<(Vec<u8>,)>()
+        .bind(binary_data)
+        .fetch_optional(&mut conn)
+        .await
+        .expect("query failed")
+        .expect("row expected");
 
-    let result = row.try_get_raw(0)?.to_owned().decode::<Vec<u8>>();
-    assert_eq!(result, binary_data);
+    assert_eq!(row.0, binary_data);
     Ok(())
 }
 

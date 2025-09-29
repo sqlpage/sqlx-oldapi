@@ -472,6 +472,18 @@ where
         nulls.push(!txt.unwrap_or(false));
     }
 
+    fn push_bit(
+        cursor_row: &mut odbc_api::CursorRow<'_>,
+        col_index: u16,
+        vec: &mut Vec<bool>,
+        nulls: &mut Vec<bool>,
+    ) {
+        let mut bit_val = odbc_api::Bit(0);
+        let result = cursor_row.get_data(col_index, &mut bit_val);
+        vec.push(bit_val.as_bool());
+        nulls.push(result.is_err());
+    }
+
     fn push_from_cursor_row(
         cursor_row: &mut odbc_api::CursorRow<'_>,
         col_index: u16,
@@ -485,9 +497,7 @@ where
             OdbcValueVec::BigInt(v) => push_get_data(cursor_row, col_index, v, nulls),
             OdbcValueVec::Real(v) => push_get_data(cursor_row, col_index, v, nulls),
             OdbcValueVec::Double(v) => push_get_data(cursor_row, col_index, v, nulls),
-            OdbcValueVec::Bit(v) => {
-                push_get_data_with_default(cursor_row, col_index, v, nulls, odbc_api::Bit(0))
-            }
+            OdbcValueVec::Bit(v) => push_bit(cursor_row, col_index, v, nulls),
             OdbcValueVec::Date(v) => push_get_data(cursor_row, col_index, v, nulls),
             OdbcValueVec::Time(v) => push_get_data(cursor_row, col_index, v, nulls),
             OdbcValueVec::Timestamp(v) => push_get_data(cursor_row, col_index, v, nulls),
