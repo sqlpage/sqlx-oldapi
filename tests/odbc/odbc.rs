@@ -1104,6 +1104,54 @@ async fn it_handles_prepared_statement_with_wrong_parameters() -> anyhow::Result
 }
 
 #[tokio::test]
+async fn it_handles_postgres_bytea_hex_output() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+
+    let dbms = conn.dbms_name().await?;
+    if dbms != "PostgreSQL" {
+        return Ok(());
+    }
+
+    let utf8_text = "Héllö world! 😀";
+    let utf8_bytes = utf8_text.as_bytes().to_vec();
+
+    conn.execute("DROP TABLE IF EXISTS sqlpage_files").await?;
+    conn.execute("CREATE TEMPORARY TABLE IF NOT EXISTS sqlpage_files(path VARCHAR(255) NOT NULL PRIMARY KEY, contents BYTEA, last_modified TIMESTAMP DEFAULT CURRENT_TIMESTAMP)").await?;
+
+    let insert_stmt = conn
+        .prepare("INSERT INTO sqlpage_files(path, contents) VALUES (?, ?)")
+        .await?;
+    insert_stmt
+        .query()
+        .bind("unit test file.txt")
+        .bind(&utf8_bytes)
+        .execute(&mut conn)
+        .await?;
+
+    let select_stmt = conn
+        .prepare("SELECT contents from sqlpage_files WHERE path = ?")
+        .await?;
+    let row = select_stmt
+        .query()
+        .bind("unit test file.txt")
+        .fetch_one(&mut conn)
+        .await?;
+
+    let retrieved = row.try_get_raw(0)?.to_owned().decode::<Vec<u8>>();
+    let retrieved_text = String::from_utf8(retrieved.clone())?;
+
+    assert_eq!(
+        retrieved_text, utf8_text,
+        "Expected '{}' but got '{}'. Original bytes: {:?}, Retrieved bytes: {:?}",
+        utf8_text, retrieved_text, utf8_bytes, retrieved
+    );
+
+    conn.execute("DROP TABLE sqlpage_files").await?;
+
+    Ok(())
+}
+
+#[tokio::test]
 async fn it_works_with_buffered_and_unbuffered_mode() -> anyhow::Result<()> {
     let count = 450;
 
