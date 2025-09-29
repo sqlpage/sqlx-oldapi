@@ -32,7 +32,7 @@
 //! let mut opts = OdbcConnectOptions::from_str("DSN=MyDataSource")?;
 //!
 //! // Configure for high-throughput scenarios
-//! opts.buffer_settings(OdbcBufferSettings {
+//! opts.buffer_settings(OdbcBufferSettings::Buffered {
 //!     batch_size: 256,        // Fetch 256 rows at once
 //!     max_column_size: 2048,  // Limit text columns to 2048 chars
 //! });

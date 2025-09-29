@@ -133,21 +133,36 @@ fn handle_cursor<C>(mut cursor: C, tx: &ExecuteSender, buffer_settings: OdbcBuff
 where
     C: Cursor + ResultSetMetadata,
 {
-    let bindings = match build_bindings(&mut cursor, &buffer_settings) {
-        Ok(b) => b,
-        Err(e) => {
-            send_error(tx, e);
-            return;
-        }
-    };
+    match buffer_settings {
+        OdbcBufferSettings::Buffered { .. } => {
+            let bindings = match build_bindings(&mut cursor, &buffer_settings) {
+                Ok(b) => b,
+                Err(e) => {
+                    send_error(tx, e);
+                    return;
+                }
+            };
 
-    match stream_rows(cursor, bindings, tx, buffer_settings) {
-        Ok(true) => {
-            let _ = send_done(tx, 0);
+            match stream_rows(cursor, bindings, tx, buffer_settings) {
+                Ok(true) => {
+                    let _ = send_done(tx, 0);
+                }
+                Ok(false) => {}
+                Err(e) => {
+                    send_error(tx, e);
+                }
+            }
         }
-        Ok(false) => {}
-        Err(e) => {
-            send_error(tx, e);
+        OdbcBufferSettings::Unbuffered => {
+            match stream_rows(cursor, Vec::new(), tx, buffer_settings) {
+                Ok(true) => {
+                    let _ = send_done(tx, 0);
+                }
+                Ok(false) => {}
+                Err(e) => {
+                    send_error(tx, e);
+                }
+            }
         }
     }
 }
@@ -193,15 +208,22 @@ where
     let data_type = type_info.data_type();
 
     // Helper function to determine buffer length with fallback
+    let max_column_size = match buffer_settings {
+        OdbcBufferSettings::Buffered {
+            max_column_size, ..
+        } => *max_column_size,
+        OdbcBufferSettings::Unbuffered => 4096, // Default value for unbuffered mode
+    };
+
     let buffer_length = |length: Option<std::num::NonZeroUsize>| {
         if let Some(length) = length {
             if length.get() < 255 {
                 length.get()
             } else {
-                buffer_settings.max_column_size
+                max_column_size
             }
         } else {
-            buffer_settings.max_column_size
+            max_column_size
         }
     };
 
@@ -240,10 +262,10 @@ where
         },
         // Fallback cases
         DataType::Unknown => BufferDesc::Text {
-            max_str_len: buffer_settings.max_column_size,
+            max_str_len: max_column_size,
         },
         DataType::Decimal { .. } | DataType::Numeric { .. } => BufferDesc::Text {
-            max_str_len: buffer_settings.max_column_size,
+            max_str_len: max_column_size,
         },
     };
 
@@ -259,8 +281,28 @@ fn stream_rows<C>(
 where
     C: Cursor + ResultSetMetadata,
 {
+    match buffer_settings {
+        OdbcBufferSettings::Buffered { batch_size, .. } => {
+            stream_rows_buffered(cursor, bindings, tx, batch_size)
+        }
+        OdbcBufferSettings::Unbuffered => {
+            // For unbuffered mode, we don't need bindings since we build columns dynamically
+            stream_rows_unbuffered(cursor, tx)
+        }
+    }
+}
+
+fn stream_rows_buffered<C>(
+    cursor: C,
+    bindings: Vec<ColumnBinding>,
+    tx: &ExecuteSender,
+    batch_size: usize,
+) -> Result<bool, Error>
+where
+    C: Cursor + ResultSetMetadata,
+{
     let buffer_descriptions: Vec<_> = bindings.iter().map(|b| b.buffer_desc).collect();
-    let buffer = ColumnarAnyBuffer::from_descs(buffer_settings.batch_size, buffer_descriptions);
+    let buffer = ColumnarAnyBuffer::from_descs(batch_size, buffer_descriptions);
     let mut row_set_cursor = cursor.bind_buffer(buffer)?;
 
     let mut receiver_open = true;
@@ -303,10 +345,158 @@ where
     Ok(receiver_open)
 }
 
+fn stream_rows_unbuffered<C>(mut cursor: C, tx: &ExecuteSender) -> Result<bool, Error>
+where
+    C: Cursor + ResultSetMetadata,
+{
+    let mut receiver_open = true;
+
+    // For unbuffered mode, we need to build column information for each row
+    let column_count = cursor.num_result_cols().unwrap_or(0);
+    let mut columns = Vec::with_capacity(column_count as usize);
+
+    for index in 1..=column_count {
+        columns.push(create_column(&mut cursor, index as u16));
+    }
+
+    let col_arc: Arc<[OdbcColumn]> = Arc::from(columns);
+
+    while let Some(mut cursor_row) = cursor.next_row()? {
+        // Create a single-row batch for this row
+        let column_data: Vec<_> = (0..column_count)
+            .map(|col_index| {
+                let column = &col_arc[col_index as usize];
+                // Convert CursorRow data to ColumnData format
+                // Column indices are 1-based in odbc-api
+                create_column_data_from_cursor_row(&mut cursor_row, (col_index + 1) as u16, column)
+            })
+            .collect();
+
+        let odbc_batch = Arc::new(OdbcBatch {
+            columns: Arc::clone(&col_arc),
+            column_data,
+        });
+
+        let row = OdbcRow {
+            row_index: 0, // Single row in this batch
+            batch: Arc::clone(&odbc_batch),
+        };
+
+        if send_row(tx, row).is_err() {
+            receiver_open = false;
+            break;
+        }
+    }
+
+    Ok(receiver_open)
+}
+
 fn create_column_data(slice: AnySlice<'_>, column: &OdbcColumn) -> Arc<ColumnData> {
     use crate::odbc::value::convert_any_slice_to_value_vec;
 
     let (values, nulls) = convert_any_slice_to_value_vec(slice);
+    Arc::new(ColumnData {
+        values,
+        type_info: column.type_info.clone(),
+        nulls,
+    })
+}
+
+fn create_column_data_from_cursor_row(
+    cursor_row: &mut odbc_api::CursorRow<'_>,
+    column_index: u16,
+    column: &OdbcColumn,
+) -> Arc<ColumnData> {
+    use crate::odbc::value::OdbcValueVec;
+    use odbc_api::DataType;
+
+    let data_type = column.type_info.data_type();
+
+    // Create single-element vectors for this row
+    let (values, nulls) = match data_type {
+        DataType::TinyInt => {
+            let mut value = 0i8;
+            let is_null = cursor_row.get_data(column_index, &mut value).is_err();
+            (OdbcValueVec::TinyInt(vec![value]), vec![is_null])
+        }
+        DataType::SmallInt => {
+            let mut value = 0i16;
+            let is_null = cursor_row.get_data(column_index, &mut value).is_err();
+            (OdbcValueVec::SmallInt(vec![value]), vec![is_null])
+        }
+        DataType::Integer => {
+            let mut value = 0i32;
+            let is_null = cursor_row.get_data(column_index, &mut value).is_err();
+            (OdbcValueVec::Integer(vec![value]), vec![is_null])
+        }
+        DataType::BigInt => {
+            let mut value = 0i64;
+            let is_null = cursor_row.get_data(column_index, &mut value).is_err();
+            (OdbcValueVec::BigInt(vec![value]), vec![is_null])
+        }
+        DataType::Real => {
+            let mut value = 0.0f32;
+            let is_null = cursor_row.get_data(column_index, &mut value).is_err();
+            (OdbcValueVec::Real(vec![value]), vec![is_null])
+        }
+        DataType::Float { .. } | DataType::Double => {
+            let mut value = 0.0f64;
+            let is_null = cursor_row.get_data(column_index, &mut value).is_err();
+            (OdbcValueVec::Double(vec![value]), vec![is_null])
+        }
+        DataType::Bit => {
+            let mut value = odbc_api::Bit(0);
+            let is_null = cursor_row.get_data(column_index, &mut value).is_err();
+            (OdbcValueVec::Bit(vec![value]), vec![is_null])
+        }
+        DataType::Date => {
+            let mut value = odbc_api::sys::Date::default();
+            let is_null = cursor_row.get_data(column_index, &mut value).is_err();
+            (OdbcValueVec::Date(vec![value]), vec![is_null])
+        }
+        DataType::Time { .. } => {
+            let mut value = odbc_api::sys::Time::default();
+            let is_null = cursor_row.get_data(column_index, &mut value).is_err();
+            (OdbcValueVec::Time(vec![value]), vec![is_null])
+        }
+        DataType::Timestamp { .. } => {
+            let mut value = odbc_api::sys::Timestamp::default();
+            let is_null = cursor_row.get_data(column_index, &mut value).is_err();
+            (OdbcValueVec::Timestamp(vec![value]), vec![is_null])
+        }
+        DataType::Char { .. }
+        | DataType::Varchar { .. }
+        | DataType::LongVarchar { .. }
+        | DataType::WChar { .. }
+        | DataType::WVarchar { .. }
+        | DataType::WLongVarchar { .. }
+        | DataType::Binary { .. }
+        | DataType::Varbinary { .. }
+        | DataType::LongVarbinary { .. }
+        | DataType::Other { .. }
+        | DataType::Unknown
+        | DataType::Decimal { .. }
+        | DataType::Numeric { .. } => {
+            // For text and binary data, use get_text
+            let mut buf = Vec::new();
+            match cursor_row.get_text(column_index, &mut buf) {
+                Ok(true) => {
+                    // Successfully got text, convert to string
+                    let text = String::from_utf8_lossy(&buf).to_string();
+                    (OdbcValueVec::Text(vec![Some(text)]), vec![false])
+                }
+                Ok(false) => {
+                    // NULL value
+                    (OdbcValueVec::Text(vec![None]), vec![true])
+                }
+                Err(_) => {
+                    // Error, treat as NULL
+                    (OdbcValueVec::Text(vec![None]), vec![true])
+                }
+            }
+        }
+    };
+
     Arc::new(ColumnData {
         values,
         type_info: column.type_info.clone(),

@@ -1,5 +1,5 @@
 use futures::TryStreamExt;
-use sqlx_oldapi::odbc::{Odbc, OdbcConnectOptions};
+use sqlx_oldapi::odbc::{Odbc, OdbcConnectOptions, OdbcConnection};
 use sqlx_oldapi::Column;
 use sqlx_oldapi::Connection;
 use sqlx_oldapi::Executor;
@@ -1033,5 +1033,37 @@ async fn it_handles_prepared_statement_with_wrong_parameters() -> anyhow::Result
     // This may or may not error depending on the database's type system
     let _ = result;
 
+    Ok(())
+}
+
+#[tokio::test]
+async fn it_works_with_unbuffered_mode() -> anyhow::Result<()> {
+    use sqlx_oldapi::odbc::{OdbcBufferSettings, OdbcConnectOptions};
+
+    // Create connection with unbuffered settings
+    let database_url = std::env::var("DATABASE_URL").unwrap();
+    let mut opts = OdbcConnectOptions::from_str(&database_url)?;
+    opts.buffer_settings(OdbcBufferSettings::Unbuffered);
+
+    let mut conn = OdbcConnection::connect_with(&opts).await?;
+    let count = 450;
+    let select = (0..count)
+        .map(|i| format!("SELECT {i} AS n"))
+        .collect::<Vec<_>>()
+        .join(" UNION ALL ");
+
+    // Test that unbuffered mode works correctly
+    let s = conn
+        .prepare(&select)
+        .await?
+        .query()
+        .fetch_all(&mut conn)
+        .await?;
+    assert_eq!(s.len(), count);
+    for i in 0..count {
+        let row = s.get(i).expect("row expected");
+        let as_i64 = row.get::<'_, i64, _>(0);
+        assert_eq!(as_i64, i64::try_from(i).unwrap());
+    }
     Ok(())
 }
