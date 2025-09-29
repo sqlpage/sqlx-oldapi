@@ -43,7 +43,7 @@ pub use connection::OdbcConnection;
 pub use database::Odbc;
 pub use options::OdbcConnectOptions;
 pub use query_result::OdbcQueryResult;
-pub use row::OdbcRow;
+pub use row::{OdbcBatch, OdbcRow};
 pub use statement::{OdbcStatement, OdbcStatementMetadata};
 pub use transaction::OdbcTransactionManager;
 pub use type_info::{DataTypeExt, OdbcTypeInfo};

@@ -1,4 +1,4 @@
-use crate::odbc::{Odbc, OdbcTypeInfo};
+use crate::odbc::{Odbc, OdbcBatch, OdbcTypeInfo};
 use crate::value::{Value, ValueRef};
 use odbc_api::buffers::AnySlice;
 use odbc_api::sys::NULL_DATA;
@@ -43,14 +43,16 @@ pub struct ColumnData {
 
 #[derive(Debug)]
 pub struct OdbcValueRef<'r> {
-    pub(crate) column_data: &'r ColumnData,
+    pub(crate) batch: &'r OdbcBatch,
     pub(crate) row_index: usize,
+    pub(crate) column_index: usize,
 }
 
 #[derive(Debug, Clone)]
 pub struct OdbcValue {
-    pub(crate) column_data: Arc<ColumnData>,
+    pub(crate) batch: Arc<OdbcBatch>,
     pub(crate) row_index: usize,
+    pub(crate) column_index: usize,
 }
 
 impl<'r> ValueRef<'r> for OdbcValueRef<'r> {
@@ -58,17 +60,18 @@ impl<'r> ValueRef<'r> for OdbcValueRef<'r> {
 
     fn to_owned(&self) -> OdbcValue {
         OdbcValue {
-            column_data: Arc::new(self.column_data.clone()),
+            batch: Arc::new(self.batch.clone()),
             row_index: self.row_index,
+            column_index: self.column_index,
         }
     }
 
     fn type_info(&self) -> Cow<'_, OdbcTypeInfo> {
-        Cow::Borrowed(&self.column_data.type_info)
+        Cow::Borrowed(&self.batch.column_data[self.column_index].type_info)
     }
 
     fn is_null(&self) -> bool {
-        value_vec_is_null(self.column_data, self.row_index)
+        value_vec_is_null(&self.batch.column_data[self.column_index], self.row_index)
     }
 }
 
@@ -77,115 +80,154 @@ impl Value for OdbcValue {
 
     fn as_ref(&self) -> OdbcValueRef<'_> {
         OdbcValueRef {
-            column_data: &self.column_data,
+            batch: &self.batch,
             row_index: self.row_index,
+            column_index: self.column_index,
         }
     }
 
     fn type_info(&self) -> Cow<'_, OdbcTypeInfo> {
-        Cow::Borrowed(&self.column_data.type_info)
+        Cow::Borrowed(&self.batch.column_data[self.column_index].type_info)
     }
 
     fn is_null(&self) -> bool {
-        value_vec_is_null(&self.column_data, self.row_index)
+        value_vec_is_null(&self.batch.column_data[self.column_index], self.row_index)
     }
 }
 
 /// Utility methods for OdbcValue
 impl OdbcValue {
-    /// Create a new OdbcValue from column data and row index
-    pub fn new(column_data: Arc<ColumnData>, row_index: usize) -> Self {
+    /// Create a new OdbcValue from batch, row index, and column index
+    pub fn new(batch: Arc<OdbcBatch>, row_index: usize, column_index: usize) -> Self {
         Self {
-            column_data,
+            batch,
             row_index,
+            column_index,
         }
     }
 
     /// Get the raw value from the column data
     pub fn get_raw(&self) -> Option<OdbcValueType> {
-        value_vec_get_raw(&self.column_data.values, self.row_index)
+        value_vec_get_raw(
+            &self.batch.column_data[self.column_index].values,
+            self.row_index,
+        )
     }
 
     /// Try to get the value as i64
     pub fn as_int<T: TryFromInt>(&self) -> Option<T> {
-        value_vec_int(&self.column_data.values, self.row_index)
+        value_vec_int(
+            &self.batch.column_data[self.column_index].values,
+            self.row_index,
+        )
     }
 
     /// Try to get the value as f64
     pub fn as_f64(&self) -> Option<f64> {
-        value_vec_float(&self.column_data.values, self.row_index)
+        value_vec_float(
+            &self.batch.column_data[self.column_index].values,
+            self.row_index,
+        )
     }
 
     /// Try to get the value as string
     pub fn as_str(&self) -> Option<Cow<'_, str>> {
-        value_vec_text(&self.column_data.values, self.row_index).map(Cow::Borrowed)
+        value_vec_text(
+            &self.batch.column_data[self.column_index].values,
+            self.row_index,
+        )
+        .map(Cow::Borrowed)
     }
 
     /// Try to get the value as bytes
     pub fn as_bytes(&self) -> Option<Cow<'_, [u8]>> {
-        value_vec_blob(&self.column_data.values, self.row_index).map(Cow::Borrowed)
+        value_vec_blob(
+            &self.batch.column_data[self.column_index].values,
+            self.row_index,
+        )
+        .map(Cow::Borrowed)
     }
 }
 
 /// Utility methods for OdbcValueRef
 impl<'r> OdbcValueRef<'r> {
-    /// Create a new OdbcValueRef from column data and row index
-    pub fn new(column_data: &'r ColumnData, row_index: usize) -> Self {
+    /// Create a new OdbcValueRef from batch, row index, and column index
+    pub fn new(batch: &'r OdbcBatch, row_index: usize, column_index: usize) -> Self {
         Self {
-            column_data,
+            batch,
             row_index,
+            column_index,
         }
     }
 
     /// Get the raw value from the column data
     pub fn get_raw(&self) -> Option<OdbcValueType> {
-        value_vec_get_raw(&self.column_data.values, self.row_index)
+        value_vec_get_raw(
+            &self.batch.column_data[self.column_index].values,
+            self.row_index,
+        )
     }
 
     /// Try to get the value as i64
     pub fn int<T: TryFromInt>(&self) -> Option<T> {
-        value_vec_int(&self.column_data.values, self.row_index)
+        value_vec_int(
+            &self.batch.column_data[self.column_index].values,
+            self.row_index,
+        )
     }
 
     pub fn try_int<T: TryFromInt + crate::types::Type<Odbc>>(&self) -> crate::error::Result<T> {
-        if !T::compatible(&self.column_data.type_info) {
+        if !T::compatible(&self.batch.column_data[self.column_index].type_info) {
             return Err(crate::error::Error::Decode(
-                crate::error::mismatched_types::<Odbc, T>(&self.column_data.type_info),
+                crate::error::mismatched_types::<Odbc, T>(
+                    &self.batch.column_data[self.column_index].type_info,
+                ),
             ));
         }
         self.int::<T>().ok_or_else(|| {
             crate::error::Error::Decode(crate::error::mismatched_types::<Odbc, T>(
-                &self.column_data.type_info,
+                &self.batch.columns[self.column_index].type_info,
             ))
         })
     }
 
     pub fn try_float<T: TryFromFloat + crate::types::Type<Odbc>>(&self) -> crate::error::Result<T> {
-        if !T::compatible(&self.column_data.type_info) {
+        if !T::compatible(&self.batch.column_data[self.column_index].type_info) {
             return Err(crate::error::Error::Decode(
-                crate::error::mismatched_types::<Odbc, T>(&self.column_data.type_info),
+                crate::error::mismatched_types::<Odbc, T>(
+                    &self.batch.column_data[self.column_index].type_info,
+                ),
             ));
         }
         self.float::<T>().ok_or_else(|| {
             crate::error::Error::Decode(crate::error::mismatched_types::<Odbc, T>(
-                &self.column_data.type_info,
+                &self.batch.columns[self.column_index].type_info,
             ))
         })
     }
 
     /// Try to get the value as f64
     pub fn float<T: TryFromFloat>(&self) -> Option<T> {
-        value_vec_float(&self.column_data.values, self.row_index)
+        value_vec_float(
+            &self.batch.column_data[self.column_index].values,
+            self.row_index,
+        )
     }
 
     /// Try to get the value as string slice
     pub fn text(&self) -> Option<&'r str> {
-        value_vec_text(&self.column_data.values, self.row_index)
+        value_vec_text(
+            &self.batch.column_data[self.column_index].values,
+            self.row_index,
+        )
     }
 
     /// Try to get the value as binary slice
     pub fn blob(&self) -> Option<&'r [u8]> {
-        value_vec_blob(&self.column_data.values, self.row_index)
+        value_vec_blob(
+            &self.batch.column_data[self.column_index].values,
+            self.row_index,
+        )
     }
 
     /// Try to get the raw ODBC Date value
@@ -193,7 +235,7 @@ impl<'r> OdbcValueRef<'r> {
         if self.is_null() {
             None
         } else {
-            match &self.column_data.values {
+            match &self.batch.column_data[self.column_index].values {
                 OdbcValueVec::Date(raw_values) => raw_values.get(self.row_index).copied(),
                 _ => None,
             }
@@ -205,7 +247,7 @@ impl<'r> OdbcValueRef<'r> {
         if self.is_null() {
             None
         } else {
-            match &self.column_data.values {
+            match &self.batch.column_data[self.column_index].values {
                 OdbcValueVec::Time(raw_values) => raw_values.get(self.row_index).copied(),
                 _ => None,
             }
@@ -217,7 +259,7 @@ impl<'r> OdbcValueRef<'r> {
         if self.is_null() {
             None
         } else {
-            match &self.column_data.values {
+            match &self.batch.column_data[self.column_index].values {
                 OdbcValueVec::Timestamp(raw_values) => raw_values.get(self.row_index).copied(),
                 _ => None,
             }
@@ -465,7 +507,11 @@ fn value_vec_blob(values: &OdbcValueVec, row_index: usize) -> Option<&[u8]> {
 impl<'r> From<OdbcValueRef<'r>> for crate::any::AnyValueRef<'r> {
     fn from(value: OdbcValueRef<'r>) -> Self {
         crate::any::AnyValueRef {
-            type_info: crate::any::AnyTypeInfo::from(value.column_data.type_info.clone()),
+            type_info: crate::any::AnyTypeInfo::from(
+                value.batch.column_data[value.column_index]
+                    .type_info
+                    .clone(),
+            ),
             kind: crate::any::value::AnyValueRefKind::Odbc(value),
         }
     }
@@ -475,7 +521,11 @@ impl<'r> From<OdbcValueRef<'r>> for crate::any::AnyValueRef<'r> {
 impl From<OdbcValue> for crate::any::AnyValue {
     fn from(value: OdbcValue) -> Self {
         crate::any::AnyValue {
-            type_info: crate::any::AnyTypeInfo::from(value.column_data.type_info.clone()),
+            type_info: crate::any::AnyTypeInfo::from(
+                value.batch.column_data[value.column_index]
+                    .type_info
+                    .clone(),
+            ),
             kind: crate::any::value::AnyValueKind::Odbc(value),
         }
     }

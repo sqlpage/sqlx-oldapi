@@ -1,21 +1,27 @@
 use crate::column::ColumnIndex;
 use crate::database::HasValueRef;
 use crate::error::Error;
-use crate::odbc::{Odbc, OdbcColumn, OdbcValue};
+use crate::odbc::{Odbc, OdbcColumn, OdbcValueRef};
 use crate::row::Row;
-use crate::value::Value;
+use std::sync::Arc;
+
+#[derive(Debug, Clone)]
+pub struct OdbcBatch {
+    pub(crate) columns: Vec<OdbcColumn>,
+    pub(crate) column_data: Vec<Arc<crate::odbc::ColumnData>>,
+}
 
 #[derive(Debug, Clone)]
 pub struct OdbcRow {
-    pub(crate) columns: Vec<OdbcColumn>,
-    pub(crate) values: Vec<OdbcValue>,
+    pub(crate) row_index: usize,
+    pub(crate) batch: Arc<OdbcBatch>,
 }
 
 impl Row for OdbcRow {
     type Database = Odbc;
 
     fn columns(&self) -> &[OdbcColumn] {
-        &self.columns
+        &self.batch.columns
     }
 
     fn try_get_raw<I>(
@@ -25,21 +31,21 @@ impl Row for OdbcRow {
     where
         I: ColumnIndex<Self>,
     {
-        let idx = index.index(self)?;
-        let value = &self.values[idx];
-        Ok(value.as_ref())
+        let column_index = index.index(self)?;
+        Ok(OdbcValueRef::new(&self.batch, self.row_index, column_index))
     }
 }
 
 impl ColumnIndex<OdbcRow> for &str {
     fn index(&self, row: &OdbcRow) -> Result<usize, Error> {
         // Try exact match first (for performance)
-        if let Some(pos) = row.columns.iter().position(|col| col.name == *self) {
+        if let Some(pos) = row.batch.columns.iter().position(|col| col.name == *self) {
             return Ok(pos);
         }
 
         // Fall back to case-insensitive match (for databases like Snowflake)
-        row.columns
+        row.batch
+            .columns
             .iter()
             .position(|col| col.name.eq_ignore_ascii_case(self))
             .ok_or_else(|| Error::ColumnNotFound((*self).into()))
@@ -56,6 +62,7 @@ mod private {
 impl From<OdbcRow> for crate::any::AnyRow {
     fn from(row: OdbcRow) -> Self {
         let columns = row
+            .batch
             .columns
             .iter()
             .map(|col| crate::any::AnyColumn {
@@ -81,58 +88,48 @@ mod tests {
     use std::sync::Arc;
 
     fn create_test_row() -> OdbcRow {
-        use crate::odbc::OdbcValue;
+        let columns = vec![
+            OdbcColumn {
+                name: "lowercase_col".to_string(),
+                type_info: OdbcTypeInfo::new(DataType::Integer),
+                ordinal: 0,
+            },
+            OdbcColumn {
+                name: "UPPERCASE_COL".to_string(),
+                type_info: OdbcTypeInfo::new(DataType::Varchar { length: None }),
+                ordinal: 1,
+            },
+            OdbcColumn {
+                name: "MixedCase_Col".to_string(),
+                type_info: OdbcTypeInfo::new(DataType::Double),
+                ordinal: 2,
+            },
+        ];
+
+        let column_data = vec![
+            ColumnData {
+                values: OdbcValueVec::NullableBigInt(vec![Some(42)]),
+                type_info: OdbcTypeInfo::new(DataType::Integer),
+                nulls: vec![false],
+            },
+            ColumnData {
+                values: OdbcValueVec::Text(vec![Some("test".to_string())]),
+                type_info: OdbcTypeInfo::new(DataType::Varchar { length: None }),
+                nulls: vec![false],
+            },
+            ColumnData {
+                values: OdbcValueVec::NullableDouble(vec![Some(std::f64::consts::PI)]),
+                type_info: OdbcTypeInfo::new(DataType::Double),
+                nulls: vec![false],
+            },
+        ];
 
         OdbcRow {
-            columns: vec![
-                OdbcColumn {
-                    name: "lowercase_col".to_string(),
-                    type_info: OdbcTypeInfo::new(DataType::Integer),
-                    ordinal: 0,
-                },
-                OdbcColumn {
-                    name: "UPPERCASE_COL".to_string(),
-                    type_info: OdbcTypeInfo::new(DataType::Varchar { length: None }),
-                    ordinal: 1,
-                },
-                OdbcColumn {
-                    name: "MixedCase_Col".to_string(),
-                    type_info: OdbcTypeInfo::new(DataType::Double),
-                    ordinal: 2,
-                },
-            ],
-            values: vec![
-                {
-                    let column = ColumnData {
-                        values: OdbcValueVec::NullableBigInt(vec![Some(42)]),
-                        type_info: OdbcTypeInfo::new(DataType::Integer),
-                    };
-                    OdbcValue {
-                        column_data: Arc::new(column),
-                        row_index: 0,
-                    }
-                },
-                {
-                    let column = ColumnData {
-                        values: OdbcValueVec::Text(vec![Some("test".to_string())]),
-                        type_info: OdbcTypeInfo::new(DataType::Varchar { length: None }),
-                    };
-                    OdbcValue {
-                        column_data: Arc::new(column),
-                        row_index: 0,
-                    }
-                },
-                {
-                    let column = ColumnData {
-                        values: OdbcValueVec::NullableDouble(vec![Some(std::f64::consts::PI)]),
-                        type_info: OdbcTypeInfo::new(DataType::Double),
-                    };
-                    OdbcValue {
-                        column_data: Arc::new(column),
-                        row_index: 0,
-                    }
-                },
-            ],
+            row_index: 0,
+            batch: Arc::new(OdbcBatch {
+                columns,
+                column_data,
+            }),
         }
     }
 

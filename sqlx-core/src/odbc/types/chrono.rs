@@ -254,7 +254,7 @@ impl<'r> Decode<'r, Odbc> for NaiveDate {
 
         Err(format!(
             "ODBC: cannot decode NaiveDate from value with type '{}'",
-            value.column_data.type_info.name()
+            value.batch.columns[value.column_index].type_info.name()
         )
         .into())
     }

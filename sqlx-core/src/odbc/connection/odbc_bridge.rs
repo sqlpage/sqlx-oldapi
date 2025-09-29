@@ -1,8 +1,8 @@
 use super::decode_column_name;
 use crate::error::Error;
 use crate::odbc::{
-    connection::MaybePrepared, ColumnData, OdbcArgumentValue, OdbcArguments, OdbcColumn,
-    OdbcQueryResult, OdbcRow, OdbcTypeInfo, OdbcValue,
+    connection::MaybePrepared, ColumnData, OdbcArgumentValue, OdbcArguments, OdbcBatch, OdbcColumn,
+    OdbcQueryResult, OdbcRow, OdbcTypeInfo,
 };
 use either::Either;
 use flume::{SendError, Sender};
@@ -247,26 +247,24 @@ where
     let mut receiver_open = true;
 
     while let Some(batch) = row_set_cursor.fetch()? {
-        let columns: Vec<_> = bindings.iter().map(|b| b.column.clone()).collect();
-
         // Create ColumnData instances that can be shared across rows
-        let column_data_vec: Vec<_> = bindings
+        let column_data: Vec<_> = bindings
             .iter()
             .enumerate()
             .map(|(col_index, binding)| {
-                create_column_data(batch.column(col_index), &binding.column.type_info)
+                create_column_data(batch.column(col_index), &binding.column)
             })
             .collect();
 
-        for row_index in 0..batch.num_rows() {
-            let row_values: Vec<_> = column_data_vec
-                .iter()
-                .map(|column_data| OdbcValue::new(Arc::clone(column_data), row_index))
-                .collect();
+        let odbc_batch = Arc::new(OdbcBatch {
+            columns: bindings.iter().map(|b| b.column.clone()).collect(),
+            column_data,
+        });
 
+        for row_index in 0..batch.num_rows() {
             let row = OdbcRow {
-                columns: columns.clone(),
-                values: row_values,
+                row_index,
+                batch: Arc::clone(&odbc_batch),
             };
 
             if send_row(tx, row).is_err() {
@@ -283,13 +281,13 @@ where
     Ok(receiver_open)
 }
 
-fn create_column_data(slice: AnySlice<'_>, type_info: &OdbcTypeInfo) -> Arc<ColumnData> {
+fn create_column_data(slice: AnySlice<'_>, column: &OdbcColumn) -> Arc<ColumnData> {
     use crate::odbc::value::convert_any_slice_to_value_vec;
 
     let (values, nulls) = convert_any_slice_to_value_vec(slice);
     Arc::new(ColumnData {
         values,
-        type_info: type_info.clone(),
+        type_info: column.type_info.clone(),
         nulls,
     })
 }
