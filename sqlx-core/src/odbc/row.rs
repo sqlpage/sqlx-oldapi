@@ -113,7 +113,7 @@ mod tests {
                 nulls: vec![false],
             }),
             Arc::new(ColumnData {
-                values: OdbcValueVec::Text(vec![Some("test".to_string())]),
+                values: OdbcValueVec::Text(vec!["test".to_string()]),
                 type_info: OdbcTypeInfo::new(DataType::Varchar { length: None }),
                 nulls: vec![false],
             }),

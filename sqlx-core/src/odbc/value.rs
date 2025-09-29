@@ -22,10 +22,10 @@ pub enum OdbcValueVec {
     Bit(Vec<odbc_api::Bit>),
 
     // Text types (inherently nullable in ODBC)
-    Text(Vec<Option<String>>),
+    Text(Vec<String>),
 
     // Binary types (inherently nullable in ODBC)
-    Binary(Vec<Option<Vec<u8>>>),
+    Binary(Vec<Vec<u8>>),
 
     // Date/Time types
     Date(Vec<odbc_api::sys::Date>),
@@ -108,44 +108,29 @@ impl OdbcValue {
 
     /// Get the raw value from the column data
     pub fn get_raw(&self) -> Option<OdbcValueType> {
-        value_vec_get_raw(
-            &self.batch.column_data[self.column_index].values,
-            self.row_index,
-        )
+        value_vec_get_raw(&self.batch.column_data[self.column_index], self.row_index)
     }
 
     /// Try to get the value as i64
     pub fn as_int<T: TryFromInt>(&self) -> Option<T> {
-        value_vec_int(
-            &self.batch.column_data[self.column_index].values,
-            self.row_index,
-        )
+        value_vec_int(&self.batch.column_data[self.column_index], self.row_index)
     }
 
     /// Try to get the value as f64
     pub fn as_f64(&self) -> Option<f64> {
-        value_vec_float(
-            &self.batch.column_data[self.column_index].values,
-            self.row_index,
-        )
+        value_vec_float(&self.batch.column_data[self.column_index], self.row_index)
     }
 
     /// Try to get the value as string
     pub fn as_str(&self) -> Option<Cow<'_, str>> {
-        value_vec_text(
-            &self.batch.column_data[self.column_index].values,
-            self.row_index,
-        )
-        .map(Cow::Borrowed)
+        value_vec_text(&self.batch.column_data[self.column_index], self.row_index)
+            .map(Cow::Borrowed)
     }
 
     /// Try to get the value as bytes
     pub fn as_bytes(&self) -> Option<Cow<'_, [u8]>> {
-        value_vec_blob(
-            &self.batch.column_data[self.column_index].values,
-            self.row_index,
-        )
-        .map(Cow::Borrowed)
+        value_vec_blob(&self.batch.column_data[self.column_index], self.row_index)
+            .map(Cow::Borrowed)
     }
 }
 
@@ -162,18 +147,12 @@ impl<'r> OdbcValueRef<'r> {
 
     /// Get the raw value from the column data
     pub fn get_raw(&self) -> Option<OdbcValueType> {
-        value_vec_get_raw(
-            &self.batch.column_data[self.column_index].values,
-            self.row_index,
-        )
+        value_vec_get_raw(&self.batch.column_data[self.column_index], self.row_index)
     }
 
     /// Try to get the value as i64
     pub fn int<T: TryFromInt>(&self) -> Option<T> {
-        value_vec_int(
-            &self.batch.column_data[self.column_index].values,
-            self.row_index,
-        )
+        value_vec_int(&self.batch.column_data[self.column_index], self.row_index)
     }
 
     pub fn try_int<T: TryFromInt + crate::types::Type<Odbc>>(&self) -> crate::error::Result<T> {
@@ -208,26 +187,17 @@ impl<'r> OdbcValueRef<'r> {
 
     /// Try to get the value as f64
     pub fn float<T: TryFromFloat>(&self) -> Option<T> {
-        value_vec_float(
-            &self.batch.column_data[self.column_index].values,
-            self.row_index,
-        )
+        value_vec_float(&self.batch.column_data[self.column_index], self.row_index)
     }
 
     /// Try to get the value as string slice
     pub fn text(&self) -> Option<&'r str> {
-        value_vec_text(
-            &self.batch.column_data[self.column_index].values,
-            self.row_index,
-        )
+        value_vec_text(&self.batch.column_data[self.column_index], self.row_index)
     }
 
     /// Try to get the value as binary slice
     pub fn blob(&self) -> Option<&'r [u8]> {
-        value_vec_blob(
-            &self.batch.column_data[self.column_index].values,
-            self.row_index,
-        )
+        value_vec_blob(&self.batch.column_data[self.column_index], self.row_index)
     }
 
     /// Try to get the raw ODBC Date value
@@ -360,20 +330,38 @@ pub fn convert_any_slice_to_value_vec(slice: AnySlice<'_>) -> (OdbcValueVec, Vec
 
         // Text and binary types (inherently nullable)
         AnySlice::Text(s) => {
-            let texts: Vec<Option<String>> = s
-                .iter()
-                .map(|bytes_opt| bytes_opt.map(|bytes| String::from_utf8_lossy(bytes).to_string()))
-                .collect();
-            let nulls = texts.iter().map(|opt| opt.is_none()).collect();
-            (OdbcValueVec::Text(texts), nulls)
+            let mut values = Vec::with_capacity(s.len());
+            let mut nulls = Vec::with_capacity(s.len());
+            for bytes_opt in s.iter() {
+                match bytes_opt {
+                    Some(bytes) => {
+                        values.push(String::from_utf8_lossy(bytes).to_string());
+                        nulls.push(false);
+                    }
+                    None => {
+                        values.push(String::new());
+                        nulls.push(true);
+                    }
+                }
+            }
+            (OdbcValueVec::Text(values), nulls)
         }
         AnySlice::Binary(s) => {
-            let binaries: Vec<Option<Vec<u8>>> = s
-                .iter()
-                .map(|bytes_opt| bytes_opt.map(|bytes| bytes.to_vec()))
-                .collect();
-            let nulls = binaries.iter().map(|opt| opt.is_none()).collect();
-            (OdbcValueVec::Binary(binaries), nulls)
+            let mut values = Vec::with_capacity(s.len());
+            let mut nulls = Vec::with_capacity(s.len());
+            for bytes_opt in s.iter() {
+                match bytes_opt {
+                    Some(bytes) => {
+                        values.push(bytes.to_vec());
+                        nulls.push(false);
+                    }
+                    None => {
+                        values.push(Vec::new());
+                        nulls.push(true);
+                    }
+                }
+            }
+            (OdbcValueVec::Binary(values), nulls)
         }
 
         // Nullable date/time types with NULL_DATA indicators
@@ -398,35 +386,30 @@ fn value_vec_is_null(column_data: &ColumnData, row_index: usize) -> bool {
     column_data.nulls.get(row_index).copied().unwrap_or(false)
 }
 
-macro_rules! impl_get_raw_arm {
+macro_rules! impl_get_raw_arm_copy {
     ($vec:expr, $row_index:expr, $variant:ident, $type:ty) => {
-        $vec.get($row_index)
-            .map(|&val| OdbcValueType::$variant(val))
-    };
-    ($vec:expr, $row_index:expr, $variant:ident, $type:ty, copy) => {
         $vec.get($row_index).copied().map(OdbcValueType::$variant)
-    };
-    ($vec:expr, $row_index:expr, $variant:ident, $type:ty, clone) => {
-        $vec.get($row_index)
-            .and_then(|opt| opt.clone().map(OdbcValueType::$variant))
     };
 }
 
-fn value_vec_get_raw(values: &OdbcValueVec, row_index: usize) -> Option<OdbcValueType> {
-    match values {
-        OdbcValueVec::TinyInt(v) => impl_get_raw_arm!(v, row_index, TinyInt, i8),
-        OdbcValueVec::SmallInt(v) => impl_get_raw_arm!(v, row_index, SmallInt, i16),
-        OdbcValueVec::Integer(v) => impl_get_raw_arm!(v, row_index, Integer, i32),
-        OdbcValueVec::BigInt(v) => impl_get_raw_arm!(v, row_index, BigInt, i64),
-        OdbcValueVec::Real(v) => impl_get_raw_arm!(v, row_index, Real, f32),
-        OdbcValueVec::Double(v) => impl_get_raw_arm!(v, row_index, Double, f64),
-        OdbcValueVec::Bit(v) => impl_get_raw_arm!(v, row_index, Bit, odbc_api::Bit),
-        OdbcValueVec::Text(v) => impl_get_raw_arm!(v, row_index, Text, Option<String>, clone),
-        OdbcValueVec::Binary(v) => impl_get_raw_arm!(v, row_index, Binary, Option<Vec<u8>>, clone),
-        OdbcValueVec::Date(v) => impl_get_raw_arm!(v, row_index, Date, odbc_api::sys::Date, copy),
-        OdbcValueVec::Time(v) => impl_get_raw_arm!(v, row_index, Time, odbc_api::sys::Time, copy),
+fn value_vec_get_raw(column_data: &ColumnData, row_index: usize) -> Option<OdbcValueType> {
+    if value_vec_is_null(column_data, row_index) {
+        return None;
+    }
+    match &column_data.values {
+        OdbcValueVec::TinyInt(v) => v.get(row_index).map(|&val| OdbcValueType::TinyInt(val)),
+        OdbcValueVec::SmallInt(v) => v.get(row_index).map(|&val| OdbcValueType::SmallInt(val)),
+        OdbcValueVec::Integer(v) => v.get(row_index).map(|&val| OdbcValueType::Integer(val)),
+        OdbcValueVec::BigInt(v) => v.get(row_index).map(|&val| OdbcValueType::BigInt(val)),
+        OdbcValueVec::Real(v) => v.get(row_index).map(|&val| OdbcValueType::Real(val)),
+        OdbcValueVec::Double(v) => v.get(row_index).map(|&val| OdbcValueType::Double(val)),
+        OdbcValueVec::Bit(v) => v.get(row_index).map(|&val| OdbcValueType::Bit(val)),
+        OdbcValueVec::Text(v) => v.get(row_index).cloned().map(OdbcValueType::Text),
+        OdbcValueVec::Binary(v) => v.get(row_index).cloned().map(OdbcValueType::Binary),
+        OdbcValueVec::Date(v) => impl_get_raw_arm_copy!(v, row_index, Date, odbc_api::sys::Date),
+        OdbcValueVec::Time(v) => impl_get_raw_arm_copy!(v, row_index, Time, odbc_api::sys::Time),
         OdbcValueVec::Timestamp(v) => {
-            impl_get_raw_arm!(v, row_index, Timestamp, odbc_api::sys::Timestamp, copy)
+            impl_get_raw_arm_copy!(v, row_index, Timestamp, odbc_api::sys::Timestamp)
         }
     }
 }
@@ -474,14 +457,17 @@ macro_rules! impl_int_conversion {
     };
 }
 
-fn value_vec_int<T: TryFromInt>(values: &OdbcValueVec, row_index: usize) -> Option<T> {
-    match values {
+fn value_vec_int<T: TryFromInt>(column_data: &ColumnData, row_index: usize) -> Option<T> {
+    if value_vec_is_null(column_data, row_index) {
+        return None;
+    }
+    match &column_data.values {
         OdbcValueVec::TinyInt(v) => impl_int_conversion!(v, row_index, T),
         OdbcValueVec::SmallInt(v) => impl_int_conversion!(v, row_index, T),
         OdbcValueVec::Integer(v) => impl_int_conversion!(v, row_index, T),
         OdbcValueVec::BigInt(v) => impl_int_conversion!(v, row_index, T),
         OdbcValueVec::Bit(v) => impl_int_conversion!(v, row_index, T, bit),
-        OdbcValueVec::Text(v) => impl_int_conversion!(v, row_index, T, text),
+        OdbcValueVec::Text(v) => v.get(row_index).and_then(|text| text.trim().parse().ok()),
         _ => None,
     }
 }
@@ -496,24 +482,33 @@ macro_rules! impl_float_conversion {
     };
 }
 
-fn value_vec_float<T: TryFromFloat>(values: &OdbcValueVec, row_index: usize) -> Option<T> {
-    match values {
+fn value_vec_float<T: TryFromFloat>(column_data: &ColumnData, row_index: usize) -> Option<T> {
+    if value_vec_is_null(column_data, row_index) {
+        return None;
+    }
+    match &column_data.values {
         OdbcValueVec::Real(v) => impl_float_conversion!(v, row_index, T),
         OdbcValueVec::Double(v) => impl_float_conversion!(v, row_index, T),
         _ => None,
     }
 }
 
-fn value_vec_text(values: &OdbcValueVec, row_index: usize) -> Option<&str> {
-    match values {
-        OdbcValueVec::Text(v) => v.get(row_index).and_then(|opt| opt.as_deref()),
+fn value_vec_text(column_data: &ColumnData, row_index: usize) -> Option<&str> {
+    if value_vec_is_null(column_data, row_index) {
+        return None;
+    }
+    match &column_data.values {
+        OdbcValueVec::Text(v) => v.get(row_index).map(|s| s.as_str()),
         _ => None,
     }
 }
 
-fn value_vec_blob(values: &OdbcValueVec, row_index: usize) -> Option<&[u8]> {
-    match values {
-        OdbcValueVec::Binary(v) => v.get(row_index).and_then(|opt| opt.as_deref()),
+fn value_vec_blob(column_data: &ColumnData, row_index: usize) -> Option<&[u8]> {
+    if value_vec_is_null(column_data, row_index) {
+        return None;
+    }
+    match &column_data.values {
+        OdbcValueVec::Binary(v) => v.get(row_index).map(|b| b.as_slice()),
         _ => None,
     }
 }

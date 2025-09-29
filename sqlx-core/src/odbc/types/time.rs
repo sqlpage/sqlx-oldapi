@@ -348,7 +348,7 @@ mod tests {
 
     fn create_test_value_text(text: &str, data_type: DataType) -> OdbcValueRef<'static> {
         let column = ColumnData {
-            values: OdbcValueVec::Text(vec![Some(text.to_string())]),
+            values: OdbcValueVec::Text(vec![text.to_string()]),
             type_info: OdbcTypeInfo::new(data_type),
             nulls: vec![false],
         };
@@ -470,7 +470,7 @@ mod tests {
     #[test]
     fn test_decode_error_handling() {
         let column = ColumnData {
-            values: OdbcValueVec::Text(vec![Some("not_a_datetime".to_string())]),
+            values: OdbcValueVec::Text(vec!["not_a_datetime".to_string()]),
             type_info: OdbcTypeInfo::TIMESTAMP,
             nulls: vec![false],
         };

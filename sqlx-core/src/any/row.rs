@@ -1,8 +1,8 @@
-use crate::any::error::mismatched_types;
 use crate::any::{Any, AnyColumn, AnyColumnIndex};
 use crate::column::ColumnIndex;
 use crate::database::HasValueRef;
 use crate::decode::Decode;
+use crate::error::mismatched_types;
 use crate::error::Error;
 use crate::row::Row;
 use crate::type_info::TypeInfo;
@@ -91,7 +91,7 @@ impl Row for AnyRow {
         let ty = value.type_info();
 
         if !value.is_null() && !ty.is_null() && !T::compatible(&ty) {
-            Err(mismatched_types::<T>(&ty))
+            Err(mismatched_types::<Self::Database, T>(&ty))
         } else {
             T::decode(value)
         }

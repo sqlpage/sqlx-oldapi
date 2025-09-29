@@ -127,7 +127,9 @@ impl<'r> PgRecordDecoder<'r> {
 
                 if let Some(ty) = &element_type_opt {
                     if !ty.is_null() && !T::compatible(ty) {
-                        return Err(mismatched_types::<Postgres, T>(ty));
+                        return Err(crate::error::Error::MismatchedType(
+                            crate::error::mismatched_types::<Postgres, T>(ty),
+                        ));
                     }
                 }
 

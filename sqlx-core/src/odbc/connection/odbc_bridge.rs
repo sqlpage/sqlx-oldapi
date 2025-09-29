@@ -459,17 +459,17 @@ where
     fn push_binary(
         cursor_row: &mut odbc_api::CursorRow<'_>,
         col_index: u16,
-        vec: &mut Vec<Option<Vec<u8>>>,
+        vec: &mut Vec<Vec<u8>>,
         nulls: &mut Vec<bool>,
     ) {
         let mut buf = Vec::new();
         match cursor_row.get_text(col_index, &mut buf) {
             Ok(true) => {
-                vec.push(Some(buf));
+                vec.push(buf);
                 nulls.push(false);
             }
             Ok(false) | Err(_) => {
-                vec.push(None);
+                vec.push(Vec::new());
                 nulls.push(true);
             }
         }
@@ -478,21 +478,13 @@ where
     fn push_text(
         cursor_row: &mut odbc_api::CursorRow<'_>,
         col_index: u16,
-        vec: &mut Vec<Option<String>>,
+        vec: &mut Vec<String>,
         nulls: &mut Vec<bool>,
     ) {
-        let mut buf = Vec::new();
-        match cursor_row.get_text(col_index, &mut buf) {
-            Ok(true) => {
-                let s = String::from_utf8_lossy(&buf).to_string();
-                vec.push(Some(s));
-                nulls.push(false);
-            }
-            Ok(false) | Err(_) => {
-                vec.push(None);
-                nulls.push(true);
-            }
-        }
+        let mut buf = Vec::<u16>::new();
+        let txt = cursor_row.get_wide_text(col_index, &mut buf);
+        vec.push(String::from_utf16_lossy(&buf).to_string());
+        nulls.push(!txt.unwrap_or(false));
     }
 
     fn push_from_cursor_row(

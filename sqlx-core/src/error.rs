@@ -26,6 +26,43 @@ pub type BoxDynError = Box<dyn StdError + 'static + Send + Sync>;
 #[error("unexpected null; try decoding as an `Option`")]
 pub struct UnexpectedNullError;
 
+/// Error indicating that a Rust type is not compatible with a SQL type.
+#[derive(thiserror::Error, Debug)]
+#[error("mismatched types; Rust type `{rust_type}` (as SQL type `{rust_sql_type}`) could not be decoded into SQL type `{sql_type}`")]
+pub struct MismatchedTypeError {
+    /// The name of the Rust type.
+    pub rust_type: String,
+    /// The SQL type name that the Rust type would map to.
+    pub rust_sql_type: String,
+    /// The actual SQL type from the database.
+    pub sql_type: String,
+    /// Optional source error that caused the mismatch.
+    #[source]
+    pub source: Option<BoxDynError>,
+}
+
+impl MismatchedTypeError {
+    /// Create a new mismatched type error without a source.
+    pub fn new<DB: Database, T: Type<DB>>(ty: &DB::TypeInfo) -> Self {
+        Self {
+            rust_type: type_name::<T>().to_string(),
+            rust_sql_type: T::type_info().name().to_string(),
+            sql_type: ty.name().to_string(),
+            source: None,
+        }
+    }
+
+    /// Create a new mismatched type error with a source error.
+    pub fn with_source<DB: Database, T: Type<DB>>(ty: &DB::TypeInfo, source: BoxDynError) -> Self {
+        Self {
+            rust_type: type_name::<T>().to_string(),
+            rust_sql_type: T::type_info().name().to_string(),
+            sql_type: ty.name().to_string(),
+            source: Some(source),
+        }
+    }
+}
+
 /// Represents all the ways a method can fail within SQLx.
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
@@ -145,23 +182,17 @@ impl Error {
 }
 
 pub(crate) fn mismatched_types<DB: Database, T: Type<DB>>(ty: &DB::TypeInfo) -> BoxDynError {
-    // TODO: `#name` only produces `TINYINT` but perhaps we want to show `TINYINT(1)`
-    if T::compatible(ty) {
-        format!(
-            "mismatched types; Rust type `{}` (as SQL type `{}`) is compatible with SQL type `{}` but decoding failed",
+    Box::new(MismatchedTypeError {
+        rust_type: format!(
+            "{} ({}compatible with SQL type `{}`)",
             type_name::<T>(),
-            T::type_info().name(),
-            ty.name()
-        )
-    } else {
-        format!(
-            "mismatched types; Rust type `{}` (as SQL type `{}`) is not compatible with SQL type `{}`",
-            type_name::<T>(),
-            T::type_info().name(),
-            ty.name()
-        )
-    }
-    .into()
+            if T::compatible(ty) { "" } else { "in" },
+            T::type_info().name()
+        ),
+        rust_sql_type: T::type_info().name().to_string(),
+        sql_type: ty.name().to_string(),
+        source: None,
+    })
 }
 
 /// An error that was returned from the database.

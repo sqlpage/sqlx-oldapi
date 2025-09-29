@@ -96,11 +96,11 @@ mod tests {
     }
 
     fn create_test_value_text(text: &'static str, data_type: DataType) -> OdbcValueRef<'static> {
-        make_ref(OdbcValueVec::Text(vec![Some(text.to_string())]), data_type)
+        make_ref(OdbcValueVec::Text(vec![text.to_string()]), data_type)
     }
 
     fn create_test_value_blob(data: &'static [u8], data_type: DataType) -> OdbcValueRef<'static> {
-        make_ref(OdbcValueVec::Binary(vec![Some(data.to_vec())]), data_type)
+        make_ref(OdbcValueVec::Binary(vec![data.to_vec()]), data_type)
     }
 
     #[test]
@@ -196,7 +196,7 @@ mod tests {
     #[test]
     fn test_decode_error_handling() {
         let column = ColumnData {
-            values: OdbcValueVec::Text(vec![Some("not_bytes".to_string())]),
+            values: OdbcValueVec::Text(vec!["not_bytes".to_string()]),
             type_info: OdbcTypeInfo::varbinary(None),
             nulls: vec![false],
         };

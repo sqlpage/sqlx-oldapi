@@ -115,7 +115,7 @@ mod tests {
     }
 
     fn create_test_value_text(text: &'static str, data_type: DataType) -> OdbcValueRef<'static> {
-        make_ref(OdbcValueVec::Text(vec![Some(text.to_string())]), data_type)
+        make_ref(OdbcValueVec::Text(vec![text.to_string()]), data_type)
     }
 
     fn create_test_value_int(value: i64, data_type: DataType) -> OdbcValueRef<'static> {
@@ -316,7 +316,7 @@ mod tests {
     #[test]
     fn test_bool_decode_error_handling() {
         let column = ColumnData {
-            values: OdbcValueVec::Text(vec![Some("not_a_bool".to_string())]),
+            values: OdbcValueVec::Text(vec!["not_a_bool".to_string()]),
             type_info: OdbcTypeInfo::BIT,
             nulls: vec![false],
         };

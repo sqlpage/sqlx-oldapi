@@ -1,10 +1,9 @@
 use std::borrow::Cow;
 
-use crate::any::error::mismatched_types;
 use crate::any::{Any, AnyTypeInfo};
 use crate::database::HasValueRef;
 use crate::decode::Decode;
-use crate::error::Error;
+use crate::error::mismatched_types;
 use crate::type_info::TypeInfo;
 use crate::types::Type;
 use crate::value::{Value, ValueRef};
@@ -113,7 +112,7 @@ impl Value for AnyValue {
         }
     }
 
-    fn try_decode<'r, T>(&'r self) -> Result<T, Error>
+    fn try_decode<'r, T>(&'r self) -> crate::error::Result<T>
     where
         T: Decode<'r, Self::Database> + Type<Self::Database>,
     {
@@ -121,7 +120,10 @@ impl Value for AnyValue {
             let ty = self.type_info();
 
             if !ty.is_null() && !T::compatible(&ty) {
-                return Err(Error::Decode(mismatched_types::<T>(&ty)));
+                return Err(crate::error::Error::Decode(mismatched_types::<
+                    Self::Database,
+                    T,
+                >(&ty)));
             }
         }
 

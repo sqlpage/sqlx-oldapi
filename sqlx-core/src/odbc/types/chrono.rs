@@ -489,7 +489,7 @@ mod tests {
     }
 
     fn create_test_value_text(text: &'static str, data_type: DataType) -> OdbcValueRef<'static> {
-        make_ref(OdbcValueVec::Text(vec![Some(text.to_string())]), data_type)
+        make_ref(OdbcValueVec::Text(vec![text.to_string()]), data_type)
     }
 
     fn create_test_value_int(value: i64, data_type: DataType) -> OdbcValueRef<'static> {
@@ -501,7 +501,7 @@ mod tests {
     }
 
     fn create_test_value_blob(data: &'static [u8], data_type: DataType) -> OdbcValueRef<'static> {
-        make_ref(OdbcValueVec::Binary(vec![Some(data.to_vec())]), data_type)
+        make_ref(OdbcValueVec::Binary(vec![data.to_vec()]), data_type)
     }
 
     #[test]
@@ -636,7 +636,7 @@ mod tests {
 
         // From empty
         let column = ColumnData {
-            values: OdbcValueVec::Text(vec![None]),
+            values: OdbcValueVec::Text(vec![String::new()]),
             type_info: OdbcTypeInfo::new(DataType::Date),
             nulls: vec![true],
         };
