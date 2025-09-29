@@ -457,25 +457,30 @@ async fn it_handles_binary_data() -> anyhow::Result<()> {
 async fn it_handles_mixed_null_and_values() -> anyhow::Result<()> {
     let mut conn = new::<Odbc>().await?;
 
-    let stmt = conn.prepare("SELECT ?, ?, ?, ?").await?;
-    let row = stmt
+    let stmt = conn
+        .prepare("SELECT ?, ?, ?, ? UNION ALL SELECT NULL, NULL, NULL, NULL")
+        .await?;
+    let rows = stmt
         .query()
         .bind(42_i32)
         .bind(Option::<i32>::None)
         .bind("hello")
         .bind(Option::<String>::None)
-        .fetch_one(&mut conn)
+        .fetch_all(&mut conn)
         .await?;
 
-    let int_val = row.try_get_raw(0)?.to_owned().decode::<i32>();
-    let null_int = row.try_get_raw(1)?.to_owned();
-    let str_val = row.try_get_raw(2)?.to_owned().decode::<String>();
-    let null_str = row.try_get_raw(3)?.to_owned();
-
-    assert_eq!(int_val, 42);
-    assert!(null_int.is_null());
-    assert_eq!(str_val, "hello");
-    assert!(null_str.is_null());
+    assert_eq!(rows.len(), 2, "should have 2 rows");
+    assert_eq!(rows[0].get::<Option<i32>, _>(0), Some(42));
+    assert_eq!(rows[0].get::<Option<i32>, _>(1), None);
+    assert_eq!(
+        rows[0].get::<Option<String>, _>(2),
+        Some("hello".to_owned())
+    );
+    assert_eq!(rows[0].get::<Option<String>, _>(3), None);
+    assert_eq!(rows[1].get::<Option<i32>, _>(0), None);
+    assert_eq!(rows[1].get::<Option<i32>, _>(1), None);
+    assert_eq!(rows[1].get::<Option<String>, _>(2), None);
+    assert_eq!(rows[1].get::<Option<String>, _>(3), None);
     Ok(())
 }
 
