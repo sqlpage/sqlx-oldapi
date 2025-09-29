@@ -1043,7 +1043,10 @@ async fn it_works_with_unbuffered_mode() -> anyhow::Result<()> {
     // Create connection with unbuffered settings
     let database_url = std::env::var("DATABASE_URL").unwrap();
     let mut opts = OdbcConnectOptions::from_str(&database_url)?;
-    opts.buffer_settings(OdbcBufferSettings::Unbuffered);
+    opts.buffer_settings(OdbcBufferSettings {
+        batch_size: 128,       // batch_size is ignored in unbuffered mode
+        max_column_size: None, // Enable unbuffered mode
+    });
 
     let mut conn = OdbcConnection::connect_with(&opts).await?;
     let count = 450;

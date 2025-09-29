@@ -31,15 +31,24 @@
 //!
 //! let mut opts = OdbcConnectOptions::from_str("DSN=MyDataSource")?;
 //!
-//! // Configure for high-throughput scenarios
-//! opts.buffer_settings(OdbcBufferSettings::Buffered {
-//!     batch_size: 256,        // Fetch 256 rows at once
-//!     max_column_size: 2048,  // Limit text columns to 2048 chars
+//! // Configure for high-throughput buffered mode
+//! opts.buffer_settings(OdbcBufferSettings {
+//!     batch_size: 256,           // Fetch 256 rows at once
+//!     max_column_size: Some(2048), // Limit text columns to 2048 chars
+//! });
+//!
+//! // Configure for unbuffered mode (no truncation, row-by-row processing)
+//! opts.buffer_settings(OdbcBufferSettings {
+//!     batch_size: 128,           // batch_size ignored in unbuffered mode
+//!     max_column_size: None,     // Enable unbuffered mode
 //! });
 //!
 //! // Or configure individual settings
 //! opts.batch_size(512)
-//!     .max_column_size(1024);
+//!     .max_column_size(Some(1024));
+//!
+//! // Switch to unbuffered mode
+//! opts.max_column_size(None);
 //! # Ok::<(), sqlx::Error>(())
 //! ```
 
