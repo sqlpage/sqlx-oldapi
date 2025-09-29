@@ -323,7 +323,7 @@ pub fn convert_any_slice_to_value_vec(slice: AnySlice<'_>) -> (OdbcValueVec, Vec
                 OdbcValueVec::Bit(
                     values
                         .into_iter()
-                        .map(|opt| opt.map_or(false, |bit| bit.as_bool()))
+                        .map(|opt| opt.is_some_and(|bit| bit.as_bool()))
                         .collect(),
                 ),
                 nulls,

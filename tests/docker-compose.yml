@@ -208,7 +208,7 @@ services:
         volumes:
             - "./postgres/setup.sql:/docker-entrypoint-initdb.d/setup.sql"
         command: >
-            -c ssl=off
+            -c ssl=off -c log_statement=all
     #
     # Microsoft SQL Server (MSSQL)
     # https://hub.docker.com/_/microsoft-mssql-server

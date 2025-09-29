@@ -1,5 +1,5 @@
 use futures::TryStreamExt;
-use sqlx_oldapi::odbc::{Odbc, OdbcConnectOptions, OdbcConnection};
+use sqlx_oldapi::odbc::{Odbc, OdbcBufferSettings, OdbcConnectOptions, OdbcConnection};
 use sqlx_oldapi::Column;
 use sqlx_oldapi::Connection;
 use sqlx_oldapi::Executor;
@@ -435,42 +435,89 @@ async fn it_handles_large_strings() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[tokio::test]
-async fn it_handles_binary_data() -> anyhow::Result<()> {
-    let mut conn = new::<Odbc>().await?;
+async fn test_with_buffer_settings<F, T>(
+    buffer_settings: &[OdbcBufferSettings],
+    test_fn: F,
+) -> anyhow::Result<()>
+where
+    F: Fn(OdbcConnection) -> T,
+    T: std::future::Future<Output = anyhow::Result<()>>,
+{
+    use sqlx_oldapi::odbc::OdbcConnectOptions;
 
-    // Test binary data - use UTF-8 safe bytes for PostgreSQL compatibility
-    let binary_data = "Héllö world! 😀".as_bytes();
-    let stmt = conn.prepare("SELECT ? AS binary_data").await?;
-    let row = stmt
-        .query_as::<(Vec<u8>,)>()
-        .bind(binary_data)
-        .fetch_optional(&mut conn)
-        .await
-        .expect("query failed")
-        .expect("row expected");
+    for &buf_settings in buffer_settings {
+        let database_url = std::env::var("DATABASE_URL").unwrap();
+        let mut opts = OdbcConnectOptions::from_str(&database_url)?;
+        opts.buffer_settings(buf_settings);
 
-    assert_eq!(row.0, binary_data);
+        let conn = OdbcConnection::connect_with(&opts).await?;
+        test_fn(conn).await?;
+    }
     Ok(())
 }
 
 #[tokio::test]
-async fn it_handles_text_as_utf8_binary() -> anyhow::Result<()> {
-    let mut conn = new::<Odbc>().await?;
+async fn it_handles_binary_data() -> anyhow::Result<()> {
+    // Test binary data - use UTF-8 safe bytes for PostgreSQL compatibility
+    let binary_data = "Héllö world! 😀".as_bytes();
 
+    let buffer_settings = [
+        OdbcBufferSettings {
+            batch_size: 1,
+            max_column_size: None,
+        },
+        OdbcBufferSettings {
+            batch_size: 1,
+            max_column_size: Some(450),
+        },
+    ];
+
+    test_with_buffer_settings(&buffer_settings, |mut conn| async move {
+        let stmt = conn.prepare("SELECT ? AS binary_data").await?;
+        let row = stmt
+            .query_as::<(Vec<u8>,)>()
+            .bind(binary_data)
+            .fetch_optional(&mut conn)
+            .await
+            .expect("query failed")
+            .expect("row expected");
+
+        assert_eq!(row.0, binary_data);
+        Ok(())
+    })
+    .await
+}
+
+#[tokio::test]
+async fn it_handles_text_as_utf8_binary() -> anyhow::Result<()> {
     // Test binary data - use UTF-8 safe bytes for PostgreSQL compatibility
     let text = "Héllö world! 😀";
-    let stmt = conn.prepare("SELECT ? AS text_data").await?;
-    let row = stmt
-        .query_as::<(Vec<u8>,)>()
-        .bind(text)
-        .fetch_optional(&mut conn)
-        .await
-        .expect("query failed")
-        .expect("row expected");
 
-    assert_eq!(row.0, text.as_bytes());
-    Ok(())
+    let buffer_settings = [
+        OdbcBufferSettings {
+            batch_size: 1,
+            max_column_size: None,
+        },
+        OdbcBufferSettings {
+            batch_size: 1,
+            max_column_size: Some(450),
+        },
+    ];
+
+    test_with_buffer_settings(&buffer_settings, |mut conn| async move {
+        let stmt = conn.prepare("SELECT ? AS text_data").await?;
+        let row = stmt
+            .query_as::<(Vec<u8>,)>()
+            .bind(text)
+            .fetch_optional(&mut conn)
+            .await
+            .expect("query failed")
+            .expect("row expected");
+
+        assert_eq!(row.0, text.as_bytes());
+        Ok(())
+    })
+    .await
 }
 
 #[tokio::test]
@@ -1058,20 +1105,9 @@ async fn it_handles_prepared_statement_with_wrong_parameters() -> anyhow::Result
 
 #[tokio::test]
 async fn it_works_with_buffered_and_unbuffered_mode() -> anyhow::Result<()> {
-    use sqlx_oldapi::odbc::{OdbcBufferSettings, OdbcConnectOptions};
-
-    // Create connection with unbuffered settings
-    let database_url = std::env::var("DATABASE_URL").unwrap();
-    let mut opts = OdbcConnectOptions::from_str(&database_url)?;
-
     let count = 450;
 
-    let select = (0..count)
-        .map(|i| format!("SELECT {i} AS n, '{}' as aas", "a".repeat(i)))
-        .collect::<Vec<_>>()
-        .join(" UNION ALL ");
-
-    for buf_settings in [
+    let buffer_settings = [
         OdbcBufferSettings {
             batch_size: 1,
             max_column_size: None,
@@ -1092,14 +1128,17 @@ async fn it_works_with_buffered_and_unbuffered_mode() -> anyhow::Result<()> {
             batch_size: 10000,
             max_column_size: Some(450),
         },
-    ] {
-        opts.buffer_settings(buf_settings);
+    ];
 
-        let mut conn = OdbcConnection::connect_with(&opts).await?;
+    test_with_buffer_settings(&buffer_settings, |mut conn| async move {
+        let select = (0..count)
+            .map(|i| format!("SELECT {i} AS n, '{}' as aas", "a".repeat(i)))
+            .collect::<Vec<_>>()
+            .join(" UNION ALL ");
 
         // Test that unbuffered mode works correctly
         let s = conn
-            .prepare(&select)
+            .prepare(select.as_str())
             .await?
             .query()
             .fetch_all(&mut conn)
@@ -1122,6 +1161,7 @@ async fn it_works_with_buffered_and_unbuffered_mode() -> anyhow::Result<()> {
                 .expect("SELECT aas should be a string");
             assert_eq!(aas, "a".repeat(i));
         }
-    }
-    Ok(())
+        Ok(())
+    })
+    .await
 }
