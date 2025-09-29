@@ -455,6 +455,25 @@ async fn it_handles_binary_data() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
+async fn it_handles_text_as_utf8_binary() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+
+    // Test binary data - use UTF-8 safe bytes for PostgreSQL compatibility
+    let text = "Héllö world! 😀";
+    let stmt = conn.prepare("SELECT ? AS text_data").await?;
+    let row = stmt
+        .query_as::<(Vec<u8>,)>()
+        .bind(text)
+        .fetch_optional(&mut conn)
+        .await
+        .expect("query failed")
+        .expect("row expected");
+
+    assert_eq!(row.0, text.as_bytes());
+    Ok(())
+}
+
+#[tokio::test]
 async fn it_handles_mixed_null_and_values() -> anyhow::Result<()> {
     let mut conn = new::<Odbc>().await?;
 
