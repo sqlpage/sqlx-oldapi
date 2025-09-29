@@ -1043,30 +1043,33 @@ async fn it_works_with_unbuffered_mode() -> anyhow::Result<()> {
     // Create connection with unbuffered settings
     let database_url = std::env::var("DATABASE_URL").unwrap();
     let mut opts = OdbcConnectOptions::from_str(&database_url)?;
-    opts.buffer_settings(OdbcBufferSettings {
-        batch_size: 128,       // batch_size is ignored in unbuffered mode
-        max_column_size: None, // Enable unbuffered mode
-    });
 
-    let mut conn = OdbcConnection::connect_with(&opts).await?;
-    let count = 450;
-    let select = (0..count)
-        .map(|i| format!("SELECT {i} AS n"))
-        .collect::<Vec<_>>()
-        .join(" UNION ALL ");
+    for batch_size in [1, 100, 10000] {
+        opts.buffer_settings(OdbcBufferSettings {
+            batch_size,
+            max_column_size: None,
+        });
 
-    // Test that unbuffered mode works correctly
-    let s = conn
-        .prepare(&select)
-        .await?
-        .query()
-        .fetch_all(&mut conn)
-        .await?;
-    assert_eq!(s.len(), count);
-    for i in 0..count {
-        let row = s.get(i).expect("row expected");
-        let as_i64 = row.get::<'_, i64, _>(0);
-        assert_eq!(as_i64, i64::try_from(i).unwrap());
+        let mut conn = OdbcConnection::connect_with(&opts).await?;
+        let count = 450;
+        let select = (0..count)
+            .map(|i| format!("SELECT {i} AS n"))
+            .collect::<Vec<_>>()
+            .join(" UNION ALL ");
+
+        // Test that unbuffered mode works correctly
+        let s = conn
+            .prepare(&select)
+            .await?
+            .query()
+            .fetch_all(&mut conn)
+            .await?;
+        assert_eq!(s.len(), count);
+        for i in 0..count {
+            let row = s.get(i).expect("row expected");
+            let as_i64 = row.get::<'_, i64, _>(0);
+            assert_eq!(as_i64, i64::try_from(i).unwrap());
+        }
     }
     Ok(())
 }

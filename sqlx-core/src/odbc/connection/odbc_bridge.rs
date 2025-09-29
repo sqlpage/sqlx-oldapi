@@ -1,5 +1,6 @@
 use super::decode_column_name;
 use crate::error::Error;
+use crate::odbc::OdbcValueVec;
 use crate::odbc::{
     connection::MaybePrepared, ColumnData, OdbcArgumentValue, OdbcArguments, OdbcBatch,
     OdbcBufferSettings, OdbcColumn, OdbcQueryResult, OdbcRow, OdbcTypeInfo,
@@ -7,7 +8,8 @@ use crate::odbc::{
 use either::Either;
 use flume::{SendError, Sender};
 use odbc_api::buffers::{AnySlice, BufferDesc, ColumnarAnyBuffer};
-use odbc_api::handles::{AsStatementRef, Nullability, Statement};
+use odbc_api::handles::{AsStatementRef, CDataMut, Nullability, Statement};
+use odbc_api::parameter::CElement;
 use odbc_api::{Cursor, IntoParameter, ResultSetMetadata};
 use std::sync::Arc;
 
@@ -292,7 +294,7 @@ where
 
 fn build_column_data_from_values(
     columns: &[OdbcColumn],
-    value_vecs: Vec<crate::odbc::OdbcValueVec>,
+    value_vecs: Vec<OdbcValueVec>,
     nulls_vecs: Vec<Vec<bool>>,
 ) -> Vec<Arc<ColumnData>> {
     value_vecs
@@ -405,34 +407,28 @@ where
 
     let col_arc: Arc<[OdbcColumn]> = Arc::from(columns.clone());
 
-    fn init_value_vec(dt: DataType, capacity: usize) -> crate::odbc::OdbcValueVec {
+    fn init_value_vec(dt: DataType, capacity: usize) -> OdbcValueVec {
         match dt {
-            DataType::TinyInt => crate::odbc::OdbcValueVec::TinyInt(Vec::with_capacity(capacity)),
-            DataType::SmallInt => crate::odbc::OdbcValueVec::SmallInt(Vec::with_capacity(capacity)),
-            DataType::Integer => crate::odbc::OdbcValueVec::Integer(Vec::with_capacity(capacity)),
-            DataType::BigInt => crate::odbc::OdbcValueVec::BigInt(Vec::with_capacity(capacity)),
-            DataType::Real => crate::odbc::OdbcValueVec::Real(Vec::with_capacity(capacity)),
+            DataType::TinyInt => OdbcValueVec::TinyInt(Vec::with_capacity(capacity)),
+            DataType::SmallInt => OdbcValueVec::SmallInt(Vec::with_capacity(capacity)),
+            DataType::Integer => OdbcValueVec::Integer(Vec::with_capacity(capacity)),
+            DataType::BigInt => OdbcValueVec::BigInt(Vec::with_capacity(capacity)),
+            DataType::Real => OdbcValueVec::Real(Vec::with_capacity(capacity)),
             DataType::Float { .. } | DataType::Double => {
-                crate::odbc::OdbcValueVec::Double(Vec::with_capacity(capacity))
+                OdbcValueVec::Double(Vec::with_capacity(capacity))
             }
-            DataType::Bit => crate::odbc::OdbcValueVec::Bit(Vec::with_capacity(capacity)),
-            DataType::Date => crate::odbc::OdbcValueVec::Date(Vec::with_capacity(capacity)),
-            DataType::Time { .. } => crate::odbc::OdbcValueVec::Time(Vec::with_capacity(capacity)),
-            DataType::Timestamp { .. } => {
-                crate::odbc::OdbcValueVec::Timestamp(Vec::with_capacity(capacity))
-            }
+            DataType::Bit => OdbcValueVec::Bit(Vec::with_capacity(capacity)),
+            DataType::Date => OdbcValueVec::Date(Vec::with_capacity(capacity)),
+            DataType::Time { .. } => OdbcValueVec::Time(Vec::with_capacity(capacity)),
+            DataType::Timestamp { .. } => OdbcValueVec::Timestamp(Vec::with_capacity(capacity)),
             DataType::Binary { .. }
             | DataType::Varbinary { .. }
-            | DataType::LongVarbinary { .. } => {
-                crate::odbc::OdbcValueVec::Binary(Vec::with_capacity(capacity))
-            }
-            _ => crate::odbc::OdbcValueVec::Text(Vec::with_capacity(capacity)),
+            | DataType::LongVarbinary { .. } => OdbcValueVec::Binary(Vec::with_capacity(capacity)),
+            _ => OdbcValueVec::Text(Vec::with_capacity(capacity)),
         }
     }
 
-    fn push_get_data<
-        T: Default + Copy + odbc_api::parameter::CElement + odbc_api::handles::CDataMut,
-    >(
+    fn push_get_data<T: Default + Copy + CElement + CDataMut>(
         cursor_row: &mut odbc_api::CursorRow<'_>,
         col_index: u16,
         vec: &mut Vec<T>,
@@ -443,9 +439,7 @@ where
         vec.push(tmp);
     }
 
-    fn push_get_data_with_default<
-        T: Copy + odbc_api::parameter::CElement + odbc_api::handles::CDataMut,
-    >(
+    fn push_get_data_with_default<T: Copy + CElement + CDataMut>(
         cursor_row: &mut odbc_api::CursorRow<'_>,
         col_index: u16,
         vec: &mut Vec<T>,
@@ -504,34 +498,30 @@ where
     fn push_from_cursor_row(
         cursor_row: &mut odbc_api::CursorRow<'_>,
         col_index: u16,
-        values: &mut crate::odbc::OdbcValueVec,
+        values: &mut OdbcValueVec,
         nulls: &mut Vec<bool>,
     ) {
         match values {
-            crate::odbc::OdbcValueVec::TinyInt(v) => push_get_data(cursor_row, col_index, v, nulls),
-            crate::odbc::OdbcValueVec::SmallInt(v) => {
-                push_get_data(cursor_row, col_index, v, nulls)
-            }
-            crate::odbc::OdbcValueVec::Integer(v) => push_get_data(cursor_row, col_index, v, nulls),
-            crate::odbc::OdbcValueVec::BigInt(v) => push_get_data(cursor_row, col_index, v, nulls),
-            crate::odbc::OdbcValueVec::Real(v) => push_get_data(cursor_row, col_index, v, nulls),
-            crate::odbc::OdbcValueVec::Double(v) => push_get_data(cursor_row, col_index, v, nulls),
-            crate::odbc::OdbcValueVec::Bit(v) => {
+            OdbcValueVec::TinyInt(v) => push_get_data(cursor_row, col_index, v, nulls),
+            OdbcValueVec::SmallInt(v) => push_get_data(cursor_row, col_index, v, nulls),
+            OdbcValueVec::Integer(v) => push_get_data(cursor_row, col_index, v, nulls),
+            OdbcValueVec::BigInt(v) => push_get_data(cursor_row, col_index, v, nulls),
+            OdbcValueVec::Real(v) => push_get_data(cursor_row, col_index, v, nulls),
+            OdbcValueVec::Double(v) => push_get_data(cursor_row, col_index, v, nulls),
+            OdbcValueVec::Bit(v) => {
                 push_get_data_with_default(cursor_row, col_index, v, nulls, odbc_api::Bit(0))
             }
-            crate::odbc::OdbcValueVec::Date(v) => push_get_data(cursor_row, col_index, v, nulls),
-            crate::odbc::OdbcValueVec::Time(v) => push_get_data(cursor_row, col_index, v, nulls),
-            crate::odbc::OdbcValueVec::Timestamp(v) => {
-                push_get_data(cursor_row, col_index, v, nulls)
-            }
-            crate::odbc::OdbcValueVec::Binary(v) => push_binary(cursor_row, col_index, v, nulls),
-            crate::odbc::OdbcValueVec::Text(v) => push_text(cursor_row, col_index, v, nulls),
+            OdbcValueVec::Date(v) => push_get_data(cursor_row, col_index, v, nulls),
+            OdbcValueVec::Time(v) => push_get_data(cursor_row, col_index, v, nulls),
+            OdbcValueVec::Timestamp(v) => push_get_data(cursor_row, col_index, v, nulls),
+            OdbcValueVec::Binary(v) => push_binary(cursor_row, col_index, v, nulls),
+            OdbcValueVec::Text(v) => push_text(cursor_row, col_index, v, nulls),
         }
     }
 
     loop {
         // Initialize per-column containers for this batch
-        let mut value_vecs: Vec<crate::odbc::OdbcValueVec> = columns
+        let mut value_vecs: Vec<OdbcValueVec> = columns
             .iter()
             .map(|c| init_value_vec(c.type_info.data_type(), batch_size))
             .collect();
