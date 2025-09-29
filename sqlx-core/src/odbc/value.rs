@@ -1,6 +1,6 @@
 use crate::odbc::{Odbc, OdbcBatch, OdbcTypeInfo};
 use crate::value::{Value, ValueRef};
-use odbc_api::buffers::AnySlice;
+use odbc_api::buffers::{AnySlice, NullableSlice};
 use odbc_api::sys::NULL_DATA;
 use std::borrow::Cow;
 use std::sync::Arc;
@@ -284,65 +284,66 @@ pub enum OdbcValueType {
     Timestamp(odbc_api::sys::Timestamp),
 }
 
+/// Generic helper function to handle non-nullable slices
+fn handle_non_nullable_slice<T: Copy>(
+    slice: &[T],
+    constructor: fn(Vec<T>) -> OdbcValueVec,
+) -> (OdbcValueVec, Vec<bool>) {
+    let vec = slice.to_vec();
+    (constructor(vec), vec![false; slice.len()])
+}
+
+/// Generic helper function to handle nullable slices with custom default values
+fn handle_nullable_slice<'a, T: Default + Copy>(
+    slice: NullableSlice<'a, T>,
+    constructor: fn(Vec<T>) -> OdbcValueVec,
+) -> (OdbcValueVec, Vec<bool>) {
+    let size = slice.size_hint().1.unwrap_or(0);
+    let mut values = Vec::with_capacity(size);
+    let mut nulls = Vec::with_capacity(size);
+    for opt in slice {
+        values.push(opt.copied().unwrap_or_default());
+        nulls.push(opt.is_none());
+    }
+    (constructor(values), nulls)
+}
+
+/// Generic helper function to handle nullable slices with NULL_DATA indicators
+fn handle_nullable_with_indicators<T: Default + Copy>(
+    raw_values: &[T],
+    indicators: &[isize],
+    constructor: fn(Vec<T>) -> OdbcValueVec,
+) -> (OdbcValueVec, Vec<bool>) {
+    let nulls = indicators.iter().map(|&ind| ind == NULL_DATA).collect();
+    (constructor(raw_values.to_vec()), nulls)
+}
+
 /// Convert AnySlice to owned OdbcValueVec and nulls vector, preserving original types
 pub fn convert_any_slice_to_value_vec(slice: AnySlice<'_>) -> (OdbcValueVec, Vec<bool>) {
     match slice {
-        AnySlice::I8(s) => (OdbcValueVec::TinyInt(s.to_vec()), vec![false; s.len()]),
-        AnySlice::I16(s) => (OdbcValueVec::SmallInt(s.to_vec()), vec![false; s.len()]),
-        AnySlice::I32(s) => (OdbcValueVec::Integer(s.to_vec()), vec![false; s.len()]),
-        AnySlice::I64(s) => (OdbcValueVec::BigInt(s.to_vec()), vec![false; s.len()]),
-        AnySlice::F32(s) => (OdbcValueVec::Real(s.to_vec()), vec![false; s.len()]),
-        AnySlice::F64(s) => (OdbcValueVec::Double(s.to_vec()), vec![false; s.len()]),
-        AnySlice::Bit(s) => (OdbcValueVec::Bit(s.to_vec()), vec![false; s.len()]),
+        // Non-nullable integer types
+        AnySlice::I8(s) => handle_non_nullable_slice(s, OdbcValueVec::TinyInt),
+        AnySlice::I16(s) => handle_non_nullable_slice(s, OdbcValueVec::SmallInt),
+        AnySlice::I32(s) => handle_non_nullable_slice(s, OdbcValueVec::Integer),
+        AnySlice::I64(s) => handle_non_nullable_slice(s, OdbcValueVec::BigInt),
 
-        AnySlice::NullableI8(s) => {
-            let values: Vec<Option<i8>> = s.map(|opt| opt.copied()).collect();
-            let nulls = values.iter().map(|opt| opt.is_none()).collect();
-            (
-                OdbcValueVec::TinyInt(values.into_iter().map(|opt| opt.unwrap_or(0)).collect()),
-                nulls,
-            )
-        }
-        AnySlice::NullableI16(s) => {
-            let values: Vec<Option<i16>> = s.map(|opt| opt.copied()).collect();
-            let nulls = values.iter().map(|opt| opt.is_none()).collect();
-            (
-                OdbcValueVec::SmallInt(values.into_iter().map(|opt| opt.unwrap_or(0)).collect()),
-                nulls,
-            )
-        }
-        AnySlice::NullableI32(s) => {
-            let values: Vec<Option<i32>> = s.map(|opt| opt.copied()).collect();
-            let nulls = values.iter().map(|opt| opt.is_none()).collect();
-            (
-                OdbcValueVec::Integer(values.into_iter().map(|opt| opt.unwrap_or(0)).collect()),
-                nulls,
-            )
-        }
-        AnySlice::NullableI64(s) => {
-            let values: Vec<Option<i64>> = s.map(|opt| opt.copied()).collect();
-            let nulls = values.iter().map(|opt| opt.is_none()).collect();
-            (
-                OdbcValueVec::BigInt(values.into_iter().map(|opt| opt.unwrap_or(0)).collect()),
-                nulls,
-            )
-        }
-        AnySlice::NullableF32(s) => {
-            let values: Vec<Option<f32>> = s.map(|opt| opt.copied()).collect();
-            let nulls = values.iter().map(|opt| opt.is_none()).collect();
-            (
-                OdbcValueVec::Real(values.into_iter().map(|opt| opt.unwrap_or(0.0)).collect()),
-                nulls,
-            )
-        }
-        AnySlice::NullableF64(s) => {
-            let values: Vec<Option<f64>> = s.map(|opt| opt.copied()).collect();
-            let nulls = values.iter().map(|opt| opt.is_none()).collect();
-            (
-                OdbcValueVec::Double(values.into_iter().map(|opt| opt.unwrap_or(0.0)).collect()),
-                nulls,
-            )
-        }
+        // Non-nullable floating point types
+        AnySlice::F32(s) => handle_non_nullable_slice(s, OdbcValueVec::Real),
+        AnySlice::F64(s) => handle_non_nullable_slice(s, OdbcValueVec::Double),
+
+        // Non-nullable other types
+        AnySlice::Bit(s) => handle_non_nullable_slice(s, OdbcValueVec::Bit),
+        AnySlice::Date(s) => handle_non_nullable_slice(s, OdbcValueVec::Date),
+        AnySlice::Time(s) => handle_non_nullable_slice(s, OdbcValueVec::Time),
+        AnySlice::Timestamp(s) => handle_non_nullable_slice(s, OdbcValueVec::Timestamp),
+
+        // Nullable integer types
+        AnySlice::NullableI8(s) => handle_nullable_slice(s, OdbcValueVec::TinyInt),
+        AnySlice::NullableI16(s) => handle_nullable_slice(s, OdbcValueVec::SmallInt),
+        AnySlice::NullableI32(s) => handle_nullable_slice(s, OdbcValueVec::Integer),
+        AnySlice::NullableI64(s) => handle_nullable_slice(s, OdbcValueVec::BigInt),
+        AnySlice::NullableF32(s) => handle_nullable_slice(s, OdbcValueVec::Real),
+        AnySlice::NullableF64(s) => handle_nullable_slice(s, OdbcValueVec::Double),
         AnySlice::NullableBit(s) => {
             let values: Vec<Option<odbc_api::Bit>> = s.map(|opt| opt.copied()).collect();
             let nulls = values.iter().map(|opt| opt.is_none()).collect();
@@ -357,6 +358,7 @@ pub fn convert_any_slice_to_value_vec(slice: AnySlice<'_>) -> (OdbcValueVec, Vec
             )
         }
 
+        // Text and binary types (inherently nullable)
         AnySlice::Text(s) => {
             let texts: Vec<Option<String>> = s
                 .iter()
@@ -365,7 +367,6 @@ pub fn convert_any_slice_to_value_vec(slice: AnySlice<'_>) -> (OdbcValueVec, Vec
             let nulls = texts.iter().map(|opt| opt.is_none()).collect();
             (OdbcValueVec::Text(texts), nulls)
         }
-
         AnySlice::Binary(s) => {
             let binaries: Vec<Option<Vec<u8>>> = s
                 .iter()
@@ -375,23 +376,18 @@ pub fn convert_any_slice_to_value_vec(slice: AnySlice<'_>) -> (OdbcValueVec, Vec
             (OdbcValueVec::Binary(binaries), nulls)
         }
 
-        AnySlice::Date(s) => (OdbcValueVec::Date(s.to_vec()), vec![false; s.len()]),
-        AnySlice::Time(s) => (OdbcValueVec::Time(s.to_vec()), vec![false; s.len()]),
-        AnySlice::Timestamp(s) => (OdbcValueVec::Timestamp(s.to_vec()), vec![false; s.len()]),
+        // Nullable date/time types with NULL_DATA indicators
         AnySlice::NullableDate(s) => {
             let (raw_values, indicators) = s.raw_values();
-            let nulls = indicators.iter().map(|&ind| ind == NULL_DATA).collect();
-            (OdbcValueVec::Date(raw_values.to_vec()), nulls)
+            handle_nullable_with_indicators(raw_values, indicators, OdbcValueVec::Date)
         }
         AnySlice::NullableTime(s) => {
             let (raw_values, indicators) = s.raw_values();
-            let nulls = indicators.iter().map(|&ind| ind == NULL_DATA).collect();
-            (OdbcValueVec::Time(raw_values.to_vec()), nulls)
+            handle_nullable_with_indicators(raw_values, indicators, OdbcValueVec::Time)
         }
         AnySlice::NullableTimestamp(s) => {
             let (raw_values, indicators) = s.raw_values();
-            let nulls = indicators.iter().map(|&ind| ind == NULL_DATA).collect();
-            (OdbcValueVec::Timestamp(raw_values.to_vec()), nulls)
+            handle_nullable_with_indicators(raw_values, indicators, OdbcValueVec::Timestamp)
         }
 
         _ => panic!("Unsupported AnySlice variant"),
@@ -402,31 +398,36 @@ fn value_vec_is_null(column_data: &ColumnData, row_index: usize) -> bool {
     column_data.nulls.get(row_index).copied().unwrap_or(false)
 }
 
+macro_rules! impl_get_raw_arm {
+    ($vec:expr, $row_index:expr, $variant:ident, $type:ty) => {
+        $vec.get($row_index)
+            .map(|&val| OdbcValueType::$variant(val))
+    };
+    ($vec:expr, $row_index:expr, $variant:ident, $type:ty, copy) => {
+        $vec.get($row_index).copied().map(OdbcValueType::$variant)
+    };
+    ($vec:expr, $row_index:expr, $variant:ident, $type:ty, clone) => {
+        $vec.get($row_index)
+            .and_then(|opt| opt.clone().map(OdbcValueType::$variant))
+    };
+}
+
 fn value_vec_get_raw(values: &OdbcValueVec, row_index: usize) -> Option<OdbcValueType> {
     match values {
-        OdbcValueVec::TinyInt(v) => v.get(row_index).map(|&val| OdbcValueType::TinyInt(val)),
-        OdbcValueVec::SmallInt(v) => v.get(row_index).map(|&val| OdbcValueType::SmallInt(val)),
-        OdbcValueVec::Integer(v) => v.get(row_index).map(|&val| OdbcValueType::Integer(val)),
-        OdbcValueVec::BigInt(v) => v.get(row_index).map(|&val| OdbcValueType::BigInt(val)),
-        OdbcValueVec::Real(v) => v.get(row_index).map(|&val| OdbcValueType::Real(val)),
-        OdbcValueVec::Double(v) => v.get(row_index).map(|&val| OdbcValueType::Double(val)),
-        OdbcValueVec::Bit(v) => v.get(row_index).map(|&val| OdbcValueType::Bit(val)),
-        OdbcValueVec::Text(v) => v
-            .get(row_index)
-            .and_then(|opt| opt.clone().map(OdbcValueType::Text)),
-        OdbcValueVec::Binary(v) => v
-            .get(row_index)
-            .and_then(|opt| opt.clone().map(OdbcValueType::Binary)),
-        OdbcValueVec::Date(raw_values) => {
-            raw_values.get(row_index).copied().map(OdbcValueType::Date)
+        OdbcValueVec::TinyInt(v) => impl_get_raw_arm!(v, row_index, TinyInt, i8),
+        OdbcValueVec::SmallInt(v) => impl_get_raw_arm!(v, row_index, SmallInt, i16),
+        OdbcValueVec::Integer(v) => impl_get_raw_arm!(v, row_index, Integer, i32),
+        OdbcValueVec::BigInt(v) => impl_get_raw_arm!(v, row_index, BigInt, i64),
+        OdbcValueVec::Real(v) => impl_get_raw_arm!(v, row_index, Real, f32),
+        OdbcValueVec::Double(v) => impl_get_raw_arm!(v, row_index, Double, f64),
+        OdbcValueVec::Bit(v) => impl_get_raw_arm!(v, row_index, Bit, odbc_api::Bit),
+        OdbcValueVec::Text(v) => impl_get_raw_arm!(v, row_index, Text, Option<String>, clone),
+        OdbcValueVec::Binary(v) => impl_get_raw_arm!(v, row_index, Binary, Option<Vec<u8>>, clone),
+        OdbcValueVec::Date(v) => impl_get_raw_arm!(v, row_index, Date, odbc_api::sys::Date, copy),
+        OdbcValueVec::Time(v) => impl_get_raw_arm!(v, row_index, Time, odbc_api::sys::Time, copy),
+        OdbcValueVec::Timestamp(v) => {
+            impl_get_raw_arm!(v, row_index, Timestamp, odbc_api::sys::Timestamp, copy)
         }
-        OdbcValueVec::Time(raw_values) => {
-            raw_values.get(row_index).copied().map(OdbcValueType::Time)
-        }
-        OdbcValueVec::Timestamp(raw_values) => raw_values
-            .get(row_index)
-            .copied()
-            .map(OdbcValueType::Timestamp),
     }
 }
 
@@ -457,20 +458,30 @@ impl<
 {
 }
 
+macro_rules! impl_int_conversion {
+    ($vec:expr, $row_index:expr, $type:ty) => {
+        <$type>::try_from(*$vec.get($row_index)?).ok()
+    };
+    ($vec:expr, $row_index:expr, $type:ty, bit) => {
+        <$type>::try_from($vec.get($row_index)?.0).ok()
+    };
+    ($vec:expr, $row_index:expr, $type:ty, text) => {
+        if let Some(Some(text)) = $vec.get($row_index) {
+            text.trim().parse().ok()
+        } else {
+            None
+        }
+    };
+}
+
 fn value_vec_int<T: TryFromInt>(values: &OdbcValueVec, row_index: usize) -> Option<T> {
     match values {
-        OdbcValueVec::TinyInt(v) => T::try_from(*v.get(row_index)?).ok(),
-        OdbcValueVec::SmallInt(v) => T::try_from(*v.get(row_index)?).ok(),
-        OdbcValueVec::Integer(v) => T::try_from(*v.get(row_index)?).ok(),
-        OdbcValueVec::BigInt(v) => T::try_from(*v.get(row_index)?).ok(),
-        OdbcValueVec::Bit(v) => T::try_from(v.get(row_index)?.0).ok(),
-        OdbcValueVec::Text(v) => {
-            if let Some(Some(text)) = v.get(row_index) {
-                text.trim().parse().ok()
-            } else {
-                None
-            }
-        }
+        OdbcValueVec::TinyInt(v) => impl_int_conversion!(v, row_index, T),
+        OdbcValueVec::SmallInt(v) => impl_int_conversion!(v, row_index, T),
+        OdbcValueVec::Integer(v) => impl_int_conversion!(v, row_index, T),
+        OdbcValueVec::BigInt(v) => impl_int_conversion!(v, row_index, T),
+        OdbcValueVec::Bit(v) => impl_int_conversion!(v, row_index, T, bit),
+        OdbcValueVec::Text(v) => impl_int_conversion!(v, row_index, T, text),
         _ => None,
     }
 }
@@ -479,10 +490,16 @@ pub trait TryFromFloat: TryFrom<f32> + TryFrom<f64> {}
 
 impl<T: TryFrom<f32> + TryFrom<f64>> TryFromFloat for T {}
 
+macro_rules! impl_float_conversion {
+    ($vec:expr, $row_index:expr, $type:ty) => {
+        <$type>::try_from(*$vec.get($row_index)?).ok()
+    };
+}
+
 fn value_vec_float<T: TryFromFloat>(values: &OdbcValueVec, row_index: usize) -> Option<T> {
     match values {
-        OdbcValueVec::Real(v) => T::try_from(*v.get(row_index)?).ok(),
-        OdbcValueVec::Double(v) => T::try_from(*v.get(row_index)?).ok(),
+        OdbcValueVec::Real(v) => impl_float_conversion!(v, row_index, T),
+        OdbcValueVec::Double(v) => impl_float_conversion!(v, row_index, T),
         _ => None,
     }
 }

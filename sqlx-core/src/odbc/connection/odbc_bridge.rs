@@ -8,7 +8,6 @@ use either::Either;
 use flume::{SendError, Sender};
 use odbc_api::buffers::{AnySlice, BufferDesc, ColumnarAnyBuffer};
 use odbc_api::handles::{AsStatementRef, Nullability, Statement};
-use odbc_api::DataType;
 use odbc_api::{Cursor, IntoParameter, ResultSetMetadata};
 use std::sync::Arc;
 
@@ -189,31 +188,44 @@ fn map_buffer_desc<C>(
 where
     C: ResultSetMetadata,
 {
+    use odbc_api::DataType;
+
     let data_type = type_info.data_type();
+
+    // Helper function to determine buffer length with fallback
+    let buffer_length = |length: Option<std::num::NonZeroUsize>| {
+        if let Some(length) = length {
+            if length.get() < 255 {
+                length.get()
+            } else {
+                buffer_settings.max_column_size
+            }
+        } else {
+            buffer_settings.max_column_size
+        }
+    };
+
     let buffer_desc = match data_type {
+        // Integer types - all map to I64
         DataType::TinyInt | DataType::SmallInt | DataType::Integer | DataType::BigInt => {
             BufferDesc::I64 { nullable }
         }
+        // Floating point types
         DataType::Real => BufferDesc::F32 { nullable },
         DataType::Float { .. } | DataType::Double => BufferDesc::F64 { nullable },
+        // Bit type
         DataType::Bit => BufferDesc::Bit { nullable },
+        // Date/Time types
         DataType::Date => BufferDesc::Date { nullable },
         DataType::Time { .. } => BufferDesc::Time { nullable },
         DataType::Timestamp { .. } => BufferDesc::Timestamp { nullable },
+        // Binary types
         DataType::Binary { length }
         | DataType::Varbinary { length }
         | DataType::LongVarbinary { length } => BufferDesc::Binary {
-            length: if let Some(length) = length {
-                if length.get() < 255 {
-                    // Some drivers report 255 for max length
-                    length.get()
-                } else {
-                    buffer_settings.max_column_size
-                }
-            } else {
-                buffer_settings.max_column_size
-            },
+            length: buffer_length(length),
         },
+        // Text types
         DataType::Char { length }
         | DataType::WChar { length }
         | DataType::Varchar { length }
@@ -224,16 +236,9 @@ where
             column_size: length,
             ..
         } => BufferDesc::Text {
-            max_str_len: if let Some(length) = length {
-                if length.get() < 255 {
-                    length.get()
-                } else {
-                    buffer_settings.max_column_size
-                }
-            } else {
-                buffer_settings.max_column_size
-            },
+            max_str_len: buffer_length(length),
         },
+        // Fallback cases
         DataType::Unknown => BufferDesc::Text {
             max_str_len: buffer_settings.max_column_size,
         },
