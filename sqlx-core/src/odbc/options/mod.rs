@@ -8,15 +8,115 @@ use std::time::Duration;
 
 use crate::odbc::OdbcConnection;
 
+/// Configuration for ODBC buffer settings that control memory usage and performance characteristics.
+///
+/// These settings affect how SQLx fetches and processes data from ODBC data sources. Careful tuning
+/// of these parameters can significantly impact memory usage and query performance.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct OdbcBufferSettings {
+    /// The number of rows to fetch in each batch during bulk operations.
+    ///
+    /// **Performance Impact:**
+    /// - Higher values reduce the number of round-trips to the database but increase memory usage
+    /// - Lower values reduce memory usage but may increase latency due to more frequent fetches
+    /// - Typical range: 32-512 rows
+    ///
+    /// **Memory Impact:**
+    /// - Each batch allocates buffers for `batch_size * number_of_columns` cells
+    /// - For wide result sets, this can consume significant memory
+    ///
+    /// **Default:** 128 rows
+    pub batch_size: usize,
+
+    /// The maximum size (in characters) for text and binary columns when the database doesn't specify a length.
+    ///
+    /// **Performance Impact:**
+    /// - Higher values ensure large text fields are fully captured but increase memory allocation
+    /// - Lower values may truncate data but reduce memory pressure
+    /// - Affects VARCHAR, NVARCHAR, TEXT, and BLOB column types
+    ///
+    /// **Memory Impact:**
+    /// - Directly controls buffer size for variable-length columns
+    /// - Setting too high can waste memory; setting too low can cause data truncation
+    /// - Consider your data characteristics when tuning this value
+    pub max_column_size: usize,
+}
+
+impl Default for OdbcBufferSettings {
+    fn default() -> Self {
+        Self {
+            batch_size: 128,
+            max_column_size: 4096,
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct OdbcConnectOptions {
     pub(crate) conn_str: String,
     pub(crate) log_settings: LogSettings,
+    pub(crate) buffer_settings: OdbcBufferSettings,
 }
 
 impl OdbcConnectOptions {
     pub fn connection_string(&self) -> &str {
         &self.conn_str
+    }
+
+    /// Sets the buffer configuration for this connection.
+    ///
+    /// The buffer settings control memory usage and performance characteristics
+    /// when fetching data from ODBC data sources.
+    ///
+    /// # Example
+    /// ```rust
+    /// use sqlx::odbc::{OdbcConnectOptions, OdbcBufferSettings};
+    ///
+    /// let mut opts = OdbcConnectOptions::from_str("DSN=MyDataSource")?;
+    /// opts.buffer_settings(OdbcBufferSettings {
+    ///     batch_size: 256,
+    ///     max_column_size: 2048,
+    /// });
+    /// # Ok::<(), sqlx::Error>(())
+    /// ```
+    pub fn buffer_settings(&mut self, settings: OdbcBufferSettings) -> &mut Self {
+        self.buffer_settings = settings;
+        self
+    }
+
+    /// Sets the batch size for bulk fetch operations.
+    ///
+    /// This controls how many rows are fetched at once during query execution.
+    /// Higher values can improve performance for large result sets but use more memory.
+    ///
+    /// # Panics
+    /// Panics if `batch_size` is 0.
+    pub fn batch_size(&mut self, batch_size: usize) -> &mut Self {
+        assert!(batch_size > 0, "batch_size must be greater than 0");
+        self.buffer_settings.batch_size = batch_size;
+        self
+    }
+
+    /// Sets the maximum column size for text and binary data.
+    ///
+    /// This controls the buffer size allocated for columns when the database
+    /// doesn't specify a maximum length. Larger values ensure complete data
+    /// capture but increase memory usage.
+    ///
+    /// # Panics
+    /// Panics if `max_column_size` is less than 1024 or greater than 4096.
+    pub fn max_column_size(&mut self, max_column_size: usize) -> &mut Self {
+        assert!(
+            (1024..=4096).contains(&max_column_size),
+            "max_column_size must be between 1024 and 4096"
+        );
+        self.buffer_settings.max_column_size = max_column_size;
+        self
+    }
+
+    /// Returns the current buffer settings for this connection.
+    pub fn buffer_settings_ref(&self) -> &OdbcBufferSettings {
+        &self.buffer_settings
     }
 }
 
@@ -24,6 +124,7 @@ impl Debug for OdbcConnectOptions {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("OdbcConnectOptions")
             .field("conn_str", &"<redacted>")
+            .field("buffer_settings", &self.buffer_settings)
             .finish()
     }
 }
@@ -51,6 +152,7 @@ impl FromStr for OdbcConnectOptions {
         Ok(Self {
             conn_str,
             log_settings: LogSettings::default(),
+            buffer_settings: OdbcBufferSettings::default(),
         })
     }
 }

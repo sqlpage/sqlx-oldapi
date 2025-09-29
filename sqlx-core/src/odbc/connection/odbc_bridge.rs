@@ -1,8 +1,8 @@
 use super::decode_column_name;
 use crate::error::Error;
 use crate::odbc::{
-    connection::MaybePrepared, ColumnData, OdbcArgumentValue, OdbcArguments, OdbcBatch, OdbcColumn,
-    OdbcQueryResult, OdbcRow, OdbcTypeInfo,
+    connection::MaybePrepared, ColumnData, OdbcArgumentValue, OdbcArguments, OdbcBatch,
+    OdbcBufferSettings, OdbcColumn, OdbcQueryResult, OdbcRow, OdbcTypeInfo,
 };
 use either::Either;
 use flume::{SendError, Sender};
@@ -10,25 +10,21 @@ use odbc_api::buffers::{AnySlice, BufferDesc, ColumnarAnyBuffer};
 use odbc_api::handles::{AsStatementRef, Nullability, Statement};
 use odbc_api::DataType;
 use odbc_api::{Cursor, IntoParameter, ResultSetMetadata};
-use std::cmp::min;
 use std::sync::Arc;
 
 // Bulk fetch implementation using columnar buffers instead of row-by-row fetching
 // This provides significant performance improvements by fetching rows in batches
 // and avoiding the slow `next_row()` method from odbc-api
-const BATCH_SIZE: usize = 128;
-const DEFAULT_TEXT_LEN: usize = 512;
-const DEFAULT_BINARY_LEN: usize = 1024;
-const DEFAULT_NUMERIC_TEXT_LEN: usize = 128;
-const MIN_TEXT_LEN: usize = 1024;
-const MAX_TEXT_LEN: usize = 4096;
 
 struct ColumnBinding {
     column: OdbcColumn,
     buffer_desc: BufferDesc,
 }
 
-fn build_bindings<C>(cursor: &mut C) -> Result<Vec<ColumnBinding>, Error>
+fn build_bindings<C>(
+    cursor: &mut C,
+    buffer_settings: &OdbcBufferSettings,
+) -> Result<Vec<ColumnBinding>, Error>
 where
     C: ResultSetMetadata,
 {
@@ -40,7 +36,13 @@ where
             .col_nullability(index as u16)
             .unwrap_or(Nullability::Unknown)
             .could_be_nullable();
-        let buffer_desc = map_buffer_desc(cursor, index as u16, &column.type_info, nullable)?;
+        let buffer_desc = map_buffer_desc(
+            cursor,
+            index as u16,
+            &column.type_info,
+            nullable,
+            buffer_settings,
+        )?;
         bindings.push(ColumnBinding {
             column,
             buffer_desc,
@@ -67,6 +69,7 @@ pub fn execute_sql(
     maybe_prepared: MaybePrepared,
     args: Option<OdbcArguments>,
     tx: &ExecuteSender,
+    buffer_settings: OdbcBufferSettings,
 ) -> Result<(), Error> {
     let params = prepare_parameters(args);
 
@@ -74,14 +77,14 @@ pub fn execute_sql(
         MaybePrepared::Prepared(prepared) => {
             let mut prepared = prepared.lock().expect("prepared statement lock");
             if let Some(cursor) = prepared.execute(&params[..])? {
-                handle_cursor(cursor, tx);
+                handle_cursor(cursor, tx, buffer_settings);
             }
             extract_rows_affected(&mut *prepared)
         }
         MaybePrepared::NotPrepared(sql) => {
             let mut preallocated = conn.preallocate().map_err(Error::from)?;
             if let Some(cursor) = preallocated.execute(&sql, &params[..])? {
-                handle_cursor(cursor, tx);
+                handle_cursor(cursor, tx, buffer_settings);
             }
             extract_rows_affected(&mut preallocated)
         }
@@ -127,11 +130,11 @@ fn to_param(arg: OdbcArgumentValue) -> Box<dyn odbc_api::parameter::InputParamet
     }
 }
 
-fn handle_cursor<C>(mut cursor: C, tx: &ExecuteSender)
+fn handle_cursor<C>(mut cursor: C, tx: &ExecuteSender, buffer_settings: OdbcBufferSettings)
 where
     C: Cursor + ResultSetMetadata,
 {
-    let bindings = match build_bindings(&mut cursor) {
+    let bindings = match build_bindings(&mut cursor, &buffer_settings) {
         Ok(b) => b,
         Err(e) => {
             send_error(tx, e);
@@ -139,7 +142,7 @@ where
         }
     };
 
-    match stream_rows(cursor, bindings, tx) {
+    match stream_rows(cursor, bindings, tx, buffer_settings) {
         Ok(true) => {
             let _ = send_done(tx, 0);
         }
@@ -181,6 +184,7 @@ fn map_buffer_desc<C>(
     _column_index: u16,
     type_info: &OdbcTypeInfo,
     nullable: bool,
+    buffer_settings: &OdbcBufferSettings,
 ) -> Result<BufferDesc, Error>
 where
     C: ResultSetMetadata,
@@ -200,9 +204,14 @@ where
         | DataType::Varbinary { length }
         | DataType::LongVarbinary { length } => BufferDesc::Binary {
             length: if let Some(length) = length {
-                length.get().clamp(MIN_TEXT_LEN, MAX_TEXT_LEN)
+                if length.get() < 255 {
+                    // Some drivers report 255 for max length
+                    length.get()
+                } else {
+                    buffer_settings.max_column_size
+                }
             } else {
-                MAX_TEXT_LEN
+                buffer_settings.max_column_size
             },
         },
         DataType::Char { length }
@@ -216,16 +225,20 @@ where
             ..
         } => BufferDesc::Text {
             max_str_len: if let Some(length) = length {
-                length.get().clamp(MIN_TEXT_LEN, MAX_TEXT_LEN)
+                if length.get() < 255 {
+                    length.get()
+                } else {
+                    buffer_settings.max_column_size
+                }
             } else {
-                MAX_TEXT_LEN
+                buffer_settings.max_column_size
             },
         },
         DataType::Unknown => BufferDesc::Text {
-            max_str_len: MAX_TEXT_LEN,
+            max_str_len: buffer_settings.max_column_size,
         },
         DataType::Decimal { .. } | DataType::Numeric { .. } => BufferDesc::Text {
-            max_str_len: min(DEFAULT_NUMERIC_TEXT_LEN, MAX_TEXT_LEN),
+            max_str_len: buffer_settings.max_column_size,
         },
     };
 
@@ -236,12 +249,13 @@ fn stream_rows<C>(
     cursor: C,
     bindings: Vec<ColumnBinding>,
     tx: &ExecuteSender,
+    buffer_settings: OdbcBufferSettings,
 ) -> Result<bool, Error>
 where
     C: Cursor + ResultSetMetadata,
 {
     let buffer_descriptions: Vec<_> = bindings.iter().map(|b| b.buffer_desc).collect();
-    let buffer = ColumnarAnyBuffer::from_descs(BATCH_SIZE, buffer_descriptions);
+    let buffer = ColumnarAnyBuffer::from_descs(buffer_settings.batch_size, buffer_descriptions);
     let mut row_set_cursor = cursor.bind_buffer(buffer)?;
 
     let mut receiver_open = true;

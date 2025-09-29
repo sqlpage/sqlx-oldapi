@@ -20,6 +20,27 @@
 //! ```text
 //! odbc:DSN=MyDataSource
 //! ```
+//!
+//! ## Buffer Configuration
+//!
+//! You can configure buffer settings for performance tuning:
+//!
+//! ```rust
+//! use sqlx::odbc::{OdbcConnectOptions, OdbcBufferSettings};
+//!
+//! let mut opts = OdbcConnectOptions::from_str("DSN=MyDataSource")?;
+//!
+//! // Configure for high-throughput scenarios
+//! opts.buffer_settings(OdbcBufferSettings {
+//!     batch_size: 256,        // Fetch 256 rows at once
+//!     max_column_size: 2048,  // Limit text columns to 2048 chars
+//! });
+//!
+//! // Or configure individual settings
+//! opts.batch_size(512)
+//!     .max_column_size(1024);
+//! # Ok::<(), sqlx::Error>(())
+//! ```
 
 use crate::executor::Executor;
 
@@ -41,7 +62,7 @@ pub use arguments::{OdbcArgumentValue, OdbcArguments};
 pub use column::OdbcColumn;
 pub use connection::OdbcConnection;
 pub use database::Odbc;
-pub use options::OdbcConnectOptions;
+pub use options::{OdbcBufferSettings, OdbcConnectOptions};
 pub use query_result::OdbcQueryResult;
 pub use row::{OdbcBatch, OdbcRow};
 pub use statement::{OdbcStatement, OdbcStatementMetadata};

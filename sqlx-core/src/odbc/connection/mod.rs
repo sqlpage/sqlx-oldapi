@@ -1,7 +1,8 @@
 use crate::connection::Connection;
 use crate::error::Error;
 use crate::odbc::{
-    Odbc, OdbcArguments, OdbcColumn, OdbcConnectOptions, OdbcQueryResult, OdbcRow, OdbcTypeInfo,
+    Odbc, OdbcArguments, OdbcBufferSettings, OdbcColumn, OdbcConnectOptions, OdbcQueryResult,
+    OdbcRow, OdbcTypeInfo,
 };
 use crate::transaction::Transaction;
 use either::Either;
@@ -67,12 +68,14 @@ pub(super) fn decode_column_name<T: ColumnNameDecode>(name: T, index: u16) -> St
 pub struct OdbcConnection {
     pub(crate) conn: SharedConnection<'static>,
     pub(crate) stmt_cache: HashMap<Arc<str>, SharedPreparedStatement>,
+    pub(crate) buffer_settings: OdbcBufferSettings,
 }
 
 impl std::fmt::Debug for OdbcConnection {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("OdbcConnection")
             .field("conn", &self.conn)
+            .field("buffer_settings", &self.buffer_settings)
             .finish()
     }
 }
@@ -108,6 +111,7 @@ impl OdbcConnection {
         Ok(Self {
             conn: shared_conn,
             stmt_cache: HashMap::new(),
+            buffer_settings: options.buffer_settings,
         })
     }
 
@@ -162,9 +166,10 @@ impl OdbcConnection {
         };
 
         let conn = Arc::clone(&self.conn);
+        let buffer_settings = self.buffer_settings;
         sqlx_rt::spawn(sqlx_rt::spawn_blocking(move || {
             let mut conn = conn.lock().expect("failed to lock connection");
-            if let Err(e) = execute_sql(&mut conn, maybe_prepared, args, &tx) {
+            if let Err(e) = execute_sql(&mut conn, maybe_prepared, args, &tx, buffer_settings) {
                 let _ = tx.send(Err(e));
             }
         }));
