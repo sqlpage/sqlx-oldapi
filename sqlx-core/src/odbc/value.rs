@@ -1,4 +1,5 @@
 use crate::odbc::{Odbc, OdbcBatch, OdbcTypeInfo};
+use crate::type_info::TypeInfo;
 use crate::value::{Value, ValueRef};
 use odbc_api::buffers::{AnySlice, NullableSlice};
 use odbc_api::sys::NULL_DATA;
@@ -156,32 +157,30 @@ impl<'r> OdbcValueRef<'r> {
     }
 
     pub fn try_int<T: TryFromInt + crate::types::Type<Odbc>>(&self) -> crate::error::Result<T> {
-        if !T::compatible(&self.batch.column_data[self.column_index].type_info) {
-            return Err(crate::error::Error::Decode(
-                crate::error::mismatched_types::<Odbc, T>(
-                    &self.batch.column_data[self.column_index].type_info,
-                ),
-            ));
-        }
         self.int::<T>().ok_or_else(|| {
-            crate::error::Error::Decode(crate::error::mismatched_types::<Odbc, T>(
-                &self.batch.columns[self.column_index].type_info,
-            ))
+            crate::error::Error::Decode(Box::new(crate::error::MismatchedTypeError {
+                rust_type: T::type_info().name().to_string(),
+                rust_sql_type: T::type_info().name().to_string(),
+                sql_type: self.batch.column_data[self.column_index]
+                    .type_info
+                    .name()
+                    .to_string(),
+                source: Some(format!("ODBC: cannot decode {:?}", self).into()),
+            }))
         })
     }
 
     pub fn try_float<T: TryFromFloat + crate::types::Type<Odbc>>(&self) -> crate::error::Result<T> {
-        if !T::compatible(&self.batch.column_data[self.column_index].type_info) {
-            return Err(crate::error::Error::Decode(
-                crate::error::mismatched_types::<Odbc, T>(
-                    &self.batch.column_data[self.column_index].type_info,
-                ),
-            ));
-        }
         self.float::<T>().ok_or_else(|| {
-            crate::error::Error::Decode(crate::error::mismatched_types::<Odbc, T>(
-                &self.batch.columns[self.column_index].type_info,
-            ))
+            crate::error::Error::Decode(Box::new(crate::error::MismatchedTypeError {
+                rust_type: T::type_info().name().to_string(),
+                rust_sql_type: T::type_info().name().to_string(),
+                sql_type: self.batch.column_data[self.column_index]
+                    .type_info
+                    .name()
+                    .to_string(),
+                source: Some(format!("ODBC: cannot decode {:?}", self).into()),
+            }))
         })
     }
 

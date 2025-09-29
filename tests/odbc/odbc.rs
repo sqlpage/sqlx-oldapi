@@ -1037,25 +1037,45 @@ async fn it_handles_prepared_statement_with_wrong_parameters() -> anyhow::Result
 }
 
 #[tokio::test]
-async fn it_works_with_unbuffered_mode() -> anyhow::Result<()> {
+async fn it_works_with_buffered_and_unbuffered_mode() -> anyhow::Result<()> {
     use sqlx_oldapi::odbc::{OdbcBufferSettings, OdbcConnectOptions};
 
     // Create connection with unbuffered settings
     let database_url = std::env::var("DATABASE_URL").unwrap();
     let mut opts = OdbcConnectOptions::from_str(&database_url)?;
 
-    for batch_size in [1, 100, 10000] {
-        opts.buffer_settings(OdbcBufferSettings {
-            batch_size,
+    let count = 450;
+
+    let select = (0..count)
+        .map(|i| format!("SELECT {i} AS n, '{}' as aas", "a".repeat(i)))
+        .collect::<Vec<_>>()
+        .join(" UNION ALL ");
+
+    for buf_settings in [
+        OdbcBufferSettings {
+            batch_size: 1,
             max_column_size: None,
-        });
+        },
+        OdbcBufferSettings {
+            batch_size: 1,
+            max_column_size: Some(450),
+        },
+        OdbcBufferSettings {
+            batch_size: 100,
+            max_column_size: None,
+        },
+        OdbcBufferSettings {
+            batch_size: 10000,
+            max_column_size: None,
+        },
+        OdbcBufferSettings {
+            batch_size: 10000,
+            max_column_size: Some(450),
+        },
+    ] {
+        opts.buffer_settings(buf_settings);
 
         let mut conn = OdbcConnection::connect_with(&opts).await?;
-        let count = 450;
-        let select = (0..count)
-            .map(|i| format!("SELECT {i} AS n"))
-            .collect::<Vec<_>>()
-            .join(" UNION ALL ");
 
         // Test that unbuffered mode works correctly
         let s = conn
@@ -1067,8 +1087,20 @@ async fn it_works_with_unbuffered_mode() -> anyhow::Result<()> {
         assert_eq!(s.len(), count);
         for i in 0..count {
             let row = s.get(i).expect("row expected");
-            let as_i64 = row.get::<'_, i64, _>(0);
+            let as_i64 = row
+                .try_get_raw(0)
+                .expect("1 column expected")
+                .to_owned()
+                .try_decode::<i64>()
+                .expect("SELECT n should be an i64");
             assert_eq!(as_i64, i64::try_from(i).unwrap());
+            let aas = row
+                .try_get_raw(1)
+                .expect("1 column expected")
+                .to_owned()
+                .try_decode::<String>()
+                .expect("SELECT aas should be a string");
+            assert_eq!(aas, "a".repeat(i));
         }
     }
     Ok(())

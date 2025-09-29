@@ -434,9 +434,7 @@ where
         vec: &mut Vec<T>,
         nulls: &mut Vec<bool>,
     ) {
-        let mut tmp = T::default();
-        nulls.push(cursor_row.get_data(col_index, &mut tmp).is_ok());
-        vec.push(tmp);
+        push_get_data_with_default(cursor_row, col_index, vec, nulls, T::default());
     }
 
     fn push_get_data_with_default<T: Copy + CElement + CDataMut>(
@@ -447,13 +445,8 @@ where
         default_val: T,
     ) {
         let mut tmp = default_val;
-        if cursor_row.get_data(col_index, &mut tmp).is_ok() {
-            vec.push(tmp);
-            nulls.push(false);
-        } else {
-            vec.push(default_val);
-            nulls.push(true);
-        }
+        nulls.push(cursor_row.get_data(col_index, &mut tmp).is_err());
+        vec.push(tmp);
     }
 
     fn push_binary(
@@ -463,16 +456,8 @@ where
         nulls: &mut Vec<bool>,
     ) {
         let mut buf = Vec::new();
-        match cursor_row.get_text(col_index, &mut buf) {
-            Ok(true) => {
-                vec.push(buf);
-                nulls.push(false);
-            }
-            Ok(false) | Err(_) => {
-                vec.push(Vec::new());
-                nulls.push(true);
-            }
-        }
+        nulls.push(cursor_row.get_text(col_index, &mut buf).is_err());
+        vec.push(buf);
     }
 
     fn push_text(
