@@ -2898,9 +2898,9 @@ checksum = "d05e27ee213611ffe7d6348b942e8f942b37114c00cc03cec254295a4a17852e"
 
 [[package]]
 name = "openssl-src"
-version = "300.5.2+3.5.2"
+version = "300.5.3+3.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d270b79e2926f5150189d475bc7e9d2c69f9c4697b185fa917d5a32b792d21b4"
+checksum = "dc6bad8cd0233b63971e232cc9c5e83039375b8586d2312f31fda85db8f888c2"
 dependencies = [
  "cc",
 ]
@@ -3991,7 +3991,7 @@ dependencies = [
 
 [[package]]
 name = "sqlx-cli"
-version = "0.6.49-beta.5"
+version = "0.6.49-beta.6"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4016,7 +4016,7 @@ dependencies = [
 
 [[package]]
 name = "sqlx-core-oldapi"
-version = "0.6.49-beta.5"
+version = "0.6.49-beta.6"
 dependencies = [
  "ahash 0.8.12",
  "atoi",
@@ -4178,7 +4178,7 @@ dependencies = [
 
 [[package]]
 name = "sqlx-macros-oldapi"
-version = "0.6.49-beta.5"
+version = "0.6.49-beta.6"
 dependencies = [
  "dotenvy",
  "either",
@@ -4198,7 +4198,7 @@ dependencies = [
 
 [[package]]
 name = "sqlx-oldapi"
-version = "0.6.49-beta.5"
+version = "0.6.49-beta.6"
 dependencies = [
  "anyhow",
  "async-std",
@@ -4226,7 +4226,7 @@ dependencies = [
 
 [[package]]
 name = "sqlx-rt-oldapi"
-version = "0.6.49-beta.5"
+version = "0.6.49-beta.6"
 dependencies = [
  "async-native-tls",
  "async-std",
