@@ -40,7 +40,6 @@ fn build_bindings<C: Cursor>(
             buffer_desc,
         });
     }
-    dbg!(&bindings);
     log::trace!(
         "built {} ODBC batch column bindings: {:?}",
         bindings.len(),

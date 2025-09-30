@@ -338,7 +338,10 @@ impl<'r> Decode<'r, Odbc> for NaiveDateTime {
             s = s.trim_end_matches('\u{0}').to_string();
         }
         let s_trimmed = s.trim();
-        // Try strict format first, then fall back to Chrono's FromStr
+
+        if let Ok(dt) = NaiveDateTime::parse_from_str(s_trimmed, "%Y-%m-%d %H:%M:%S%.f") {
+            return Ok(dt);
+        }
         if let Ok(dt) = NaiveDateTime::parse_from_str(s_trimmed, "%Y-%m-%d %H:%M:%S") {
             return Ok(dt);
         }
@@ -383,6 +386,9 @@ impl<'r> Decode<'r, Odbc> for DateTime<Utc> {
         }
 
         // If that fails, try to parse as a naive datetime and convert to UTC
+        if let Ok(naive_dt) = NaiveDateTime::parse_from_str(s_trimmed, "%Y-%m-%d %H:%M:%S%.f") {
+            return Ok(DateTime::<Utc>::from_naive_utc_and_offset(naive_dt, Utc));
+        }
         if let Ok(naive_dt) = NaiveDateTime::parse_from_str(s_trimmed, "%Y-%m-%d %H:%M:%S") {
             return Ok(DateTime::<Utc>::from_naive_utc_and_offset(naive_dt, Utc));
         }
@@ -428,6 +434,9 @@ impl<'r> Decode<'r, Odbc> for DateTime<FixedOffset> {
         }
 
         // If that fails, try to parse as a naive datetime and assume UTC (zero offset)
+        if let Ok(naive_dt) = NaiveDateTime::parse_from_str(s_trimmed, "%Y-%m-%d %H:%M:%S%.f") {
+            return Ok(DateTime::<Utc>::from_naive_utc_and_offset(naive_dt, Utc).fixed_offset());
+        }
         if let Ok(naive_dt) = NaiveDateTime::parse_from_str(s_trimmed, "%Y-%m-%d %H:%M:%S") {
             return Ok(DateTime::<Utc>::from_naive_utc_and_offset(naive_dt, Utc).fixed_offset());
         }
