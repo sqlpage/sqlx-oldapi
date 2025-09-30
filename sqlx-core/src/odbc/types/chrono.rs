@@ -646,14 +646,13 @@ mod tests {
         let date = NaiveDate::from_ymd_opt(2020, 1, 2).unwrap();
         let result = <NaiveDate as Encode<Odbc>>::encode(date, &mut buf);
         assert!(matches!(result, crate::encode::IsNull::No));
-        assert_eq!(buf.len(), 1);
         assert_eq!(
-            buf[0],
-            OdbcArgumentValue::Date(odbc_api::sys::Date {
+            buf,
+            vec![OdbcArgumentValue::Date(odbc_api::sys::Date {
                 year: 2020,
                 month: 1,
                 day: 2,
-            })
+            })]
         );
     }
 
