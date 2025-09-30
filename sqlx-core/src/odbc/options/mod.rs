@@ -70,8 +70,8 @@ pub struct OdbcBufferSettings {
 impl Default for OdbcBufferSettings {
     fn default() -> Self {
         Self {
-            batch_size: 128,
-            max_column_size: Some(4096),
+            batch_size: 64,
+            max_column_size: None,
         }
     }
 }
@@ -140,16 +140,7 @@ impl OdbcConnectOptions {
     ///
     /// - When set to `Some(value)`: Enables buffered mode with batch fetching
     /// - When set to `None`: Enables unbuffered mode with row-by-row processing
-    ///
-    /// # Panics
-    /// Panics if `max_column_size` is less than 1024 or greater than 4096 (when Some).
     pub fn max_column_size(&mut self, max_column_size: Option<usize>) -> &mut Self {
-        if let Some(size) = max_column_size {
-            assert!(
-                (1024..=4096).contains(&size),
-                "max_column_size must be between 1024 and 4096"
-            );
-        }
         self.buffer_settings.max_column_size = max_column_size;
         self
     }
