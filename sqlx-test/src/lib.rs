@@ -105,7 +105,7 @@ macro_rules! test_unprepared_type {
                     let row = s.try_next().await?.unwrap();
                     let rec = row.try_get::<$ty, _>(0)?;
 
-                    assert_eq!($value, rec, "Value mismatch on {row:?}: Expected {:#?} but received {rec:#?} ({}) from db", $value, std::any::type_name::<$ty>());
+                    assert_eq!($value, rec, "Value mismatch on: Expected {:#?} but received {rec:#?} ({}) from db", $value, std::any::type_name::<$ty>());
 
                     drop(s);
                 )+
@@ -165,8 +165,6 @@ macro_rules! __test_prepared_type {
                         .bind($value)
                         .fetch_one(&mut conn)
                         .await?;
-
-                    println!("Row: {:?}", row);
 
                     let matches: i32 = row.try_get(0)?;
                     let returned: $ty = row.try_get(1)?;
