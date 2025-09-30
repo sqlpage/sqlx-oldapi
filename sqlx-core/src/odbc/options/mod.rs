@@ -140,7 +140,13 @@ impl OdbcConnectOptions {
     ///
     /// - When set to `Some(value)`: Enables buffered mode with batch fetching
     /// - When set to `None`: Enables unbuffered mode with row-by-row processing
+    ///
+    /// # Panics
+    /// Panics if `max_column_size` is less than 0.
     pub fn max_column_size(&mut self, max_column_size: Option<usize>) -> &mut Self {
+        if let Some(size) = max_column_size {
+            assert!(size > 0, "max_column_size must be greater than 0");
+        }
         self.buffer_settings.max_column_size = max_column_size;
         self
     }

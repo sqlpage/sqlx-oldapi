@@ -16,19 +16,16 @@ use std::sync::Arc;
 // Bulk fetch implementation using columnar buffers instead of row-by-row fetching
 // This provides significant performance improvements by fetching rows in batches
 // and avoiding the slow `next_row()` method from odbc-api
-
+#[derive(Debug)]
 struct ColumnBinding {
     column: OdbcColumn,
     buffer_desc: BufferDesc,
 }
 
-fn build_bindings<C>(
+fn build_bindings<C: Cursor>(
     cursor: &mut C,
-    buffer_settings: &OdbcBufferSettings,
-) -> Result<Vec<ColumnBinding>, Error>
-where
-    C: ResultSetMetadata,
-{
+    max_column_size: usize,
+) -> Result<Vec<ColumnBinding>, Error> {
     let column_count = cursor.num_result_cols().unwrap_or(0);
     let mut bindings = Vec::with_capacity(column_count as usize);
     for index in 1..=column_count {
@@ -37,18 +34,18 @@ where
             .col_nullability(index as u16)
             .unwrap_or(Nullability::Unknown)
             .could_be_nullable();
-        let buffer_desc = map_buffer_desc(
-            cursor,
-            index as u16,
-            &column.type_info,
-            nullable,
-            buffer_settings,
-        )?;
+        let buffer_desc = map_buffer_desc(&column.type_info, nullable, max_column_size)?;
         bindings.push(ColumnBinding {
             column,
             buffer_desc,
         });
     }
+    dbg!(&bindings);
+    log::trace!(
+        "built {} ODBC batch column bindings: {:?}",
+        bindings.len(),
+        bindings
+    );
     Ok(bindings)
 }
 
@@ -131,14 +128,15 @@ fn to_param(arg: OdbcArgumentValue) -> Box<dyn odbc_api::parameter::InputParamet
     }
 }
 
-fn handle_cursor<C>(mut cursor: C, tx: &ExecuteSender, buffer_settings: OdbcBufferSettings)
-where
-    C: Cursor + ResultSetMetadata,
-{
+fn handle_cursor<C: Cursor + ResultSetMetadata>(
+    mut cursor: C,
+    tx: &ExecuteSender,
+    buffer_settings: OdbcBufferSettings,
+) {
     match buffer_settings.max_column_size {
-        Some(_) => {
+        Some(max_column_size) => {
             // Buffered mode - use batch fetching with columnar buffers
-            let bindings = match build_bindings(&mut cursor, &buffer_settings) {
+            let bindings = match build_bindings(&mut cursor, max_column_size) {
                 Ok(b) => b,
                 Err(e) => {
                     send_error(tx, e);
@@ -197,34 +195,17 @@ where
     }
 }
 
-fn map_buffer_desc<C>(
-    _cursor: &mut C,
-    _column_index: u16,
+fn map_buffer_desc(
     type_info: &OdbcTypeInfo,
     nullable: bool,
-    buffer_settings: &OdbcBufferSettings,
-) -> Result<BufferDesc, Error>
-where
-    C: ResultSetMetadata,
-{
+    max_column_size: usize,
+) -> Result<BufferDesc, Error> {
     use odbc_api::DataType;
 
+    // Some drivers report datatype lengths that are smaller than the actual data,
+    // so we cannot use it to build the BufferDesc.
     let data_type = type_info.data_type();
-
-    // Helper function to determine buffer length with fallback
-    let max_column_size = buffer_settings.max_column_size.unwrap_or(4096);
-
-    let buffer_length = |length: Option<std::num::NonZeroUsize>| {
-        if let Some(length) = length {
-            if length.get() < 255 {
-                length.get()
-            } else {
-                max_column_size
-            }
-        } else {
-            max_column_size
-        }
-    };
+    let max_str_len = max_column_size;
 
     let buffer_desc = match data_type {
         // Integer types - all map to I64
@@ -241,31 +222,22 @@ where
         DataType::Time { .. } => BufferDesc::Time { nullable },
         DataType::Timestamp { .. } => BufferDesc::Timestamp { nullable },
         // Binary types
-        DataType::Binary { length }
-        | DataType::Varbinary { length }
-        | DataType::LongVarbinary { length } => BufferDesc::Binary {
-            length: buffer_length(length),
-        },
+        DataType::Binary { .. } | DataType::Varbinary { .. } | DataType::LongVarbinary { .. } => {
+            BufferDesc::Binary {
+                length: max_column_size,
+            }
+        }
         // Text types
-        DataType::Char { length }
-        | DataType::WChar { length }
-        | DataType::Varchar { length }
-        | DataType::WVarchar { length }
-        | DataType::LongVarchar { length }
-        | DataType::WLongVarchar { length }
-        | DataType::Other {
-            column_size: length,
-            ..
-        } => BufferDesc::Text {
-            max_str_len: buffer_length(length),
-        },
+        DataType::Char { .. }
+        | DataType::WChar { .. }
+        | DataType::Varchar { .. }
+        | DataType::WVarchar { .. }
+        | DataType::LongVarchar { .. }
+        | DataType::WLongVarchar { .. }
+        | DataType::Other { .. } => BufferDesc::Text { max_str_len },
         // Fallback cases
-        DataType::Unknown => BufferDesc::Text {
-            max_str_len: max_column_size,
-        },
-        DataType::Decimal { .. } | DataType::Numeric { .. } => BufferDesc::Text {
-            max_str_len: max_column_size,
-        },
+        DataType::Unknown => BufferDesc::Text { max_str_len },
+        DataType::Decimal { .. } | DataType::Numeric { .. } => BufferDesc::Text { max_str_len },
     };
 
     Ok(buffer_desc)

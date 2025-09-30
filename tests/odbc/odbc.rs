@@ -440,7 +440,7 @@ async fn test_with_buffer_settings<F, T>(
     test_fn: F,
 ) -> anyhow::Result<()>
 where
-    F: Fn(OdbcConnection) -> T,
+    F: Fn(OdbcConnection, OdbcBufferSettings) -> T,
     T: std::future::Future<Output = anyhow::Result<()>>,
 {
     use sqlx_oldapi::odbc::OdbcConnectOptions;
@@ -451,7 +451,7 @@ where
         opts.buffer_settings(buf_settings);
 
         let conn = OdbcConnection::connect_with(&opts).await?;
-        test_fn(conn).await?;
+        test_fn(conn, buf_settings).await?;
     }
     Ok(())
 }
@@ -472,7 +472,7 @@ async fn it_handles_binary_data() -> anyhow::Result<()> {
         },
     ];
 
-    test_with_buffer_settings(&buffer_settings, |mut conn| async move {
+    test_with_buffer_settings(&buffer_settings, |mut conn, buf_settings| async move {
         let stmt = conn.prepare("SELECT ? AS binary_data").await?;
         let row = stmt
             .query_as::<(Vec<u8>,)>()
@@ -482,7 +482,10 @@ async fn it_handles_binary_data() -> anyhow::Result<()> {
             .expect("query failed")
             .expect("row expected");
 
-        assert_eq!(row.0, binary_data);
+        assert_eq!(
+            row.0, binary_data,
+            "failed to query {binary_data:?} with buffer settings {buf_settings:?}"
+        );
         Ok(())
     })
     .await
@@ -504,7 +507,7 @@ async fn it_handles_text_as_utf8_binary() -> anyhow::Result<()> {
         },
     ];
 
-    test_with_buffer_settings(&buffer_settings, |mut conn| async move {
+    test_with_buffer_settings(&buffer_settings, |mut conn, buf_settings| async move {
         let stmt = conn.prepare("SELECT ? AS text_data").await?;
         let row = stmt
             .query_as::<(Vec<u8>,)>()
@@ -514,7 +517,11 @@ async fn it_handles_text_as_utf8_binary() -> anyhow::Result<()> {
             .expect("query failed")
             .expect("row expected");
 
-        assert_eq!(row.0, text.as_bytes());
+        assert_eq!(
+            row.0,
+            text.as_bytes(),
+            "failed to query {text} with buffer settings {buf_settings:?}"
+        );
         Ok(())
     })
     .await
@@ -1178,7 +1185,7 @@ async fn it_works_with_buffered_and_unbuffered_mode() -> anyhow::Result<()> {
         },
     ];
 
-    test_with_buffer_settings(&buffer_settings, |mut conn| async move {
+    test_with_buffer_settings(&buffer_settings, |mut conn, buf_settings| async move {
         let select = (0..count)
             .map(|i| format!("SELECT {i} AS n, '{}' as aas", "a".repeat(i)))
             .collect::<Vec<_>>()
@@ -1207,7 +1214,11 @@ async fn it_works_with_buffered_and_unbuffered_mode() -> anyhow::Result<()> {
                 .to_owned()
                 .try_decode::<String>()
                 .expect("SELECT aas should be a string");
-            assert_eq!(aas, "a".repeat(i));
+            assert_eq!(
+                aas,
+                "a".repeat(i),
+                "failed to query {i} with buffer settings {buf_settings:?}"
+            );
         }
         Ok(())
     })
