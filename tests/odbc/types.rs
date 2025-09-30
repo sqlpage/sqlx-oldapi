@@ -182,32 +182,23 @@ mod chrono_tests {
         "'00:00:00'" == NaiveTime::from_hms_opt(0, 0, 0).unwrap()
     ));
 
-    test_type!(chrono_datetime<NaiveDateTime>(Odbc,
-        "'2023-12-25 14:30:00'" == NaiveDate::from_ymd_opt(2023, 12, 25).unwrap().and_hms_opt(14, 30, 0).unwrap(),
-        "'2019-01-02 05:10:20'" == NaiveDate::from_ymd_opt(2019, 1, 2).unwrap().and_hms_opt(5, 10, 20).unwrap()
+    test_decode_type!(chrono_datetime<NaiveDateTime>(Odbc,
+        "'2023-12-25T14:30:00'" == NaiveDate::from_ymd_opt(2023, 12, 25).unwrap().and_hms_opt(14, 30, 0).unwrap(),
+        "'2019-01-02T05:10:20'" == NaiveDate::from_ymd_opt(2019, 1, 2).unwrap().and_hms_opt(5, 10, 20).unwrap()
     ));
 
     // Extra chrono decoding edge case (padded timestamp string)
     test_decode_type!(chrono_datetime_padded<NaiveDateTime>(Odbc,
-        "'2023-12-25 14:30:00   '" == NaiveDate::from_ymd_opt(2023, 12, 25).unwrap().and_hms_opt(14, 30, 0).unwrap()
+        "'2023-12-25T14:30:00   '" == NaiveDate::from_ymd_opt(2023, 12, 25).unwrap().and_hms_opt(14, 30, 0).unwrap()
     ));
 
     test_type!(chrono_datetime_utc<DateTime<Utc>>(Odbc,
-        "'2023-12-25 14:30:00'" == DateTime::<Utc>::from_naive_utc_and_offset(
-            NaiveDate::from_ymd_opt(2023, 12, 25).unwrap().and_hms_opt(14, 30, 0).unwrap(),
-            Utc,
-        ),
-        "'2019-01-02 05:10:20'" == DateTime::<Utc>::from_naive_utc_and_offset(
-            NaiveDate::from_ymd_opt(2019, 1, 2).unwrap().and_hms_opt(5, 10, 20).unwrap(),
-            Utc,
-        )
+        "'2023-12-25T14:30:00+00:00'" == DateTime::parse_from_rfc3339("2023-12-25T14:30:00Z").unwrap().with_timezone(&Utc),
+        "'2019-01-02T05:10:20+00:00'" == DateTime::parse_from_rfc3339("2019-01-02T05:10:20Z").unwrap().with_timezone(&Utc),
     ));
 
     test_type!(chrono_datetime_fixed<DateTime<FixedOffset>>(Odbc,
-        "'2023-12-25 14:30:00'" == DateTime::<Utc>::from_naive_utc_and_offset(
-            NaiveDate::from_ymd_opt(2023, 12, 25).unwrap().and_hms_opt(14, 30, 0).unwrap(),
-            Utc,
-        ).fixed_offset()
+        "'2023-12-25T14:30:00+01:00'" == DateTime::<FixedOffset>::parse_from_rfc3339("2023-12-25T14:30:00+01:00").unwrap()
     ));
 }
 

@@ -6,6 +6,7 @@ use crate::odbc::{
 };
 use crate::transaction::Transaction;
 use either::Either;
+use odbc_api::handles::AsStatementRef;
 use sqlx_rt::spawn_blocking;
 mod odbc_bridge;
 use crate::odbc::{OdbcStatement, OdbcStatementMetadata};
@@ -208,6 +209,18 @@ impl OdbcConnection {
 pub(crate) enum MaybePrepared {
     Prepared(SharedPreparedStatement),
     NotPrepared(String),
+}
+
+impl std::fmt::Debug for MaybePrepared {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MaybePrepared::Prepared(prepared) => f
+                .debug_tuple("Prepared")
+                .field(&prepared.lock().unwrap().as_stmt_ref())
+                .finish(),
+            MaybePrepared::NotPrepared(sql) => f.debug_tuple("NotPrepared").field(sql).finish(),
+        }
+    }
 }
 
 impl Connection for OdbcConnection {

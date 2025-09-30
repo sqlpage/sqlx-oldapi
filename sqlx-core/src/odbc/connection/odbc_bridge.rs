@@ -69,6 +69,7 @@ pub fn execute_sql(
     tx: &ExecuteSender,
     buffer_settings: OdbcBufferSettings,
 ) -> Result<(), Error> {
+    log::trace!("Executing {:?} with params {:?}", maybe_prepared, args);
     let params = prepare_parameters(args);
 
     let affected = match maybe_prepared {
@@ -119,11 +120,35 @@ fn prepare_parameters(
 }
 
 fn to_param(arg: OdbcArgumentValue) -> Box<dyn odbc_api::parameter::InputParameter + 'static> {
+    use odbc_api::parameter::WithDataType;
+    use odbc_api::DataType;
+
     match arg {
         OdbcArgumentValue::Int(i) => Box::new(i.into_parameter()),
         OdbcArgumentValue::Float(f) => Box::new(f.into_parameter()),
         OdbcArgumentValue::Text(s) => Box::new(s.into_parameter()),
         OdbcArgumentValue::Bytes(b) => Box::new(b.into_parameter()),
+        OdbcArgumentValue::Date(d) => Box::new(
+            WithDataType {
+                value: d,
+                data_type: DataType::Date,
+            }
+            .into_parameter(),
+        ),
+        OdbcArgumentValue::Time(t) => Box::new(
+            WithDataType {
+                value: t,
+                data_type: DataType::Time { precision: 0 },
+            }
+            .into_parameter(),
+        ),
+        OdbcArgumentValue::Timestamp(ts) => Box::new(
+            WithDataType {
+                value: ts,
+                data_type: DataType::Timestamp { precision: 6 },
+            }
+            .into_parameter(),
+        ),
         OdbcArgumentValue::Null => Box::new(Option::<String>::None.into_parameter()),
     }
 }

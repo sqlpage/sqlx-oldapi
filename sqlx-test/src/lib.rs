@@ -105,7 +105,7 @@ macro_rules! test_unprepared_type {
                     let row = s.try_next().await?.unwrap();
                     let rec = row.try_get::<$ty, _>(0)?;
 
-                    assert_eq!($value, rec);
+                    assert_eq!($value, rec, "Value mismatch on {row:?}: Expected {:#?} but received {rec:#?} ({}) from db", $value, std::any::type_name::<$ty>());
 
                     drop(s);
                 )+
@@ -166,24 +166,26 @@ macro_rules! __test_prepared_type {
                         .fetch_one(&mut conn)
                         .await?;
 
+                    println!("Row: {:?}", row);
+
                     let matches: i32 = row.try_get(0)?;
                     let returned: $ty = row.try_get(1)?;
                     let round_trip: $ty = row.try_get(2)?;
 
                     assert!(matches != 0,
-                            "[1] DB value mismatch; given value: {:?}\n\
+                            "[1] DB value mismatch (SQL query returned non-zero value); given value: {:?}\n\
                              as returned: {:?}\n\
                              round-trip: {:?}",
                             $value, returned, round_trip);
 
                     assert_eq!($value, returned,
-                            "[2] DB value mismatch; given value: {:?}\n\
+                            "[2] DB value mismatch (given value does not match returned); given value: {:?}\n\
                                      as returned: {:?}\n\
                                      round-trip: {:?}",
                                     $value, returned, round_trip);
 
                     assert_eq!($value, round_trip,
-                            "[3] DB value mismatch; given value: {:?}\n\
+                            "[3] DB value mismatch (given value does not match round-trip); given value: {:?}\n\
                                      as returned: {:?}\n\
                                      round-trip: {:?}",
                                     $value, returned, round_trip);

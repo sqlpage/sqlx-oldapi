@@ -697,20 +697,20 @@ async fn it_handles_chrono_datetime() -> anyhow::Result<()> {
     let test_time = NaiveTime::from_hms_opt(14, 30, 0).unwrap();
     let test_datetime = NaiveDateTime::new(test_date, test_time);
 
-    // Test that we can encode chrono types (by storing them as strings)
+    // Test that we can encode and decode chrono types using native ODBC types
     let stmt = conn.prepare("SELECT ? AS date_data").await?;
     let row = stmt.query().bind(test_date).fetch_one(&mut conn).await?;
 
-    // Decode as string and verify format
-    let result_str = row.try_get_raw(0)?.to_owned().decode::<String>();
-    assert_eq!(result_str, "2023-12-25");
+    // Decode as NaiveDate and verify
+    let result_date = row.try_get_raw(0)?.to_owned().decode::<NaiveDate>();
+    assert_eq!(result_date, test_date);
 
     // Test time encoding
     let stmt = conn.prepare("SELECT ? AS time_data").await?;
     let row = stmt.query().bind(test_time).fetch_one(&mut conn).await?;
 
-    let result_str = row.try_get_raw(0)?.to_owned().decode::<String>();
-    assert_eq!(result_str, "14:30:00");
+    let result_time = row.try_get_raw(0)?.to_owned().decode::<NaiveTime>();
+    assert_eq!(result_time, test_time);
 
     // Test datetime encoding
     let stmt = conn.prepare("SELECT ? AS datetime_data").await?;
@@ -720,10 +720,104 @@ async fn it_handles_chrono_datetime() -> anyhow::Result<()> {
         .fetch_one(&mut conn)
         .await?;
 
-    let result_str = row.try_get_raw(0)?.to_owned().decode::<String>();
-    assert_eq!(result_str, "2023-12-25 14:30:00");
+    let result_datetime = row.try_get_raw(0)?.to_owned().decode::<NaiveDateTime>();
+    assert_eq!(result_datetime, test_datetime);
 
     Ok(())
+}
+
+#[cfg(feature = "chrono")]
+#[tokio::test]
+async fn it_roundtrips_chrono_datetime_with_timezone() -> anyhow::Result<()> {
+    use sqlx_oldapi::types::chrono::{DateTime, FixedOffset, NaiveDate, Utc};
+    test_with_buffer_settings(
+        &[
+            OdbcBufferSettings {
+                batch_size: 1,
+                max_column_size: None,
+            },
+            OdbcBufferSettings {
+                batch_size: 1,
+                max_column_size: Some(100),
+            },
+        ],
+        |mut conn, buf_settings| async move {
+            let test_datetime_utc = DateTime::<Utc>::from_naive_utc_and_offset(
+                NaiveDate::from_ymd_opt(2023, 12, 25)
+                    .unwrap()
+                    .and_hms_opt(14, 30, 0)
+                    .unwrap(),
+                Utc,
+            );
+
+            let stmt = conn.prepare("SELECT ? AS datetime_data").await?;
+            let row = stmt
+                .query()
+                .bind(test_datetime_utc)
+                .fetch_one(&mut conn)
+                .await?;
+
+            let result_utc = row
+                .try_get_raw(0)?
+                .to_owned()
+                .decode::<DateTime<Utc>>();
+            assert_eq!(
+                result_utc, test_datetime_utc,
+                "failed to roundtrip UTC datetime {test_datetime_utc:?} with buffer settings {buf_settings:?}"
+            );
+
+            let test_datetime_positive = DateTime::<FixedOffset>::from_naive_utc_and_offset(
+                NaiveDate::from_ymd_opt(2023, 12, 25)
+                    .unwrap()
+                    .and_hms_opt(14, 30, 0)
+                    .unwrap(),
+                FixedOffset::east_opt(5 * 60 * 60).unwrap(),
+            );
+
+            let stmt = conn.prepare("SELECT ? AS datetime_data").await?;
+            let row = stmt
+                .query()
+                .bind(test_datetime_positive)
+                .fetch_one(&mut conn)
+                .await?;
+
+            let result_positive = row
+                .try_get_raw(0)?
+                .to_owned()
+                .decode::<DateTime<FixedOffset>>();
+            assert_eq!(
+                result_positive, test_datetime_positive,
+                "failed to roundtrip positive offset datetime {test_datetime_positive:?} with buffer settings {buf_settings:?}"
+            );
+
+            let test_datetime_negative = DateTime::<FixedOffset>::from_naive_utc_and_offset(
+                NaiveDate::from_ymd_opt(2019, 1, 2)
+                    .unwrap()
+                    .and_hms_opt(5, 10, 20)
+                    .unwrap(),
+                FixedOffset::west_opt(8 * 60 * 60).unwrap(),
+            );
+
+            let stmt = conn.prepare("SELECT ? AS datetime_data").await?;
+            let row = stmt
+                .query()
+                .bind(test_datetime_negative)
+                .fetch_one(&mut conn)
+                .await?;
+
+            let result_negative = row
+                .try_get_raw(0)?
+                .to_owned()
+                .decode::<DateTime<FixedOffset>>();
+            assert_eq!(
+                result_negative, test_datetime_negative,
+                "failed to roundtrip negative offset datetime {test_datetime_negative:?} with buffer settings {buf_settings:?}"
+            );
+
+            Ok(())
+        },
+    )
+    .await
 }
 
 #[tokio::test]

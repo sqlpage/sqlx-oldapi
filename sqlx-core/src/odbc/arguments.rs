@@ -8,12 +8,15 @@ pub struct OdbcArguments {
     pub(crate) values: Vec<OdbcArgumentValue>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum OdbcArgumentValue {
     Text(String),
     Bytes(Vec<u8>),
     Int(i64),
     Float(f64),
+    Date(odbc_api::sys::Date),
+    Time(odbc_api::sys::Time),
+    Timestamp(odbc_api::sys::Timestamp),
     Null,
 }
 

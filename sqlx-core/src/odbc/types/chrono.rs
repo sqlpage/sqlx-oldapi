@@ -4,7 +4,9 @@ use crate::error::BoxDynError;
 use crate::odbc::{DataTypeExt, Odbc, OdbcArgumentValue, OdbcTypeInfo, OdbcValueRef};
 use crate::type_info::TypeInfo;
 use crate::types::Type;
-use chrono::{DateTime, FixedOffset, Local, NaiveDate, NaiveDateTime, NaiveTime, Utc};
+use chrono::{
+    DateTime, Datelike, FixedOffset, Local, NaiveDate, NaiveDateTime, NaiveTime, Timelike, Utc,
+};
 use odbc_api::DataType;
 
 impl Type<Odbc> for NaiveDate {
@@ -80,88 +82,112 @@ impl Type<Odbc> for DateTime<Local> {
 
 impl<'q> Encode<'q, Odbc> for NaiveDate {
     fn encode(self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
-        buf.push(OdbcArgumentValue::Text(self.format("%Y-%m-%d").to_string()));
+        buf.push(OdbcArgumentValue::Date(odbc_api::sys::Date {
+            year: self.year() as i16,
+            month: self.month() as u16,
+            day: self.day() as u16,
+        }));
         crate::encode::IsNull::No
     }
 
     fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
-        buf.push(OdbcArgumentValue::Text(self.format("%Y-%m-%d").to_string()));
+        buf.push(OdbcArgumentValue::Date(odbc_api::sys::Date {
+            year: self.year() as i16,
+            month: self.month() as u16,
+            day: self.day() as u16,
+        }));
         crate::encode::IsNull::No
     }
 }
 
 impl<'q> Encode<'q, Odbc> for NaiveTime {
     fn encode(self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
-        buf.push(OdbcArgumentValue::Text(self.format("%H:%M:%S").to_string()));
+        buf.push(OdbcArgumentValue::Time(odbc_api::sys::Time {
+            hour: self.hour() as u16,
+            minute: self.minute() as u16,
+            second: self.second() as u16,
+        }));
         crate::encode::IsNull::No
     }
 
     fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
-        buf.push(OdbcArgumentValue::Text(self.format("%H:%M:%S").to_string()));
+        buf.push(OdbcArgumentValue::Time(odbc_api::sys::Time {
+            hour: self.hour() as u16,
+            minute: self.minute() as u16,
+            second: self.second() as u16,
+        }));
         crate::encode::IsNull::No
     }
 }
 
 impl<'q> Encode<'q, Odbc> for NaiveDateTime {
     fn encode(self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
-        buf.push(OdbcArgumentValue::Text(
-            self.format("%Y-%m-%d %H:%M:%S").to_string(),
-        ));
+        buf.push(OdbcArgumentValue::Timestamp(odbc_api::sys::Timestamp {
+            year: self.year() as i16,
+            month: self.month() as u16,
+            day: self.day() as u16,
+            hour: self.hour() as u16,
+            minute: self.minute() as u16,
+            second: self.second() as u16,
+            fraction: self.nanosecond(),
+        }));
         crate::encode::IsNull::No
     }
 
     fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
-        buf.push(OdbcArgumentValue::Text(
-            self.format("%Y-%m-%d %H:%M:%S").to_string(),
-        ));
+        buf.push(OdbcArgumentValue::Timestamp(odbc_api::sys::Timestamp {
+            year: self.year() as i16,
+            month: self.month() as u16,
+            day: self.day() as u16,
+            hour: self.hour() as u16,
+            minute: self.minute() as u16,
+            second: self.second() as u16,
+            fraction: self.nanosecond(),
+        }));
         crate::encode::IsNull::No
     }
 }
 
 impl<'q> Encode<'q, Odbc> for DateTime<Utc> {
-    fn encode(self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
-        buf.push(OdbcArgumentValue::Text(
-            self.format("%Y-%m-%d %H:%M:%S").to_string(),
-        ));
-        crate::encode::IsNull::No
-    }
-
     fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
-        buf.push(OdbcArgumentValue::Text(
-            self.format("%Y-%m-%d %H:%M:%S").to_string(),
-        ));
+        buf.push(OdbcArgumentValue::Text(self.to_rfc3339()));
         crate::encode::IsNull::No
     }
 }
 
 impl<'q> Encode<'q, Odbc> for DateTime<FixedOffset> {
-    fn encode(self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
-        buf.push(OdbcArgumentValue::Text(
-            self.format("%Y-%m-%d %H:%M:%S").to_string(),
-        ));
-        crate::encode::IsNull::No
-    }
-
     fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
-        buf.push(OdbcArgumentValue::Text(
-            self.format("%Y-%m-%d %H:%M:%S").to_string(),
-        ));
+        buf.push(OdbcArgumentValue::Text(self.to_rfc3339()));
         crate::encode::IsNull::No
     }
 }
 
 impl<'q> Encode<'q, Odbc> for DateTime<Local> {
     fn encode(self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
-        buf.push(OdbcArgumentValue::Text(
-            self.format("%Y-%m-%d %H:%M:%S").to_string(),
-        ));
+        let naive = self.naive_local();
+        buf.push(OdbcArgumentValue::Timestamp(odbc_api::sys::Timestamp {
+            year: naive.year() as i16,
+            month: naive.month() as u16,
+            day: naive.day() as u16,
+            hour: naive.hour() as u16,
+            minute: naive.minute() as u16,
+            second: naive.second() as u16,
+            fraction: naive.nanosecond(),
+        }));
         crate::encode::IsNull::No
     }
 
     fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
-        buf.push(OdbcArgumentValue::Text(
-            self.format("%Y-%m-%d %H:%M:%S").to_string(),
-        ));
+        let naive = self.naive_local();
+        buf.push(OdbcArgumentValue::Timestamp(odbc_api::sys::Timestamp {
+            year: naive.year() as i16,
+            month: naive.month() as u16,
+            day: naive.day() as u16,
+            hour: naive.hour() as u16,
+            minute: naive.minute() as u16,
+            second: naive.second() as u16,
+            fraction: naive.nanosecond(),
+        }));
         crate::encode::IsNull::No
     }
 }
@@ -621,11 +647,14 @@ mod tests {
         let result = <NaiveDate as Encode<Odbc>>::encode(date, &mut buf);
         assert!(matches!(result, crate::encode::IsNull::No));
         assert_eq!(buf.len(), 1);
-        if let OdbcArgumentValue::Text(text) = &buf[0] {
-            assert_eq!(text, "2020-01-02");
-        } else {
-            panic!("Expected Text argument");
-        }
+        assert_eq!(
+            buf[0],
+            OdbcArgumentValue::Date(odbc_api::sys::Date {
+                year: 2020,
+                month: 1,
+                day: 2,
+            })
+        );
     }
 
     #[test]
