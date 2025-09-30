@@ -10,7 +10,7 @@ use flume::{SendError, Sender};
 use odbc_api::buffers::{AnySlice, BufferDesc, ColumnarAnyBuffer};
 use odbc_api::handles::{AsStatementRef, CDataMut, Nullability, Statement};
 use odbc_api::parameter::CElement;
-use odbc_api::{Cursor, IntoParameter, ResultSetMetadata};
+use odbc_api::{Cursor, IntoParameter, Nullable, ResultSetMetadata};
 use std::sync::Arc;
 
 // Bulk fetch implementation using columnar buffers instead of row-by-row fetching
@@ -281,10 +281,11 @@ fn build_columns_from_cursor<C>(cursor: &mut C) -> Vec<OdbcColumn>
 where
     C: ResultSetMetadata,
 {
-    let column_count = cursor.num_result_cols().unwrap_or(0);
-    let mut columns = Vec::with_capacity(column_count as usize);
+    let column_count = cursor.num_result_cols().expect("no column count found");
+    let column_count = u16::try_from(column_count).expect("invalid column count");
+    let mut columns = Vec::with_capacity(usize::from(column_count));
     for index in 1..=column_count {
-        columns.push(create_column(cursor, index as u16));
+        columns.push(create_column(cursor, index));
     }
     columns
 }
@@ -408,7 +409,7 @@ where
         match dt {
             DataType::TinyInt => OdbcValueVec::TinyInt(Vec::with_capacity(capacity)),
             DataType::SmallInt => OdbcValueVec::SmallInt(Vec::with_capacity(capacity)),
-            DataType::Integer => OdbcValueVec::Integer(Vec::with_capacity(capacity)),
+            DataType::Integer => OdbcValueVec::BigInt(Vec::with_capacity(capacity)), // the SQLite driver reports "INTEGER" even though it supports 64-bit integers
             DataType::BigInt => OdbcValueVec::BigInt(Vec::with_capacity(capacity)),
             DataType::Real => OdbcValueVec::Real(Vec::with_capacity(capacity)),
             DataType::Float { .. } | DataType::Double => {
@@ -430,20 +431,16 @@ where
         col_index: u16,
         vec: &mut Vec<T>,
         nulls: &mut Vec<bool>,
-    ) {
-        push_get_data_with_default(cursor_row, col_index, vec, nulls, T::default());
-    }
-
-    fn push_get_data_with_default<T: Copy + CElement + CDataMut>(
-        cursor_row: &mut odbc_api::CursorRow<'_>,
-        col_index: u16,
-        vec: &mut Vec<T>,
-        nulls: &mut Vec<bool>,
-        default_val: T,
-    ) {
-        let mut tmp = default_val;
-        nulls.push(cursor_row.get_data(col_index, &mut tmp).is_err());
-        vec.push(tmp);
+    ) -> Result<(), odbc_api::Error>
+    where
+        Nullable<T>: CElement + CDataMut,
+    {
+        let mut tmp = Nullable::null();
+        cursor_row.get_data(col_index, &mut tmp)?;
+        let option = tmp.into_opt();
+        nulls.push(option.is_none());
+        vec.push(option.unwrap_or_default());
+        Ok(())
     }
 
     fn push_binary(
@@ -451,10 +448,11 @@ where
         col_index: u16,
         vec: &mut Vec<Vec<u8>>,
         nulls: &mut Vec<bool>,
-    ) {
+    ) -> Result<(), odbc_api::Error> {
         let mut buf = Vec::new();
         nulls.push(cursor_row.get_binary(col_index, &mut buf).is_err());
         vec.push(buf);
+        Ok(())
     }
 
     fn push_text(
@@ -462,11 +460,12 @@ where
         col_index: u16,
         vec: &mut Vec<String>,
         nulls: &mut Vec<bool>,
-    ) {
+    ) -> Result<(), odbc_api::Error> {
         let mut buf = Vec::<u16>::new();
         let txt = cursor_row.get_wide_text(col_index, &mut buf);
         vec.push(String::from_utf16_lossy(&buf).to_string());
         nulls.push(!txt.unwrap_or(false));
+        Ok(())
     }
 
     fn push_bit(
@@ -474,11 +473,12 @@ where
         col_index: u16,
         vec: &mut Vec<bool>,
         nulls: &mut Vec<bool>,
-    ) {
+    ) -> Result<(), odbc_api::Error> {
         let mut bit_val = odbc_api::Bit(0);
         let result = cursor_row.get_data(col_index, &mut bit_val);
         vec.push(bit_val.as_bool());
         nulls.push(result.is_err());
+        Ok(())
     }
 
     fn push_from_cursor_row(
@@ -486,7 +486,7 @@ where
         col_index: u16,
         values: &mut OdbcValueVec,
         nulls: &mut Vec<bool>,
-    ) {
+    ) -> Result<(), odbc_api::Error> {
         match values {
             OdbcValueVec::TinyInt(v) => push_get_data(cursor_row, col_index, v, nulls),
             OdbcValueVec::SmallInt(v) => push_get_data(cursor_row, col_index, v, nulls),
@@ -522,7 +522,7 @@ where
                     col_idx,
                     &mut value_vecs[col],
                     &mut nulls_vecs[col],
-                );
+                )?;
             }
             num_rows += 1;
             if num_rows == batch_size {

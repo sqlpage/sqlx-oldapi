@@ -159,7 +159,7 @@ impl<'r> OdbcValueRef<'r> {
     pub fn try_int<T: TryFromInt + crate::types::Type<Odbc>>(&self) -> crate::error::Result<T> {
         self.int::<T>().ok_or_else(|| {
             crate::error::Error::Decode(Box::new(crate::error::MismatchedTypeError {
-                rust_type: T::type_info().name().to_string(),
+                rust_type: std::any::type_name::<T>().to_string(),
                 rust_sql_type: T::type_info().name().to_string(),
                 sql_type: self.batch.column_data[self.column_index]
                     .type_info
@@ -173,7 +173,7 @@ impl<'r> OdbcValueRef<'r> {
     pub fn try_float<T: TryFromFloat + crate::types::Type<Odbc>>(&self) -> crate::error::Result<T> {
         self.float::<T>().ok_or_else(|| {
             crate::error::Error::Decode(Box::new(crate::error::MismatchedTypeError {
-                rust_type: T::type_info().name().to_string(),
+                rust_type: std::any::type_name::<T>().to_string(),
                 rust_sql_type: T::type_info().name().to_string(),
                 sql_type: self.batch.column_data[self.column_index]
                     .type_info

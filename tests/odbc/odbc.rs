@@ -543,6 +543,7 @@ async fn it_handles_mixed_null_and_values() -> anyhow::Result<()> {
         .fetch_all(&mut conn)
         .await?;
 
+    dbg!(&rows);
     assert_eq!(rows.len(), 2, "should have 2 rows");
     assert_eq!(rows[0].get::<Option<i32>, _>(0), Some(42));
     assert_eq!(rows[0].get::<Option<i32>, _>(1), None);
