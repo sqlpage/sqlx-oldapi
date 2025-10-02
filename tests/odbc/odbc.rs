@@ -947,34 +947,17 @@ async fn it_handles_prepare_statement_errors() -> anyhow::Result<()> {
     }
 
     // Test executing prepared SQL with syntax errors
-    match conn
+    let res = conn
         .prepare("SELECT idonotexist FROM idonotexist WHERE idonotexist")
-        .await
-    {
-        Ok(stmt) => match stmt.query().fetch_one(&mut conn).await {
-            Ok(_) => panic!("should be an error"),
-            Err(sqlx_oldapi::Error::Database(err)) => {
-                assert!(
-                    err.to_string().contains("idonotexist"),
-                    "{:?} should contain 'idonotexist'",
-                    err
-                );
-            }
-            Err(err) => {
-                panic!("should be a database error, got {:?}", err);
-            }
-        },
-        Err(sqlx_oldapi::Error::Database(err)) => {
-            assert!(
-                err.to_string().to_lowercase().contains("idonotexist"),
-                "{:?} should contain 'idonotexist'",
-                err
-            );
-        }
-        Err(err) => {
-            panic!("should be an error, got {:?}", err);
-        }
-    }
+        .await;
+    let Err(sqlx_oldapi::Error::Database(err)) = res else {
+        panic!("should be an error, got {:?}", res);
+    };
+    assert!(
+        err.to_string().to_lowercase().contains("idonotexist"),
+        "{:?} should contain 'idonotexist'",
+        err
+    );
     Ok(())
 }
 
@@ -1185,23 +1168,25 @@ async fn it_handles_concurrent_error_scenarios() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn it_handles_prepared_statement_with_wrong_parameters() -> anyhow::Result<()> {
+async fn it_handles_prepared_statement_with_wrong_parameter_count() -> anyhow::Result<()> {
     let mut conn = new::<Odbc>().await?;
 
     // Prepare a statement expecting specific parameter types
-    let stmt = conn.prepare("SELECT ? + ? AS sum").await?;
+    let stmt = conn.prepare("SELECT ? AS a, ? as b").await?;
 
     // Test binding incompatible types (if the database is strict about types)
     // Some databases/drivers are permissive, others are strict
-    let result = stmt
-        .query()
-        .bind("not_a_number")
-        .bind("also_not_a_number")
-        .fetch_one(&mut conn)
-        .await;
-    // This may or may not error depending on the database's type system
-    let _ = result;
-
+    let result = stmt.query().bind(42_i32).fetch_one(&mut conn).await;
+    let Err(sqlx_oldapi::Error::Database(err)) = result else {
+        panic!("should be an error, got {:?}", result);
+    };
+    // https://learn.microsoft.com/en-us/sql/odbc/reference/appendixes/appendix-a-odbc-error-codes?view=sql-server-ver17
+    // 07002 -> COUNT field incorrect
+    assert!(
+        err.to_string().contains("07002"),
+        "{:?} should contain '07002' (COUNT field incorrect)",
+        err
+    );
     Ok(())
 }
 

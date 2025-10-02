@@ -24,22 +24,24 @@ mod executor;
 type PreparedStatement = Prepared<StatementConnection<SharedConnection<'static>>>;
 type SharedPreparedStatement = Arc<Mutex<PreparedStatement>>;
 
-fn collect_columns(prepared: &mut PreparedStatement) -> Vec<OdbcColumn> {
-    let count = prepared.num_result_cols().unwrap_or(0);
-    (1..=count)
-        .map(|i| create_column(prepared, i as u16))
-        .collect()
+fn collect_columns(prepared: &mut PreparedStatement) -> Result<Vec<OdbcColumn>, Error> {
+    let count = prepared.num_result_cols()?;
+    let mut columns = Vec::with_capacity(count as usize);
+    for i in 1..=count {
+        columns.push(create_column(prepared, i as u16)?);
+    }
+    Ok(columns)
 }
 
-fn create_column(stmt: &mut PreparedStatement, index: u16) -> OdbcColumn {
+fn create_column(stmt: &mut PreparedStatement, index: u16) -> Result<OdbcColumn, Error> {
     let mut cd = odbc_api::ColumnDescription::default();
-    let _ = stmt.describe_col(index, &mut cd);
+    stmt.describe_col(index, &mut cd)?;
 
-    OdbcColumn {
+    Ok(OdbcColumn {
         name: decode_column_name(cd.name, index),
         type_info: OdbcTypeInfo::new(cd.data_type),
         ordinal: usize::from(index.checked_sub(1).unwrap()),
-    }
+    })
 }
 
 pub(super) trait ColumnNameDecode {
@@ -191,8 +193,8 @@ impl OdbcConnection {
         let (prepared, metadata) = spawn_blocking(move || {
             let mut prepared = conn.into_prepared(&sql_clone)?;
             let metadata = OdbcStatementMetadata {
-                columns: collect_columns(&mut prepared),
-                parameters: usize::from(prepared.num_params().unwrap_or(0)),
+                columns: collect_columns(&mut prepared)?,
+                parameters: usize::from(prepared.num_params()?),
             };
             Ok::<_, Error>((prepared, metadata))
         })
