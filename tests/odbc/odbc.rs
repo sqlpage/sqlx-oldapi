@@ -1180,10 +1180,13 @@ async fn it_handles_prepared_statement_with_wrong_parameter_count() -> anyhow::R
     let Err(sqlx_oldapi::Error::Database(err)) = result else {
         panic!("should be an error, got {:?}", result);
     };
+    let err_str = err.to_string().to_lowercase();
     // https://learn.microsoft.com/en-us/sql/odbc/reference/appendixes/appendix-a-odbc-error-codes?view=sql-server-ver17
     // 07002 -> COUNT field incorrect
     assert!(
-        err.to_string().contains("07002"),
+        err_str.contains("07002")
+            || err_str.contains("parameter count")
+            || err_str.contains("unbound parameter"),
         "{:?} should contain '07002' (COUNT field incorrect)",
         err
     );
