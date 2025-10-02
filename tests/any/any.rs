@@ -1,5 +1,5 @@
 use sqlx_oldapi::any::AnyRow;
-use sqlx_oldapi::{Any, Connection, Decode, Executor, Row, Type};
+use sqlx_oldapi::{Any, Column, Connection, Decode, Executor, Row, Statement, Type};
 use sqlx_test::new;
 
 async fn get_val<T>(expr: &str) -> anyhow::Result<T>
@@ -304,6 +304,36 @@ async fn it_reports_rows_affected() -> anyhow::Result<()> {
 
     let delete_done = conn.execute(delete_sql).await?;
     assert_eq!(delete_done.rows_affected(), 1);
+
+    Ok(())
+}
+
+#[sqlx_macros::test]
+async fn it_prepares_statements() -> anyhow::Result<()> {
+    let mut conn = new::<Any>().await?;
+
+    let stmt = conn.prepare("SELECT 42 AS answer").await?;
+
+    assert_eq!(stmt.columns().len(), 1);
+    assert_eq!(stmt.columns()[0].name(), "answer");
+
+    let row = stmt.query().fetch_one(&mut conn).await?;
+    let answer: i32 = row.try_get("answer")?;
+    assert_eq!(answer, 42);
+
+    Ok(())
+}
+
+#[sqlx_macros::test]
+async fn it_fails_to_prepare_invalid_statements() -> anyhow::Result<()> {
+    let mut conn = new::<Any>().await?;
+
+    let result = conn.prepare("SELECT * FROM table_does_not_exist").await;
+
+    assert!(
+        result.is_err(),
+        "Expected error when preparing statement for non-existent table"
+    );
 
     Ok(())
 }
