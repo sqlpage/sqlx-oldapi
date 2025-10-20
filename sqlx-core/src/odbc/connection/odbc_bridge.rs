@@ -97,7 +97,7 @@ fn extract_rows_affected<S: AsStatementRef>(stmt: &mut S) -> u64 {
     let count = match stmt_ref.row_count().into_result(&stmt_ref) {
         Ok(count) => count,
         Err(e) => {
-            log::warn!("Failed to get row count: {}", e);
+            log::debug!("No row count available: {}", e);
             return 0;
         }
     };
@@ -105,7 +105,7 @@ fn extract_rows_affected<S: AsStatementRef>(stmt: &mut S) -> u64 {
     match u64::try_from(count) {
         Ok(count) => count,
         Err(e) => {
-            log::warn!("Failed to get row count: {}", e);
+            log::warn!("Invalid row count: {}", e);
             0
         }
     }
