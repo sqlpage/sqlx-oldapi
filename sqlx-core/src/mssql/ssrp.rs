@@ -87,13 +87,11 @@ pub async fn resolve_instance_port(server: &str, instance: &str) -> Result<u16, 
     let request_bytes = request.to_bytes();
     let response_data = send_request(server, &request_bytes).await?;
     let response = InstanceResponse::parse(&response_data)?;
-    response
-        .tcp_port
-        .ok_or_else(|| {
-            Error::config(SsrpError(
-                "SSRP response does not contain TCP port information".to_string(),
-            ))
-        })
+    response.tcp_port.ok_or_else(|| {
+        Error::config(SsrpError(
+            "SSRP response does not contain TCP port information".to_string(),
+        ))
+    })
 }
 
 async fn send_request(server: &str, request: &[u8]) -> Result<Vec<u8>, Error> {
@@ -104,7 +102,9 @@ async fn send_request(server: &str, request: &[u8]) -> Result<Vec<u8>, Error> {
 
 fn validate_and_extract_response(buf: &[u8]) -> Result<Vec<u8>, Error> {
     if buf.len() < 3 {
-        return Err(Error::config(SsrpError("SSRP response too short".to_string())));
+        return Err(Error::config(SsrpError(
+            "SSRP response too short".to_string(),
+        )));
     }
 
     if buf[0] != SVR_RESP {
@@ -123,7 +123,9 @@ fn validate_and_extract_response(buf: &[u8]) -> Result<Vec<u8>, Error> {
     }
 
     if buf.len() < 3 + resp_size {
-        return Err(Error::config(SsrpError("SSRP response truncated".to_string())));
+        return Err(Error::config(SsrpError(
+            "SSRP response truncated".to_string(),
+        )));
     }
 
     Ok(buf[3..3 + resp_size].to_vec())
@@ -132,8 +134,8 @@ fn validate_and_extract_response(buf: &[u8]) -> Result<Vec<u8>, Error> {
 async fn send_udp_request(server: &str, request: &[u8], buf: &mut [u8]) -> Result<usize, Error> {
     #[cfg(feature = "_rt-tokio")]
     {
-        use sqlx_rt::tokio::net::UdpSocket;
         use sqlx_rt::timeout;
+        use sqlx_rt::tokio::net::UdpSocket;
 
         let socket = UdpSocket::bind("0.0.0.0:0").await?;
         socket
@@ -144,7 +146,9 @@ async fn send_udp_request(server: &str, request: &[u8], buf: &mut [u8]) -> Resul
         let (n, _) = timeout(RESPONSE_TIMEOUT, socket.recv_from(buf))
             .await
             .map_err(|_| Error::config(SsrpError("SSRP request timed out".to_string())))?
-            .map_err(|e| Error::config(SsrpError(format!("failed to receive SSRP response: {}", e))))?;
+            .map_err(|e| {
+                Error::config(SsrpError(format!("failed to receive SSRP response: {}", e)))
+            })?;
 
         Ok(n)
     }
@@ -163,7 +167,9 @@ async fn send_udp_request(server: &str, request: &[u8], buf: &mut [u8]) -> Resul
         let (n, _) = timeout(RESPONSE_TIMEOUT, socket.recv_from(buf))
             .await
             .map_err(|_| Error::config(SsrpError("SSRP request timed out".to_string())))?
-            .map_err(|e| Error::config(SsrpError(format!("failed to receive SSRP response: {}", e))))?;
+            .map_err(|e| {
+                Error::config(SsrpError(format!("failed to receive SSRP response: {}", e)))
+            })?;
 
         Ok(n)
     }
