@@ -128,36 +128,54 @@ async fn send_request(server: &str, request: &[u8]) -> Result<Vec<u8>, Error> {
 }
 
 fn parse_tcp_port(response_data: &[u8]) -> Result<u16, Error> {
-    let response_str = encoding_rs::WINDOWS_1252
-        .decode(response_data)
-        .0
-        .to_string();
+    let (response_str, _, _) = encoding_rs::WINDOWS_1252.decode(response_data);
+    let response_str = response_str.as_ref();
 
-    let entries: Vec<&str> = response_str.split(";;").collect();
-
-    for entry in entries {
-        if entry.is_empty() {
-            continue;
+    let mut search_start = 0;
+    while let Some(tcp_pos) = find_case_insensitive(response_str, search_start, "tcp;") {
+        let port_start = tcp_pos + 4;
+        if port_start >= response_str.len() {
+            break;
         }
 
-        let tokens: Vec<&str> = entry.split(';').collect();
-        let mut i = 0;
-        while i + 1 < tokens.len() {
-            let key = tokens[i];
-            let value = tokens[i + 1];
+        let port_end = response_str[port_start..]
+            .find(';')
+            .map(|i| port_start + i)
+            .unwrap_or(response_str.len());
 
-            if key.eq_ignore_ascii_case("tcp") {
-                let port = value
-                    .parse::<u16>()
-                    .map_err(|_| Error::config(SsrpError(format!("invalid TCP port value: {}", value))))?;
+        if port_end > port_start {
+            let port_str = &response_str[port_start..port_end];
+            if let Ok(port) = port_str.parse::<u16>() {
                 return Ok(port);
             }
-
-            i += 2;
         }
+
+        search_start = tcp_pos + 1;
     }
 
     Err(Error::config(SsrpError(
         "SSRP response does not contain TCP port information".to_string(),
     )))
+}
+
+fn find_case_insensitive(haystack: &str, start: usize, needle: &str) -> Option<usize> {
+    if needle.is_empty() {
+        return Some(start);
+    }
+
+    let haystack_bytes = haystack.as_bytes();
+    let needle_bytes = needle.as_bytes();
+    let needle_len = needle_bytes.len();
+
+    for i in start..haystack.len().saturating_sub(needle_len - 1) {
+        if haystack_bytes[i..i + needle_len]
+            .iter()
+            .zip(needle_bytes.iter())
+            .all(|(h, n)| h.eq_ignore_ascii_case(n))
+        {
+            return Some(i);
+        }
+    }
+
+    None
 }
