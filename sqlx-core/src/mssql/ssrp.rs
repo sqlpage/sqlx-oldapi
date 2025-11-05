@@ -184,15 +184,10 @@ fn find_case_insensitive(haystack: &str, start: usize, needle: &str) -> Option<u
     let needle_bytes = needle.as_bytes();
     let needle_len = needle_bytes.len();
 
-    for i in start..haystack.len().saturating_sub(needle_len - 1) {
-        if haystack_bytes[i..i + needle_len]
+    (start..haystack.len().saturating_sub(needle_len - 1)).find(|&i| {
+        haystack_bytes[i..i + needle_len]
             .iter()
             .zip(needle_bytes.iter())
             .all(|(h, n)| h.eq_ignore_ascii_case(n))
-        {
-            return Some(i);
-        }
-    }
-
-    None
+    })
 }
