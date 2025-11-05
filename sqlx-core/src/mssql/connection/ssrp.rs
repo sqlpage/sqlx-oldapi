@@ -1,5 +1,6 @@
 use crate::error::Error;
 use sqlx_rt::{timeout, UdpSocket};
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::time::Duration;
 
@@ -87,15 +88,14 @@ pub(crate) async fn resolve_instance_port(server: &str, instance: &str) -> Resul
         ));
     }
 
-    let response_data = String::from_utf8(buffer[3..(3 + response_size)].to_vec())
-        .map_err(|e| err_protocol!("SSRP response is not valid UTF-8: {}", e))?;
+    let response_data = String::from_utf8_lossy(&buffer[3..(3 + response_size)]);
 
     log::debug!("SSRP response data: {}", response_data);
 
     parse_ssrp_response(&response_data, instance)
 }
 
-fn parse_ssrp_response(data: &str, instance_name: &str) -> Result<u16, Error> {
+fn parse_ssrp_response(data: &Cow<'_, str>, instance_name: &str) -> Result<u16, Error> {
     let instances: Vec<&str> = data.split(";;").collect();
     log::debug!(
         "parsing SSRP response, found {} instance entries",
