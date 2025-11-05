@@ -23,7 +23,7 @@ impl FromStr for MssqlConnectOptions {
     /// - `database`: The name of the database to connect to.
     ///
     /// Supported query parameters:
-    /// - `instance`: SQL Server named instance.
+    /// - `instance`: SQL Server named instance. When specified, the port is automatically discovered using the SQL Server Resolution Protocol (SSRP).
     /// - `encrypt`: Controls connection encryption:
     ///   - `strict`: Requires encryption and validates the server certificate.
     ///   - `mandatory` or `true` or `yes`: Requires encryption but doesn't validate the server certificate.
@@ -41,9 +41,10 @@ impl FromStr for MssqlConnectOptions {
     /// - `client_interface_name`: Name of the client interface, sent to the server for logging purposes.
     /// - `language`: Sets the language for server messages. Affects date formats and system messages.
     ///
-    /// Example:
+    /// Examples:
     /// ```text
     /// mssql://user:pass@localhost:1433/mydb?encrypt=strict&app_name=MyApp&packet_size=4096
+    /// mssql://user:pass@localhost/mydb?instance=SQLEXPRESS
     /// ```
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let url: Url = s.parse().map_err(Error::config)?;

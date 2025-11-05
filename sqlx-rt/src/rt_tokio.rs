@@ -1,7 +1,7 @@
 pub use tokio::{
     self, fs, io::AsyncRead, io::AsyncReadExt, io::AsyncWrite, io::AsyncWriteExt, io::ReadBuf,
-    net::TcpStream, runtime::Handle, sync::Mutex as AsyncMutex, task::spawn, task::yield_now,
-    time::sleep, time::timeout,
+    net::TcpStream, net::UdpSocket, runtime::Handle, sync::Mutex as AsyncMutex, task::spawn,
+    task::yield_now, time::sleep, time::timeout,
 };
 
 #[cfg(unix)]

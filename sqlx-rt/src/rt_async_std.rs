@@ -1,8 +1,8 @@
 pub use async_std::{
     self, fs, future::timeout, io::prelude::ReadExt as AsyncReadExt,
     io::prelude::WriteExt as AsyncWriteExt, io::Read as AsyncRead, io::Write as AsyncWrite,
-    net::TcpStream, sync::Mutex as AsyncMutex, task::sleep, task::spawn, task::spawn_blocking,
-    task::yield_now,
+    net::TcpStream, net::UdpSocket, sync::Mutex as AsyncMutex, task::sleep, task::spawn,
+    task::spawn_blocking, task::yield_now,
 };
 
 #[cfg(unix)]

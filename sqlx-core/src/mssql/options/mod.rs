@@ -10,8 +10,14 @@ mod parse;
 ///
 /// Connection strings should be in the form:
 /// ```text
-/// mssql://[username[:password]@]host/database[?instance=instance_name&packet_size=packet_size&client_program_version=client_program_version&client_pid=client_pid&hostname=hostname&app_name=app_name&server_name=server_name&client_interface_name=client_interface_name&language=language]
+/// mssql://[username[:password]@]host[:port]/database[?param1=value1&param2=value2...]
 /// ```
+///
+/// When connecting to a named instance, use the `instance` parameter:
+/// ```text
+/// mssql://user:pass@localhost/mydb?instance=SQLEXPRESS
+/// ```
+/// The port will be automatically discovered using the SQL Server Resolution Protocol (SSRP).
 #[derive(Debug, Clone)]
 pub struct MssqlConnectOptions {
     pub(crate) host: String,

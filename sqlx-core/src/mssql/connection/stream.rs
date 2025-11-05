@@ -51,7 +51,13 @@ pub(crate) struct MssqlStream {
 
 impl MssqlStream {
     pub(super) async fn connect(options: &MssqlConnectOptions) -> Result<Self, Error> {
-        let tcp_stream = TcpStream::connect((&*options.host, options.port)).await?;
+        let port = if let Some(ref instance) = options.instance {
+            super::ssrp::resolve_instance_port(&options.host, instance).await?
+        } else {
+            options.port
+        };
+
+        let tcp_stream = TcpStream::connect((&*options.host, port)).await?;
         let wrapped_stream = TlsPreloginWrapper::new(tcp_stream);
         let inner = BufStream::new(MaybeTlsStream::Raw(wrapped_stream));
 
