@@ -21,7 +21,6 @@ pub(crate) async fn resolve_instance_port(server: &str, instance: &str) -> Resul
     request.push(0);
 
     let socket = UdpSocket::bind("0.0.0.0:0").await.map_err(|e| {
-        log::debug!("failed to bind UDP socket for SSRP: {}", e);
         err_protocol!("failed to bind UDP socket for SSRP: {}", e)
     })?;
 
@@ -36,7 +35,6 @@ pub(crate) async fn resolve_instance_port(server: &str, instance: &str) -> Resul
         .send_to(&request, (server, SSRP_PORT))
         .await
         .map_err(|e| {
-            log::debug!("failed to send SSRP request to {}:{}: {}", server, SSRP_PORT, e);
             err_protocol!("failed to send SSRP request to {}:{}: {}", server, SSRP_PORT, e)
         })?;
 
@@ -44,12 +42,6 @@ pub(crate) async fn resolve_instance_port(server: &str, instance: &str) -> Resul
     let bytes_read = timeout(SSRP_TIMEOUT, socket.recv(&mut buffer))
         .await
         .map_err(|_| {
-            log::debug!(
-                "SSRP request to {} for instance {} timed out after {:?}",
-                server,
-                instance,
-                SSRP_TIMEOUT
-            );
             err_protocol!(
                 "SSRP request to {} for instance {} timed out after {:?}",
                 server,
@@ -58,12 +50,6 @@ pub(crate) async fn resolve_instance_port(server: &str, instance: &str) -> Resul
             )
         })?
         .map_err(|e| {
-            log::debug!(
-                "failed to receive SSRP response from {} for instance {}: {}",
-                server,
-                instance,
-                e
-            );
             err_protocol!(
                 "failed to receive SSRP response from {} for instance {}: {}",
                 server,
@@ -79,7 +65,6 @@ pub(crate) async fn resolve_instance_port(server: &str, instance: &str) -> Resul
     );
 
     if bytes_read < 3 {
-        log::debug!("SSRP response too short: {} bytes", bytes_read);
         return Err(err_protocol!(
             "SSRP response too short: {} bytes",
             bytes_read
@@ -87,10 +72,6 @@ pub(crate) async fn resolve_instance_port(server: &str, instance: &str) -> Resul
     }
 
     if buffer[0] != SVR_RESP {
-        log::debug!(
-            "invalid SSRP response type: expected 0x05, got 0x{:02x}",
-            buffer[0]
-        );
         return Err(err_protocol!(
             "invalid SSRP response type: expected 0x05, got 0x{:02x}",
             buffer[0]
@@ -99,11 +80,6 @@ pub(crate) async fn resolve_instance_port(server: &str, instance: &str) -> Resul
 
     let response_size = u16::from_le_bytes([buffer[1], buffer[2]]) as usize;
     if response_size + 3 > bytes_read {
-        log::debug!(
-            "SSRP response size mismatch: expected {} bytes, got {}",
-            response_size + 3,
-            bytes_read
-        );
         return Err(err_protocol!(
             "SSRP response size mismatch: expected {} bytes, got {}",
             response_size + 3,
@@ -112,10 +88,7 @@ pub(crate) async fn resolve_instance_port(server: &str, instance: &str) -> Resul
     }
 
     let response_data = String::from_utf8(buffer[3..(3 + response_size)].to_vec())
-        .map_err(|e| {
-            log::debug!("SSRP response is not valid UTF-8: {}", e);
-            err_protocol!("SSRP response is not valid UTF-8: {}", e)
-        })?;
+        .map_err(|e| err_protocol!("SSRP response is not valid UTF-8: {}", e))?;
 
     log::debug!("SSRP response data: {}", response_data);
 
@@ -157,11 +130,6 @@ fn parse_ssrp_response(data: &str, instance_name: &str) -> Result<u16, Error> {
                 
                 if let Some(tcp_port_str) = properties.get("tcp") {
                     let port = tcp_port_str.parse::<u16>().map_err(|e| {
-                        log::debug!(
-                            "invalid TCP port '{}' in SSRP response: {}",
-                            tcp_port_str,
-                            e
-                        );
                         err_protocol!(
                             "invalid TCP port '{}' in SSRP response: {}",
                             tcp_port_str,
@@ -177,11 +145,6 @@ fn parse_ssrp_response(data: &str, instance_name: &str) -> Result<u16, Error> {
                     
                     return Ok(port);
                 } else {
-                    log::debug!(
-                        "instance '{}' found but no TCP port available in properties: {:?}",
-                        instance_name,
-                        properties.keys().collect::<Vec<_>>()
-                    );
                     return Err(err_protocol!(
                         "instance '{}' found but no TCP port available",
                         instance_name
@@ -191,10 +154,6 @@ fn parse_ssrp_response(data: &str, instance_name: &str) -> Result<u16, Error> {
         }
     }
 
-    log::debug!(
-        "instance '{}' not found in SSRP response",
-        instance_name
-    );
     Err(err_protocol!(
         "instance '{}' not found in SSRP response",
         instance_name
