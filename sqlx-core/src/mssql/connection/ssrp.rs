@@ -11,9 +11,9 @@ const SSRP_TIMEOUT: Duration = Duration::from_secs(1);
 struct InstanceInfo<'a> {
     server_name: Option<&'a str>,
     instance_name: Option<&'a str>,
-    is_clustered: Option<&'a str>,
+    is_clustered: Option<bool>,
     version: Option<&'a str>,
-    tcp_port: Option<&'a str>,
+    tcp_port: Option<u16>,
 }
 
 pub(crate) async fn resolve_instance_port(server: &str, instance: &str) -> Result<u16, Error> {
@@ -130,17 +130,8 @@ fn parse_ssrp_response(data: &str, instance_name: &str) -> Result<u16, Error> {
                     instance_name
                 );
 
-                if let Some(tcp_port_str) = info.tcp_port {
-                    let port = tcp_port_str.parse::<u16>().map_err(|e| {
-                        err_protocol!(
-                            "invalid TCP port '{}' in SSRP response: {}",
-                            tcp_port_str,
-                            e
-                        )
-                    })?;
-
+                if let Some(port) = info.tcp_port {
                     log::debug!("resolved instance '{}' to port {}", instance_name, port);
-
                     return Ok(port);
                 } else {
                     return Err(err_protocol!(
@@ -174,9 +165,17 @@ fn parse_instance_info<'a>(data: &'a str) -> InstanceInfo<'a> {
         match key {
             "ServerName" => info.server_name = value,
             "InstanceName" => info.instance_name = value,
-            "IsClustered" => info.is_clustered = value,
+            "IsClustered" => {
+                info.is_clustered = value.and_then(|v| match v {
+                    "Yes" => Some(true),
+                    "No" => Some(false),
+                    _ => None,
+                });
+            }
             "Version" => info.version = value,
-            "tcp" => info.tcp_port = value,
+            "tcp" => {
+                info.tcp_port = value.and_then(|v| v.parse::<u16>().ok());
+            }
             _ => {}
         }
     }
