@@ -1,13 +1,20 @@
 use crate::error::Error;
+use encoding_rs::WINDOWS_1252;
 use sqlx_rt::{timeout, UdpSocket};
-use std::borrow::Cow;
-use std::collections::HashMap;
 use std::time::Duration;
 
 const SSRP_PORT: u16 = 1434;
 const CLNT_UCAST_INST: u8 = 0x04;
 const SVR_RESP: u8 = 0x05;
 const SSRP_TIMEOUT: Duration = Duration::from_secs(1);
+
+struct InstanceInfo<'a> {
+    server_name: Option<&'a str>,
+    instance_name: Option<&'a str>,
+    is_clustered: Option<&'a str>,
+    version: Option<&'a str>,
+    tcp_port: Option<&'a str>,
+}
 
 pub(crate) async fn resolve_instance_port(server: &str, instance: &str) -> Result<u16, Error> {
     log::debug!(
@@ -88,37 +95,27 @@ pub(crate) async fn resolve_instance_port(server: &str, instance: &str) -> Resul
         ));
     }
 
-    let response_data = String::from_utf8_lossy(&buffer[3..(3 + response_size)]);
+    let response_bytes = &buffer[3..(3 + response_size)];
+    let (response_str, _encoding_used, had_errors) = WINDOWS_1252.decode(response_bytes);
+    
+    if had_errors {
+        log::debug!("SSRP response had MBCS decoding errors, continuing anyway");
+    }
 
-    log::debug!("SSRP response data: {}", response_data);
+    log::debug!("SSRP response data: {}", response_str);
 
-    parse_ssrp_response(&response_data, instance)
+    parse_ssrp_response(&response_str, instance)
 }
 
-fn parse_ssrp_response(data: &Cow<'_, str>, instance_name: &str) -> Result<u16, Error> {
-    let instances: Vec<&str> = data.split(";;").collect();
-    log::debug!(
-        "parsing SSRP response, found {} instance entries",
-        instances.len()
-    );
-
-    for instance_data in instances {
+fn parse_ssrp_response(data: &str, instance_name: &str) -> Result<u16, Error> {
+    for instance_data in data.split(";;") {
         if instance_data.is_empty() {
             continue;
         }
 
-        let tokens: Vec<&str> = instance_data.split(';').collect();
-        let mut properties: HashMap<&str, &str> = HashMap::new();
-
-        let mut i = 0;
-        while i + 1 < tokens.len() {
-            let key = tokens[i];
-            let value = tokens[i + 1];
-            properties.insert(key, value);
-            i += 2;
-        }
-
-        if let Some(name) = properties.get("InstanceName") {
+        let info = parse_instance_info(instance_data);
+        
+        if let Some(name) = info.instance_name {
             log::debug!("found instance '{}' in SSRP response", name);
             
             if name.eq_ignore_ascii_case(instance_name) {
@@ -128,7 +125,7 @@ fn parse_ssrp_response(data: &Cow<'_, str>, instance_name: &str) -> Result<u16, 
                     instance_name
                 );
                 
-                if let Some(tcp_port_str) = properties.get("tcp") {
+                if let Some(tcp_port_str) = info.tcp_port {
                     let port = tcp_port_str.parse::<u16>().map_err(|e| {
                         err_protocol!(
                             "invalid TCP port '{}' in SSRP response: {}",
@@ -158,6 +155,32 @@ fn parse_ssrp_response(data: &Cow<'_, str>, instance_name: &str) -> Result<u16, 
         "instance '{}' not found in SSRP response",
         instance_name
     ))
+}
+
+fn parse_instance_info<'a>(data: &'a str) -> InstanceInfo<'a> {
+    let mut info = InstanceInfo {
+        server_name: None,
+        instance_name: None,
+        is_clustered: None,
+        version: None,
+        tcp_port: None,
+    };
+
+    let mut tokens = data.split(';');
+    while let Some(key) = tokens.next() {
+        let value = tokens.next();
+        
+        match key {
+            "ServerName" => info.server_name = value,
+            "InstanceName" => info.instance_name = value,
+            "IsClustered" => info.is_clustered = value,
+            "Version" => info.version = value,
+            "tcp" => info.tcp_port = value,
+            _ => {}
+        }
+    }
+
+    info
 }
 
 #[cfg(test)]
