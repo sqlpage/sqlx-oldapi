@@ -12,6 +12,7 @@ mod options;
 mod protocol;
 mod query_result;
 mod row;
+mod ssrp;
 mod statement;
 mod transaction;
 mod type_info;
