@@ -109,10 +109,10 @@ pub(crate) async fn resolve_instance_port(server: &str, instance: &str) -> Resul
 
     log::debug!("SSRP response data: {}", response_str);
 
-    parse_ssrp_response(&response_str, instance)
+    find_instance_tcp_port(&response_str, instance)
 }
 
-fn parse_ssrp_response(data: &str, instance_name: &str) -> Result<u16, Error> {
+fn find_instance_tcp_port(data: &str, instance_name: &str) -> Result<u16, Error> {
     for instance_data in data.split(";;") {
         if instance_data.is_empty() {
             continue;
@@ -176,7 +176,11 @@ fn parse_instance_info<'a>(data: &'a str) -> InstanceInfo<'a> {
             "tcp" => {
                 info.tcp_port = value.and_then(|v| v.parse::<u16>().ok());
             }
-            _ => {}
+            _ => {
+                if !key.is_empty() {
+                    log::debug!("ignoring unknown SSRP key: '{}'", key);
+                }
+            }
         }
     }
 
@@ -188,38 +192,38 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_ssrp_response_single_instance() {
+    fn test_find_instance_tcp_port_single_instance() {
         let data = "ServerName;MYSERVER;InstanceName;SQLEXPRESS;IsClustered;No;Version;15.0.2000.5;tcp;1433;;";
-        let port = parse_ssrp_response(data, "SQLEXPRESS").unwrap();
+        let port = find_instance_tcp_port(data, "SQLEXPRESS").unwrap();
         assert_eq!(port, 1433);
     }
 
     #[test]
-    fn test_parse_ssrp_response_multiple_instances() {
+    fn test_find_instance_tcp_port_multiple_instances() {
         let data = "ServerName;SRV1;InstanceName;INST1;IsClustered;No;Version;15.0.2000.5;tcp;1433;;ServerName;SRV1;InstanceName;INST2;IsClustered;No;Version;16.0.1000.6;tcp;1434;np;\\\\SRV1\\pipe\\MSSQL$INST2\\sql\\query;;";
-        let port = parse_ssrp_response(data, "INST2").unwrap();
+        let port = find_instance_tcp_port(data, "INST2").unwrap();
         assert_eq!(port, 1434);
     }
 
     #[test]
-    fn test_parse_ssrp_response_case_insensitive() {
+    fn test_find_instance_tcp_port_case_insensitive() {
         let data = "ServerName;MYSERVER;InstanceName;SQLExpress;IsClustered;No;Version;15.0.2000.5;tcp;1433;;";
-        let port = parse_ssrp_response(data, "sqlexpress").unwrap();
+        let port = find_instance_tcp_port(data, "sqlexpress").unwrap();
         assert_eq!(port, 1433);
     }
 
     #[test]
-    fn test_parse_ssrp_response_instance_not_found() {
+    fn test_find_instance_tcp_port_instance_not_found() {
         let data = "ServerName;MYSERVER;InstanceName;SQLEXPRESS;IsClustered;No;Version;15.0.2000.5;tcp;1433;;";
-        let result = parse_ssrp_response(data, "NOTFOUND");
+        let result = find_instance_tcp_port(data, "NOTFOUND");
         assert!(result.is_err());
     }
 
     #[test]
-    fn test_parse_ssrp_response_no_tcp_port() {
+    fn test_find_instance_tcp_port_no_tcp_port() {
         let data =
             "ServerName;MYSERVER;InstanceName;SQLEXPRESS;IsClustered;No;Version;15.0.2000.5;;";
-        let result = parse_ssrp_response(data, "SQLEXPRESS");
+        let result = find_instance_tcp_port(data, "SQLEXPRESS");
         assert!(result.is_err());
     }
 }
