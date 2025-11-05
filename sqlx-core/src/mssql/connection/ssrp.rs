@@ -7,7 +7,7 @@ use std::time::Duration;
 pub(super) async fn resolve_instance_port(host: &str, instance: &str) -> Result<u16, Error> {
     let host = host.to_owned();
     let instance = instance.to_owned();
-    spawn_blocking(move || resolve_instance_port_blocking(&host, &instance)).await?
+    spawn_blocking(move || resolve_instance_port_blocking(&host, &instance)).await
 }
 
 fn resolve_instance_port_blocking(host: &str, instance: &str) -> Result<u16, Error> {
