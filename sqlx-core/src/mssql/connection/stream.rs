@@ -60,7 +60,7 @@ impl MssqlStream {
         log::debug!("establishing TCP connection to {}:{}", options.host, port);
         let tcp_stream = TcpStream::connect((&*options.host, port)).await?;
         log::debug!("TCP connection established to {}:{}", options.host, port);
-        
+
         let wrapped_stream = TlsPreloginWrapper::new(tcp_stream);
         let inner = BufStream::new(MaybeTlsStream::Raw(wrapped_stream));
 

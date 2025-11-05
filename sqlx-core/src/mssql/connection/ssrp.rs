@@ -28,9 +28,9 @@ pub(crate) async fn resolve_instance_port(server: &str, instance: &str) -> Resul
     request.extend_from_slice(instance.as_bytes());
     request.push(0);
 
-    let socket = UdpSocket::bind("0.0.0.0:0").await.map_err(|e| {
-        err_protocol!("failed to bind UDP socket for SSRP: {}", e)
-    })?;
+    let socket = UdpSocket::bind("0.0.0.0:0")
+        .await
+        .map_err(|e| err_protocol!("failed to bind UDP socket for SSRP: {}", e))?;
 
     log::debug!(
         "sending SSRP CLNT_UCAST_INST request to {}:{} for instance '{}'",
@@ -43,7 +43,12 @@ pub(crate) async fn resolve_instance_port(server: &str, instance: &str) -> Resul
         .send_to(&request, (server, SSRP_PORT))
         .await
         .map_err(|e| {
-            err_protocol!("failed to send SSRP request to {}:{}: {}", server, SSRP_PORT, e)
+            err_protocol!(
+                "failed to send SSRP request to {}:{}: {}",
+                server,
+                SSRP_PORT,
+                e
+            )
         })?;
 
     let mut buffer = [0u8; 1024];
@@ -97,7 +102,7 @@ pub(crate) async fn resolve_instance_port(server: &str, instance: &str) -> Resul
 
     let response_bytes = &buffer[3..(3 + response_size)];
     let (response_str, _encoding_used, had_errors) = WINDOWS_1252.decode(response_bytes);
-    
+
     if had_errors {
         log::debug!("SSRP response had MBCS decoding errors, continuing anyway");
     }
@@ -114,17 +119,17 @@ fn parse_ssrp_response(data: &str, instance_name: &str) -> Result<u16, Error> {
         }
 
         let info = parse_instance_info(instance_data);
-        
+
         if let Some(name) = info.instance_name {
             log::debug!("found instance '{}' in SSRP response", name);
-            
+
             if name.eq_ignore_ascii_case(instance_name) {
                 log::debug!(
                     "instance '{}' matches requested instance '{}'",
                     name,
                     instance_name
                 );
-                
+
                 if let Some(tcp_port_str) = info.tcp_port {
                     let port = tcp_port_str.parse::<u16>().map_err(|e| {
                         err_protocol!(
@@ -133,13 +138,9 @@ fn parse_ssrp_response(data: &str, instance_name: &str) -> Result<u16, Error> {
                             e
                         )
                     })?;
-                    
-                    log::debug!(
-                        "resolved instance '{}' to port {}",
-                        instance_name,
-                        port
-                    );
-                    
+
+                    log::debug!("resolved instance '{}' to port {}", instance_name, port);
+
                     return Ok(port);
                 } else {
                     return Err(err_protocol!(
@@ -169,7 +170,7 @@ fn parse_instance_info<'a>(data: &'a str) -> InstanceInfo<'a> {
     let mut tokens = data.split(';');
     while let Some(key) = tokens.next() {
         let value = tokens.next();
-        
+
         match key {
             "ServerName" => info.server_name = value,
             "InstanceName" => info.instance_name = value,
@@ -217,7 +218,8 @@ mod tests {
 
     #[test]
     fn test_parse_ssrp_response_no_tcp_port() {
-        let data = "ServerName;MYSERVER;InstanceName;SQLEXPRESS;IsClustered;No;Version;15.0.2000.5;;";
+        let data =
+            "ServerName;MYSERVER;InstanceName;SQLEXPRESS;IsClustered;No;Version;15.0.2000.5;;";
         let result = parse_ssrp_response(data, "SQLEXPRESS");
         assert!(result.is_err());
     }
