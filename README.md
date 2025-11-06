@@ -15,6 +15,7 @@
 >     -   Multiple bug fixes around string handling, including better support for long strings
 >     -   Support for packet chunking, which fixes a bug where large bound parameters or large queries would fail
 >     -   Support for TLS encrypted connections
+>     -   Support for named instances with automatic port discovery via SSRP
 > 
 > The main use case driving the development of sqlx-oldapi is the [SQLPage](https://sql.datapage.app/) SQL-only rapid application building tool.
 
