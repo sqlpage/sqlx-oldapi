@@ -19,11 +19,11 @@ impl FromStr for MssqlConnectOptions {
     /// - `username`: The username for SQL Server authentication.
     /// - `password`: The password for SQL Server authentication.
     /// - `host`: The hostname or IP address of the SQL Server.
-    /// - `port`: The port number (default is 1433).
+    /// - `port`: The port number. If not specified, defaults to 1433 or is discovered via SSRP when using named instances.
     /// - `database`: The name of the database to connect to.
     ///
     /// Supported query parameters:
-    /// - `instance`: SQL Server named instance. When specified, the port is automatically discovered using the SQL Server Resolution Protocol (SSRP).
+    /// - `instance`: SQL Server named instance. When specified without an explicit port, the port is automatically discovered using the SQL Server Resolution Protocol (SSRP). If a port is explicitly specified, SSRP is not used.
     /// - `encrypt`: Controls connection encryption:
     ///   - `strict`: Requires encryption and validates the server certificate.
     ///   - `mandatory` or `true` or `yes`: Requires encryption but doesn't validate the server certificate.

@@ -51,10 +51,27 @@ pub(crate) struct MssqlStream {
 
 impl MssqlStream {
     pub(super) async fn connect(options: &MssqlConnectOptions) -> Result<Self, Error> {
-        let port = if let Some(ref instance) = options.instance {
-            super::ssrp::resolve_instance_port(&options.host, instance).await?
-        } else {
-            options.port
+        let port = match (options.port, &options.instance) {
+            (Some(port), _) => {
+                log::debug!(
+                    "using explicitly specified port {} for host '{}'",
+                    port,
+                    options.host
+                );
+                port
+            }
+            (None, Some(instance)) => {
+                super::ssrp::resolve_instance_port(&options.host, instance).await?
+            }
+            (None, None) => {
+                const DEFAULT_PORT: u16 = 1433;
+                log::debug!(
+                    "using default port {} for host '{}'",
+                    DEFAULT_PORT,
+                    options.host
+                );
+                DEFAULT_PORT
+            }
         };
 
         log::debug!("establishing TCP connection to {}:{}", options.host, port);
