@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## 0.6.50
  - Added support for SQL Server named instances with automatic port discovery via SSRP (SQL Server Resolution Protocol). You can now connect using `mssql://user:pass@host/db?instance=SQLEXPRESS` and the port will be automatically discovered.
+ - odbc: no warning when statement row count is unavailable
 
 ## 0.6.49
  - Added support for ODBC. SQLx-oldapi can now connect to Oracle, Db2, Snowflake, BigQuery, Databricks, and many other databases, using locally installed ODBC drivers.
