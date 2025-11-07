@@ -10,12 +10,27 @@ mod parse;
 ///
 /// Connection strings should be in the form:
 /// ```text
-/// mssql://[username[:password]@]host/database[?instance=instance_name&packet_size=packet_size&client_program_version=client_program_version&client_pid=client_pid&hostname=hostname&app_name=app_name&server_name=server_name&client_interface_name=client_interface_name&language=language]
+/// mssql://[username[:password]@]host[:port]/database[?param1=value1&param2=value2...]
+/// ```
+///
+/// Port resolution priority:
+/// 1. If an explicit port is specified, it is always used
+/// 2. If a named instance is specified via `?instance=NAME`, the port is discovered via SSRP
+/// 3. Otherwise, the default port 1433 is used
+///
+/// Example with named instance (port auto-discovered):
+/// ```text
+/// mssql://user:pass@localhost/mydb?instance=SQLEXPRESS
+/// ```
+///
+/// Example with explicit port (SSRP not used):
+/// ```text
+/// mssql://user:pass@localhost:1434/mydb?instance=SQLEXPRESS
 /// ```
 #[derive(Debug, Clone)]
 pub struct MssqlConnectOptions {
     pub(crate) host: String,
-    pub(crate) port: u16,
+    pub(crate) port: Option<u16>,
     pub(crate) username: String,
     pub(crate) database: String,
     pub(crate) password: Option<String>,
@@ -45,7 +60,7 @@ impl Default for MssqlConnectOptions {
 impl MssqlConnectOptions {
     pub fn new() -> Self {
         Self {
-            port: 1433,
+            port: None,
             host: String::from("localhost"),
             database: String::from("master"),
             username: String::from("sa"),
@@ -73,7 +88,7 @@ impl MssqlConnectOptions {
     }
 
     pub fn port(mut self, port: u16) -> Self {
-        self.port = port;
+        self.port = Some(port);
         self
     }
 

@@ -14,6 +14,7 @@ use std::sync::Arc;
 mod establish;
 mod executor;
 mod prepare;
+mod ssrp;
 mod stream;
 mod tls_prelogin_stream_wrapper;
 

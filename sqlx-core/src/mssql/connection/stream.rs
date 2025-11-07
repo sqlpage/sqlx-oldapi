@@ -51,7 +51,33 @@ pub(crate) struct MssqlStream {
 
 impl MssqlStream {
     pub(super) async fn connect(options: &MssqlConnectOptions) -> Result<Self, Error> {
-        let tcp_stream = TcpStream::connect((&*options.host, options.port)).await?;
+        let port = match (options.port, &options.instance) {
+            (Some(port), _) => {
+                log::debug!(
+                    "using explicitly specified port {} for host '{}'",
+                    port,
+                    options.host
+                );
+                port
+            }
+            (None, Some(instance)) => {
+                super::ssrp::resolve_instance_port(&options.host, instance).await?
+            }
+            (None, None) => {
+                const DEFAULT_PORT: u16 = 1433;
+                log::debug!(
+                    "using default port {} for host '{}'",
+                    DEFAULT_PORT,
+                    options.host
+                );
+                DEFAULT_PORT
+            }
+        };
+
+        log::debug!("establishing TCP connection to {}:{}", options.host, port);
+        let tcp_stream = TcpStream::connect((&*options.host, port)).await?;
+        log::debug!("TCP connection established to {}:{}", options.host, port);
+
         let wrapped_stream = TlsPreloginWrapper::new(tcp_stream);
         let inner = BufStream::new(MaybeTlsStream::Raw(wrapped_stream));
 
