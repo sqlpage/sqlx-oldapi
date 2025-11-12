@@ -5,6 +5,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.6.51
+ - support for extracting underlying db-specific type from AnyValueRef
+
 ## 0.6.50
  - Added support for SQL Server named instances with automatic port discovery via SSRP (SQL Server Resolution Protocol). You can now connect using `mssql://user:pass@host/db?instance=SQLEXPRESS` and the port will be automatically discovered.
  - odbc: no warning when statement row count is unavailable
