@@ -561,6 +561,15 @@ test_decode_type!(interval_string<String>(Postgres,
     "'00:01:00'::INTERVAL * 60" == "01:00:00"
 ));
 
+#[cfg(feature = "bigdecimal")]
+#[cfg(feature = "chrono")]
+test_decode_type!(range_string<String>(Postgres,
+    "'(1,2)'::int4range" == "(1,2)",
+    "'(1,2)'::numrange" == "(1,2)",
+    "'[\"2025-01-01T00:00:00+01:00\", \"2025-01-02T00:00:00+00:00\")'::tstzrange" == "[\"2025-01-01T00:00:00+01:00\", \"2025-01-02T00:00:00+00:00\")",
+    "'(1,2)'::int8range" == "(1,2)",
+));
+
 test_prepared_type!(money<PgMoney>(Postgres, "123.45::money" == PgMoney(12345)));
 
 test_prepared_type!(money_vec<Vec<PgMoney>>(Postgres,
