@@ -337,3 +337,23 @@ async fn it_fails_to_prepare_invalid_statements() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[sqlx_macros::test]
+#[cfg(feature = "postgres")]
+async fn it_converts_any_value_ref_to_specific_postgres_types() -> anyhow::Result<()> {
+    let mut conn = new::<Any>().await?;
+    let dbms_name = conn.dbms_name().await.unwrap_or_default().to_lowercase();
+
+    if !dbms_name.contains("postgres") {
+        return Ok(());
+    }
+
+    use sqlx_oldapi::postgres::{types::PgRange, PgValueRef, Postgres};
+    use std::ops::Bound;
+    let row = conn.fetch_one("SELECT int4range(1, 10)").await?;
+    let pgrange: PgValueRef<'_> = row.try_get_raw(0)?.try_into()?;
+    let decoded: PgRange<i32> = <PgRange<i32> as Decode<'_, Postgres>>::decode(pgrange).unwrap();
+    assert_eq!(decoded.start, Bound::Included(1));
+    assert_eq!(decoded.end, Bound::Excluded(10));
+    Ok(())
+}

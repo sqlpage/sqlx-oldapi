@@ -176,3 +176,44 @@ impl<'r> ValueRef<'r> for AnyValueRef<'r> {
         }
     }
 }
+
+macro_rules! impl_try_from_any_value_ref {
+    ($(
+        #[cfg(feature = $feature:literal)]
+        $db_name:ident => $value_ref:ty,
+    )*) => {
+        $(
+            #[cfg(feature = $feature)]
+            impl<'r> TryFrom<AnyValueRef<'r>> for $value_ref {
+                type Error = crate::error::Error;
+
+                fn try_from(value: AnyValueRef<'r>) -> Result<Self, Self::Error> {
+                    #[allow(unreachable_patterns)]
+                    match value.kind {
+                        AnyValueRefKind::$db_name(value) => Ok(value),
+                        _ => Err(crate::error::Error::Configuration(
+                            format!("Expected {}, got {:?}", stringify!($value_ref), value.type_info()).into(),
+                        )),
+                    }
+                }
+            }
+        )*
+    };
+}
+
+impl_try_from_any_value_ref! {
+    #[cfg(feature = "postgres")]
+    Postgres => PgValueRef<'r>,
+
+    #[cfg(feature = "mysql")]
+    MySql => MySqlValueRef<'r>,
+
+    #[cfg(feature = "sqlite")]
+    Sqlite => SqliteValueRef<'r>,
+
+    #[cfg(feature = "mssql")]
+    Mssql => MssqlValueRef<'r>,
+
+    #[cfg(feature = "odbc")]
+    Odbc => OdbcValueRef<'r>,
+}
