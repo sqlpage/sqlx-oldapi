@@ -10,6 +10,29 @@ use crate::mysql::connection::stream::MySqlStream;
 use crate::mysql::protocol::auth::AuthPlugin;
 use crate::mysql::protocol::Packet;
 
+struct RandRngAdapter {
+    rng: rand::rngs::ThreadRng,
+}
+
+impl rsa::rand_core::RngCore for RandRngAdapter {
+    fn next_u32(&mut self) -> u32 {
+        use rand::RngCore;
+        self.rng.next_u32()
+    }
+
+    fn next_u64(&mut self) -> u64 {
+        use rand::RngCore;
+        self.rng.next_u64()
+    }
+
+    fn fill_bytes(&mut self, dest: &mut [u8]) {
+        use rand::RngCore;
+        self.rng.fill_bytes(dest)
+    }
+}
+
+impl rsa::rand_core::CryptoRng for RandRngAdapter {}
+
 impl AuthPlugin {
     pub(super) async fn scramble(
         self,
@@ -148,8 +171,11 @@ async fn encrypt_rsa<'s>(
 
     // client sends an RSA encrypted password
     let pkey = parse_rsa_pub_key(rsa_pub_key)?;
-    let padding = Oaep::new::<sha1::Sha1>();
-    pkey.encrypt(&mut rand::thread_rng(), padding, &pass[..])
+    let padding = Oaep::<sha1::Sha1>::new();
+    let mut rng = RandRngAdapter {
+        rng: rand::thread_rng(),
+    };
+    pkey.encrypt(&mut rng, padding, &pass[..])
         .map_err(Error::protocol)
 }
 
