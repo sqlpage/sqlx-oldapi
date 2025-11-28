@@ -54,14 +54,21 @@ impl Encode<'_> for Password<'_> {
 
                     let mut output = String::with_capacity(35);
 
-                    let _ = write!(output, "{:x}", hasher.finalize_reset());
+                    let hash = hasher.finalize_reset();
+                    for byte in hash.as_slice() {
+                        let _ = write!(output, "{:02x}", byte);
+                    }
 
                     hasher.update(&output);
                     hasher.update(salt);
 
                     output.clear();
+                    output.push_str("md5");
 
-                    let _ = write!(output, "md5{:x}", hasher.finalize());
+                    let hash = hasher.finalize();
+                    for byte in hash.as_slice() {
+                        let _ = write!(output, "{:02x}", byte);
+                    }
 
                     buf.put_str_nul(&output);
                 }
