@@ -9,11 +9,8 @@ macro_rules! impl_any_type {
         impl crate::types::Type<crate::any::Any> for $ty {
             fn type_info() -> crate::any::AnyTypeInfo {
                 panic!(
-                    "Type::type_info() is not implemented for Any \n\
-                     \n\
-                     This is because `Any` is a dynamic driver and does not support compile-time type verification. \n\
-                     \n\
-                     If you are using `query!` or `query_as!`, use `query` or `query_as` instead."
+                    "Type::type_info() is not implemented for Any because it is a dynamic driver and does not support compile-time type verification. (for type `{}`)",
+                    std::any::type_name::<$ty>(),
                 );
             }
 
