@@ -41,12 +41,49 @@ pub struct MismatchedTypeError {
     pub source: Option<BoxDynError>,
 }
 
+fn rust_sql_type<DB: Database, T: Type<DB>>() -> String {
+    if is_any_db::<DB>() {
+        return "<unknown>".to_string();
+    }
+
+    T::type_info().name().to_string()
+}
+
+#[cfg(all(
+    feature = "any",
+    any(
+        feature = "postgres",
+        feature = "mysql",
+        feature = "mssql",
+        feature = "sqlite",
+        feature = "odbc"
+    )
+))]
+fn is_any_db<DB: Database>() -> bool {
+    std::any::TypeId::of::<DB>() == std::any::TypeId::of::<crate::any::Any>()
+}
+
+#[cfg(not(all(
+    feature = "any",
+    any(
+        feature = "postgres",
+        feature = "mysql",
+        feature = "mssql",
+        feature = "sqlite",
+        feature = "odbc"
+    )
+)))]
+fn is_any_db<DB: Database>() -> bool {
+    let _ = std::any::TypeId::of::<DB>();
+    false
+}
+
 impl MismatchedTypeError {
     /// Create a new mismatched type error without a source.
     pub fn new<DB: Database, T: Type<DB>>(ty: &DB::TypeInfo) -> Self {
         Self {
             rust_type: type_name::<T>().to_string(),
-            rust_sql_type: T::type_info().name().to_string(),
+            rust_sql_type: rust_sql_type::<DB, T>(),
             sql_type: ty.name().to_string(),
             source: None,
         }
@@ -56,7 +93,7 @@ impl MismatchedTypeError {
     pub fn with_source<DB: Database, T: Type<DB>>(ty: &DB::TypeInfo, source: BoxDynError) -> Self {
         Self {
             rust_type: type_name::<T>().to_string(),
-            rust_sql_type: T::type_info().name().to_string(),
+            rust_sql_type: rust_sql_type::<DB, T>(),
             sql_type: ty.name().to_string(),
             source: Some(source),
         }
@@ -182,17 +219,31 @@ impl Error {
 }
 
 pub(crate) fn mismatched_types<DB: Database, T: Type<DB>>(ty: &DB::TypeInfo) -> BoxDynError {
+    let rust_sql_type = rust_sql_type::<DB, T>();
     Box::new(MismatchedTypeError {
         rust_type: format!(
             "{} ({}compatible with SQL type `{}`)",
             type_name::<T>(),
             if T::compatible(ty) { "" } else { "in" },
-            T::type_info().name()
+            rust_sql_type
         ),
-        rust_sql_type: T::type_info().name().to_string(),
+        rust_sql_type,
         sql_type: ty.name().to_string(),
         source: None,
     })
+}
+
+#[cfg(all(test, feature = "any", feature = "postgres"))]
+mod tests {
+    use crate::any::Any;
+    use crate::error::mismatched_types;
+    use crate::postgres::PgTypeInfo;
+
+    #[test]
+    fn mismatched_types_any_does_not_panic() {
+        let ty = crate::any::AnyTypeInfo::from(PgTypeInfo::with_name("TEXT"));
+        assert!(std::panic::catch_unwind(|| mismatched_types::<Any, i32>(&ty)).is_ok());
+    }
 }
 
 /// An error that was returned from the database.
