@@ -42,14 +42,39 @@ pub struct MismatchedTypeError {
 }
 
 fn rust_sql_type<DB: Database, T: Type<DB>>() -> String {
-    #[cfg(feature = "any")]
-    {
-        if std::any::TypeId::of::<DB>() == std::any::TypeId::of::<crate::any::Any>() {
-            return "<unknown>".to_string();
-        }
+    if is_any_db::<DB>() {
+        return "<unknown>".to_string();
     }
 
     T::type_info().name().to_string()
+}
+
+#[cfg(all(
+    feature = "any",
+    any(
+        feature = "postgres",
+        feature = "mysql",
+        feature = "mssql",
+        feature = "sqlite",
+        feature = "odbc"
+    )
+))]
+fn is_any_db<DB: Database>() -> bool {
+    std::any::TypeId::of::<DB>() == std::any::TypeId::of::<crate::any::Any>()
+}
+
+#[cfg(not(all(
+    feature = "any",
+    any(
+        feature = "postgres",
+        feature = "mysql",
+        feature = "mssql",
+        feature = "sqlite",
+        feature = "odbc"
+    )
+)))]
+fn is_any_db<DB: Database>() -> bool {
+    false
 }
 
 impl MismatchedTypeError {
