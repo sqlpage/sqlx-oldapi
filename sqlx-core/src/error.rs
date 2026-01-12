@@ -74,6 +74,7 @@ fn is_any_db<DB: Database>() -> bool {
     )
 )))]
 fn is_any_db<DB: Database>() -> bool {
+    let _ = std::any::TypeId::of::<DB>();
     false
 }
 
