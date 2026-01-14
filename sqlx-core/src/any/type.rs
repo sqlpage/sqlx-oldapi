@@ -9,7 +9,7 @@ macro_rules! impl_any_type {
         impl crate::types::Type<crate::any::Any> for $ty {
             fn type_info() -> crate::any::AnyTypeInfo {
                 panic!(
-                    "Type::type_info() is not implemented for Any because it is a dynamic driver and does not support compile-time type verification. (for type `{}`)",
+                    "Type<Any>::type_info() is not implemented for {}. type_info should not be called on base types.",
                     std::any::type_name::<$ty>(),
                 );
             }
