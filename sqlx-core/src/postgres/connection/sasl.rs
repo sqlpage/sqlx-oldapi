@@ -4,7 +4,7 @@ use crate::postgres::message::{
     Authentication, AuthenticationSasl, MessageFormat, SaslInitialResponse, SaslResponse,
 };
 use crate::postgres::PgConnectOptions;
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use rand::Rng;
 use sha2::{Digest, Sha256};
 use stringprep::saslprep;
