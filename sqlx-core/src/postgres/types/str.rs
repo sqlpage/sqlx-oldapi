@@ -19,6 +19,12 @@ impl Type<Postgres> for str {
             PgTypeInfo::BPCHAR,
             PgTypeInfo::VARCHAR,
             PgTypeInfo::INTERVAL,
+            PgTypeInfo::INT4_RANGE,
+            PgTypeInfo::NUM_RANGE,
+            PgTypeInfo::TS_RANGE,
+            PgTypeInfo::TSTZ_RANGE,
+            PgTypeInfo::DATE_RANGE,
+            PgTypeInfo::INT8_RANGE,
             PgTypeInfo::MONEY,
             PgTypeInfo::UNKNOWN,
         ]
@@ -115,6 +121,18 @@ impl Decode<'_, Postgres> for String {
     fn decode(value: PgValueRef<'_>) -> Result<Self, BoxDynError> {
         match *value.type_info {
             PgType::Interval => super::interval::decode_as_string(value),
+            PgType::Int4Range => super::range::decode_as_string::<i32>(value),
+            #[cfg(feature = "bigdecimal")]
+            PgType::NumRange => super::range::decode_as_string::<bigdecimal::BigDecimal>(value),
+            #[cfg(feature = "chrono")]
+            PgType::TsRange => super::range::decode_as_string::<chrono::NaiveDateTime>(value),
+            #[cfg(feature = "chrono")]
+            PgType::TstzRange => {
+                super::range::decode_as_string::<chrono::DateTime<chrono::Utc>>(value)
+            }
+            #[cfg(feature = "chrono")]
+            PgType::DateRange => super::range::decode_as_string::<chrono::NaiveDate>(value),
+            PgType::Int8Range => super::range::decode_as_string::<i64>(value),
             _ => Ok(value.as_str()?.to_owned()),
         }
     }
