@@ -246,13 +246,13 @@ dependencies = [
 
 [[package]]
 name = "async-native-tls"
-version = "0.5.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9343dc5acf07e79ff82d0c37899f079db3534d99f189a1837c8e549c99405bec"
+checksum = "37dd6b179962fe4048a6f81d4c0d7ed419a21fdf49204b4c6b04971693358e79"
 dependencies = [
  "futures-util",
  "native-tls",
- "thiserror 1.0.69",
+ "thiserror 2.0.18",
  "url",
 ]
 
@@ -2755,7 +2755,7 @@ dependencies = [
  "atoi",
  "log",
  "odbc-sys",
- "thiserror 2.0.17",
+ "thiserror 2.0.18",
  "widestring",
  "winit",
 ]
@@ -3369,7 +3369,7 @@ checksum = "a4e608c6638b9c18977b00b475ac1f28d14e84b27d8d42f70e0bf1e3dec127ac"
 dependencies = [
  "getrandom 0.2.16",
  "libredox",
- "thiserror 2.0.17",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -4000,7 +4000,7 @@ dependencies = [
  "sqlx-oldapi",
  "sqlx-rt-oldapi",
  "stringprep",
- "thiserror 2.0.17",
+ "thiserror 2.0.18",
  "time",
  "tokio",
  "tokio-stream",
@@ -4361,11 +4361,11 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "2.0.17"
+version = "2.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f63587ca0f12b72a0600bcba1d40081f830876000bb46dd2337a3051618f4fc8"
+checksum = "4288b5bcbc7920c07a1149a35cf9590a2aa808e0bc1eafaade0b80947865fbc4"
 dependencies = [
- "thiserror-impl 2.0.17",
+ "thiserror-impl 2.0.18",
 ]
 
 [[package]]
@@ -4381,9 +4381,9 @@ dependencies = [
 
 [[package]]
 name = "thiserror-impl"
-version = "2.0.17"
+version = "2.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ff15c8ecd7de3849db632e14d18d2571fa09dfc5ed93479bc4485c7a517c913"
+checksum = "ebc4ee7f67670e9b64d05fa4253e753e016c6c95ff35b89b7941d6b856dec1d5"
 dependencies = [
  "proc-macro2",
  "quote",
