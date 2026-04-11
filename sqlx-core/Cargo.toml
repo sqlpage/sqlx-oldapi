@@ -173,7 +173,7 @@ hkdf = { version = "0.12.0", optional = true }
 event-listener = "5.4.0"
 
 dotenvy = "0.15"
-odbc-api = { version = "19.0.1", optional = true }
+odbc-api = { version = "24.0.0", optional = true }
 
 [dev-dependencies]
 sqlx = { package = "sqlx-oldapi", path = "..", features = ["postgres", "sqlite", "mysql", "runtime-tokio-rustls"] }
