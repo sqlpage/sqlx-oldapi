@@ -248,7 +248,7 @@ fn map_buffer_desc(
         // Binary types
         DataType::Binary { .. } | DataType::Varbinary { .. } | DataType::LongVarbinary { .. } => {
             BufferDesc::Binary {
-                length: max_column_size,
+                max_bytes: max_column_size,
             }
         }
         // Text types

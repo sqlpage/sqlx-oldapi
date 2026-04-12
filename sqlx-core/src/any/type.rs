@@ -8,8 +8,10 @@ macro_rules! impl_any_type {
     ($ty:ty) => {
         impl crate::types::Type<crate::any::Any> for $ty {
             fn type_info() -> crate::any::AnyTypeInfo {
-                // FIXME: nicer panic explaining why this isn't possible
-                unimplemented!()
+                panic!(
+                    "Type<Any>::type_info() is not implemented for {}. type_info should not be called on base types.",
+                    std::any::type_name::<$ty>(),
+                );
             }
 
             fn compatible(ty: &crate::any::AnyTypeInfo) -> bool {
