@@ -68,17 +68,11 @@ impl<'r> Decode<'r, Postgres> for NaiveDateTime {
 
             PgValueFormat::Text => {
                 let s = value.as_str()?;
-                NaiveDateTime::parse_from_str(
-                    s,
-                    if s.contains('+') {
-                        // Contains a time-zone specifier
-                        // This is given for timestamptz for some reason
-                        // Postgres already guarantees this to always be UTC
-                        "%Y-%m-%d %H:%M:%S%.f%#z"
-                    } else {
-                        "%Y-%m-%d %H:%M:%S%.f"
-                    },
-                )?
+                // Try with timezone offset first (handles both positive and
+                // negative offsets like +05 or -05), then fall back to parsing
+                // without timezone for plain timestamps.
+                NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S%.f%#z")
+                    .or_else(|_| NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S%.f"))?
             }
         })
     }
@@ -112,5 +106,70 @@ impl<'r> Decode<'r, Postgres> for DateTime<FixedOffset> {
     fn decode(value: PgValueRef<'r>) -> Result<Self, BoxDynError> {
         let naive = <NaiveDateTime as Decode<Postgres>>::decode(value)?;
         Ok(Utc.fix().from_utc_datetime(&naive))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::postgres::PgValueFormat;
+
+    fn text_decode_naive(s: &str) -> Result<NaiveDateTime, BoxDynError> {
+        let value = PgValueRef {
+            value: Some(s.as_bytes()),
+            row: None,
+            type_info: PgTypeInfo::TIMESTAMPTZ,
+            format: PgValueFormat::Text,
+        };
+        <NaiveDateTime as Decode<Postgres>>::decode(value)
+    }
+
+    #[test]
+    fn test_decode_timestamptz_negative_offset() {
+        // PostgreSQL returns this text format when session timezone is America/New_York (UTC-5)
+        let dt = text_decode_naive("2020-12-31 19:00:00-05").unwrap();
+        assert_eq!(
+            dt,
+            NaiveDate::from_ymd_opt(2020, 12, 31)
+                .unwrap()
+                .and_hms_opt(19, 0, 0)
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_decode_timestamptz_positive_offset() {
+        let dt = text_decode_naive("2021-01-01 05:00:00+05").unwrap();
+        assert_eq!(
+            dt,
+            NaiveDate::from_ymd_opt(2021, 1, 1)
+                .unwrap()
+                .and_hms_opt(5, 0, 0)
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_decode_timestamp_no_offset() {
+        let dt = text_decode_naive("2021-01-01 00:00:00").unwrap();
+        assert_eq!(
+            dt,
+            NaiveDate::from_ymd_opt(2021, 1, 1)
+                .unwrap()
+                .and_hms_opt(0, 0, 0)
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_decode_timestamptz_with_fractional_seconds() {
+        let dt = text_decode_naive("2021-01-01 00:00:00.123456-05").unwrap();
+        assert_eq!(
+            dt,
+            NaiveDate::from_ymd_opt(2021, 1, 1)
+                .unwrap()
+                .and_hms_micro_opt(0, 0, 0, 123456)
+                .unwrap()
+        );
     }
 }
