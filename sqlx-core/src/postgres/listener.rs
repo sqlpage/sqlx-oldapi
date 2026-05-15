@@ -240,7 +240,7 @@ impl PgListener {
     pub async fn try_recv(&mut self) -> Result<Option<PgNotification>, Error> {
         // Flush the buffer first, if anything
         // This would only fill up if this listener is used as a connection
-        if let Ok(Some(notification)) = self.buffer_rx.try_next() {
+        if let Ok(notification) = self.buffer_rx.try_recv() {
             return Ok(Some(PgNotification(notification)));
         }
 
