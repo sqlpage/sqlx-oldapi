@@ -1,5 +1,5 @@
 use futures::TryStreamExt;
-use rand_xoshiro::rand_core::{RngCore, SeedableRng};
+use rand_xoshiro::rand_core::{Rng, SeedableRng};
 use rand_xoshiro::Xoshiro256PlusPlus;
 use sqlx_oldapi::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use sqlx_oldapi::{

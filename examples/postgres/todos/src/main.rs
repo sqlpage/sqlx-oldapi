@@ -1,14 +1,16 @@
+extern crate sqlx as sqlx_oldapi;
+
+use clap::{Parser, Subcommand};
 use sqlx::postgres::PgPool;
 use std::env;
-use structopt::StructOpt;
 
-#[derive(StructOpt)]
+#[derive(Parser)]
 struct Args {
-    #[structopt(subcommand)]
+    #[command(subcommand)]
     cmd: Option<Command>,
 }
 
-#[derive(StructOpt)]
+#[derive(Subcommand)]
 enum Command {
     Add { description: String },
     Done { id: i64 },
@@ -16,7 +18,7 @@ enum Command {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let args = Args::from_args_safe()?;
+    let args = Args::try_parse()?;
     let pool = PgPool::connect(&env::var("DATABASE_URL")?).await?;
 
     match args.cmd {

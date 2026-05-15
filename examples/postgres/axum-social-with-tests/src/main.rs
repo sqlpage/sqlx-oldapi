@@ -1,3 +1,5 @@
+extern crate sqlx as sqlx_oldapi;
+
 use anyhow::Context;
 use sqlx::postgres::PgPoolOptions;
 

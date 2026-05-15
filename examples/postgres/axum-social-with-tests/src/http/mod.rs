@@ -1,6 +1,7 @@
 use anyhow::Context;
 use axum::{Extension, Router};
 use sqlx::PgPool;
+use tokio::net::TcpListener;
 
 mod error;
 
@@ -19,8 +20,11 @@ pub fn app(db: PgPool) -> Router {
 }
 
 pub async fn serve(db: PgPool) -> anyhow::Result<()> {
-    axum::Server::bind(&"0.0.0.0:8080".parse().unwrap())
-        .serve(app(db).into_make_service())
+    let listener = TcpListener::bind("0.0.0.0:8080")
+        .await
+        .context("failed to bind API listener")?;
+
+    axum::serve(listener, app(db))
         .await
         .context("failed to serve API")
 }

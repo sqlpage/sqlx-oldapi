@@ -1,7 +1,6 @@
 use criterion::{criterion_group, criterion_main, Bencher, Criterion};
-use sqlx::PgPool;
-
 use sqlx::postgres::PgPoolOptions;
+use std::hint::black_box;
 use std::time::{Duration, Instant};
 
 fn bench_pgpool_acquire(c: &mut Criterion) {
@@ -52,7 +51,7 @@ fn do_bench_acquire(b: &mut Bencher, concurrent: u32, fair: bool) {
 
                     // pretend we're using the connection
                     sqlx_rt::sleep(Duration::from_micros(500)).await;
-                    drop(criterion::black_box(conn));
+                    drop(black_box(conn));
                 }
             })
         });
@@ -63,7 +62,7 @@ fn do_bench_acquire(b: &mut Bencher, concurrent: u32, fair: bool) {
             // take the start time inside the future to make sure we only count once it's running
             let start = Instant::now();
             for _ in 0..iters {
-                criterion::black_box(
+                black_box(
                     pool.acquire()
                         .await
                         .expect("failed to acquire connection for benchmark"),

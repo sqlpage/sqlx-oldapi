@@ -1,7 +1,6 @@
 use axum::http::StatusCode;
 use axum::{routing::post, Extension, Json, Router};
 use once_cell::sync::Lazy;
-use rand::Rng;
 use regex::Regex;
 use std::time::Duration;
 
@@ -25,7 +24,7 @@ static USERNAME_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[0-9A-Za-z_]+$")
 #[derive(Deserialize, Validate)]
 #[serde(rename_all = "camelCase")]
 pub struct UserAuth {
-    #[validate(length(min = 3, max = 16), regex = "USERNAME_REGEX")]
+    #[validate(length(min = 3, max = 16), regex(path = *USERNAME_REGEX))]
     username: String,
     #[validate(length(min = 8, max = 32))]
     password: String,
@@ -85,7 +84,7 @@ impl UserAuth {
 
         // Sleep a random amount of time to avoid leaking existence of a user in timing.
         let sleep_duration =
-            rand::thread_rng().gen_range(Duration::from_millis(100)..=Duration::from_millis(500));
+            rand::random_range(Duration::from_millis(100)..=Duration::from_millis(500));
         tokio::time::sleep(sleep_duration).await;
 
         Err(Error::UnprocessableEntity(

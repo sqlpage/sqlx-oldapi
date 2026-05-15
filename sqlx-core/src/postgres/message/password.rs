@@ -1,5 +1,3 @@
-use std::fmt::Write;
-
 use md5::{Digest, Md5};
 
 use crate::io::{BufMutExt, Encode};
@@ -54,14 +52,15 @@ impl Encode<'_> for Password<'_> {
 
                     let mut output = String::with_capacity(35);
 
-                    let _ = write!(output, "{:x}", hasher.finalize_reset());
+                    output.push_str(&hex::encode(hasher.finalize_reset()));
 
                     hasher.update(&output);
                     hasher.update(salt);
 
                     output.clear();
 
-                    let _ = write!(output, "md5{:x}", hasher.finalize());
+                    output.push_str("md5");
+                    output.push_str(&hex::encode(hasher.finalize()));
 
                     buf.put_str_nul(&output);
                 }

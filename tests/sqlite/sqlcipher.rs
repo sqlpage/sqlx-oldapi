@@ -4,10 +4,12 @@ use sqlx_oldapi::sqlite::SqliteQueryResult;
 use sqlx_oldapi::{query, Connection, SqliteConnection};
 use sqlx_oldapi::{sqlite::SqliteConnectOptions, ConnectOptions};
 use sqlx_rt::fs::File;
-use tempdir::TempDir;
+use tempfile::TempDir;
 
 async fn new_db_url() -> anyhow::Result<(String, TempDir)> {
-    let dir = TempDir::new("sqlcipher_test")?;
+    let dir = tempfile::Builder::new()
+        .prefix("sqlcipher_test")
+        .tempdir()?;
     let filepath = dir.path().join("database.sqlite3");
 
     // Touch the file, so DB driver will not complain it does not exist

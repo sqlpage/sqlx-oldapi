@@ -1,7 +1,6 @@
 use crate::opt::ConnectOpts;
 use anyhow::{bail, Context};
 use console::style;
-use remove_dir_all::remove_dir_all;
 use sqlx::any::{AnyConnectOptions, AnyKind};
 use sqlx::Connection;
 use std::collections::{BTreeMap, BTreeSet};
@@ -122,7 +121,7 @@ hint: This command only works in the manifest directory of a Cargo package."#
 
     // try removing the target/sqlx directory before running, as stale files
     // have repeatedly caused issues in the past.
-    let _ = remove_dir_all(metadata.target_directory().join("sqlx"));
+    let _ = fs::remove_dir_all(metadata.target_directory().join("sqlx"));
 
     // Try only triggering a recompile on crates that use `sqlx-macros`, falling back to a full
     // clean on error.

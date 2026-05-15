@@ -1,3 +1,5 @@
+extern crate sqlx as sqlx_oldapi;
+
 use sqlx::PgPool;
 
 use sqlx_example_postgres_axum_social::http;

@@ -1,8 +1,9 @@
 use anyhow::Result;
-use futures::{Future, TryFutureExt};
 use sqlx::{AnyConnection, Connection};
+use std::future::Future;
 use std::io;
 use std::time::Duration;
+use tokio::time::{sleep, Instant};
 
 use crate::opt::{Command, ConnectOpts, DatabaseCommand, MigrateCommand};
 
@@ -113,27 +114,36 @@ where
     F: FnMut(&'a str) -> Fut,
     Fut: Future<Output = sqlx::Result<T>> + 'a,
 {
-    backoff::future::retry(
-        backoff::ExponentialBackoffBuilder::new()
-            .with_max_elapsed_time(Some(Duration::from_secs(opts.connect_timeout)))
-            .build(),
-        || {
-            connect(&opts.database_url).map_err(|e| -> backoff::Error<sqlx::Error> {
-                match e {
-                    sqlx::Error::Io(ref ioe) => match ioe.kind() {
-                        io::ErrorKind::ConnectionRefused
-                        | io::ErrorKind::ConnectionReset
-                        | io::ErrorKind::ConnectionAborted => {
-                            return backoff::Error::transient(e);
-                        }
-                        _ => (),
-                    },
-                    _ => (),
+    let deadline = Instant::now() + Duration::from_secs(opts.connect_timeout);
+    let mut delay = Duration::from_millis(50);
+
+    loop {
+        match connect(&opts.database_url).await {
+            Ok(value) => return Ok(value),
+            Err(error) if is_retriable_connect_error(&error) && Instant::now() < deadline => {
+                let sleep_for = delay.min(deadline.saturating_duration_since(Instant::now()));
+
+                if sleep_for.is_zero() {
+                    return Err(error);
                 }
 
-                backoff::Error::permanent(e)
-            })
-        },
+                sleep(sleep_for).await;
+                delay = (delay + delay).min(Duration::from_secs(1));
+            }
+            Err(error) => return Err(error),
+        }
+    }
+}
+
+fn is_retriable_connect_error(error: &sqlx::Error) -> bool {
+    matches!(
+        error,
+        sqlx::Error::Io(ioe)
+            if matches!(
+                ioe.kind(),
+                io::ErrorKind::ConnectionRefused
+                    | io::ErrorKind::ConnectionReset
+                    | io::ErrorKind::ConnectionAborted
+            )
     )
-    .await
 }

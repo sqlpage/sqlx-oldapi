@@ -4,8 +4,8 @@ use crate::postgres::message::{
     Authentication, AuthenticationSasl, MessageFormat, SaslInitialResponse, SaslResponse,
 };
 use crate::postgres::PgConnectOptions;
-use hmac::{Hmac, Mac};
-use rand::Rng;
+use hmac::{Hmac, KeyInit, Mac};
+use rand::RngExt;
 use sha2::{Digest, Sha256};
 use stringprep::saslprep;
 
@@ -174,8 +174,8 @@ pub(crate) async fn authenticate(
 
 // nonce is a sequence of random printable bytes
 fn gen_nonce() -> String {
-    let mut rng = rand::thread_rng();
-    let count = rng.gen_range(64..128);
+    let mut rng = rand::rng();
+    let count = rng.random_range(64..128);
 
     // printable = %x21-2B / %x2D-7E
     // ;; Printable ASCII except ",".
@@ -183,10 +183,10 @@ fn gen_nonce() -> String {
     // ;; a valid "value".
     let nonce: String = std::iter::repeat(())
         .map(|()| {
-            let mut c = rng.gen_range(0x21u8..0x7Fu8);
+            let mut c = rng.random_range(0x21u8..0x7Fu8);
 
             while c == 0x2C {
-                c = rng.gen_range(0x21u8..0x7Fu8);
+                c = rng.random_range(0x21u8..0x7Fu8);
             }
 
             c
@@ -195,7 +195,6 @@ fn gen_nonce() -> String {
         .map(|c| c as char)
         .collect();
 
-    rng.gen_range(32..128);
     format!("{}={}", NONCE_ATTR, nonce)
 }
 

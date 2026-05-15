@@ -1,12 +1,5 @@
 use sqlx::{Connection, Executor};
 
-use std::time::Instant;
-
-#[derive(sqlx::FromRow)]
-struct Test {
-    id: i32,
-}
-
 fn main() -> sqlx::Result<()> {
     sqlx_rt::block_on(async {
         let mut conn = sqlx::SqliteConnection::connect("sqlite://test.db?mode=rwc").await?;
@@ -30,7 +23,7 @@ fn main() -> sqlx::Result<()> {
 
             println!(
                 "total: {}",
-                sqlx::query!("SELECT id from test")
+                sqlx::query("SELECT id from test")
                     .fetch_all(&mut conn)
                     .await?
                     .len()

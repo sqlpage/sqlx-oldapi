@@ -17,7 +17,7 @@ use uuid::Uuid;
 
 pub fn router() -> Router {
     Router::new().route(
-        "/v1/post/:postId/comment",
+        "/v1/post/{postId}/comment",
         get(get_post_comments).post(create_post_comment),
     )
 }

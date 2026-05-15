@@ -31,7 +31,7 @@ impl Package {
 
 impl From<&MetadataPackage> for Package {
     fn from(package: &MetadataPackage) -> Self {
-        let name = package.name.clone();
+        let name = package.name.to_string();
         let src_paths = package
             .targets
             .iter()
