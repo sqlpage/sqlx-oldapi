@@ -52,10 +52,19 @@ impl<'c> Executor<'c> for &'c mut OdbcConnection {
     }
 
     #[doc(hidden)]
-    fn describe<'e, 'q: 'e>(self, _sql: &'q str) -> BoxFuture<'e, Result<Describe<Odbc>, Error>>
+    fn describe<'e, 'q: 'e>(self, sql: &'q str) -> BoxFuture<'e, Result<Describe<Odbc>, Error>>
     where
         'c: 'e,
     {
-        Box::pin(async move { Err(Error::Protocol("ODBC describe not implemented".into())) })
+        Box::pin(async move {
+            let statement = self.prepare(sql).await?;
+            let nullable = vec![None; statement.metadata.columns.len()];
+
+            Ok(Describe {
+                columns: statement.metadata.columns,
+                parameters: Some(Either::Right(statement.metadata.parameters)),
+                nullable,
+            })
+        })
     }
 }
