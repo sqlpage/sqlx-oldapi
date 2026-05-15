@@ -45,7 +45,7 @@ pub struct OdbcBufferSettings {
     /// - In unbuffered mode: Each batch processes `batch_size` rows without pre-allocation
     /// - For wide result sets, this can consume significant memory
     ///
-    /// **Default:** 128 rows
+    /// **Default:** 64 rows
     pub batch_size: usize,
 
     /// The maximum size (in characters) for text and binary columns when the database doesn't specify a length.
@@ -63,7 +63,7 @@ pub struct OdbcBufferSettings {
     /// - Setting too high can waste memory; setting too low can cause data truncation
     /// - Consider your data characteristics when tuning this value
     ///
-    /// **Default:** Some(4096)
+    /// **Default:** None
     pub max_column_size: Option<usize>,
 }
 
@@ -123,7 +123,7 @@ impl OdbcConnectOptions {
     ///
     /// This controls how many rows are fetched at once during query execution.
     /// Higher values can improve performance for large result sets but use more memory.
-    /// Only used when `max_column_size` is `Some(value)` (buffered mode).
+    /// Used in both buffered and unbuffered mode.
     ///
     /// # Panics
     /// Panics if `batch_size` is 0.
@@ -143,7 +143,7 @@ impl OdbcConnectOptions {
     /// - When set to `None`: Enables unbuffered mode with row-by-row processing
     ///
     /// # Panics
-    /// Panics if `max_column_size` is less than 0.
+    /// Panics if `max_column_size` is `Some(0)`.
     pub fn max_column_size(&mut self, max_column_size: Option<usize>) -> &mut Self {
         if let Some(size) = max_column_size {
             assert!(size > 0, "max_column_size must be greater than 0");
