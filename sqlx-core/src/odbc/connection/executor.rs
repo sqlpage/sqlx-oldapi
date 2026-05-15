@@ -60,7 +60,7 @@ impl<'c> Executor<'c> for &'c mut OdbcConnection {
         'c: 'e,
     {
         Box::pin(async move {
-            let statement = self.prepare(sql).await?;
+            let statement = self.describe_statement(sql).await?;
             let nullable = vec![None; statement.metadata.columns.len()];
 
             Ok(Describe {

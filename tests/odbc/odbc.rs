@@ -320,6 +320,20 @@ async fn it_can_prepare_then_query_with_params_integer_float_text() -> anyhow::R
 }
 
 #[tokio::test]
+async fn describe_does_not_succeed_with_missing_columns() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+
+    if let Ok(describe) = Executor::describe(&mut conn, "SELECT ? AS value").await {
+        assert!(
+            !describe.columns().is_empty(),
+            "ODBC describe must error instead of silently reporting no columns"
+        );
+    }
+
+    Ok(())
+}
+
+#[tokio::test]
 async fn it_can_bind_many_params_dynamically() -> anyhow::Result<()> {
     let mut conn = new::<Odbc>().await?;
 

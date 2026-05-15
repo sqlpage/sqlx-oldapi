@@ -23,8 +23,24 @@ mod executor;
 type PreparedStatement = Prepared<StatementConnection<SharedConnection<'static>>>;
 type SharedPreparedStatement = Arc<Mutex<PreparedStatement>>;
 
-fn collect_columns(prepared: &mut PreparedStatement) -> Result<Vec<OdbcColumn>, Error> {
-    let count = prepared.num_result_cols()?;
+fn collect_columns(
+    prepared: &mut PreparedStatement,
+    parameter_count: usize,
+    allow_deferred_result_columns: bool,
+) -> Result<Vec<OdbcColumn>, Error> {
+    let count = match prepared.num_result_cols() {
+        Ok(count) => count,
+        Err(error) if allow_deferred_result_columns && parameter_count > 0 => {
+            // Some ODBC drivers only expose result columns for parameterized
+            // statements after values are bound and the statement is executed.
+            // Row execution still gets authoritative metadata from the cursor;
+            // describe() uses the strict path and will surface this error.
+            log::debug!("ODBC prepare did not expose result columns: {error}");
+            return Ok(Vec::new());
+        }
+        Err(error) => return Err(error.into()),
+    };
+
     let mut columns = Vec::with_capacity(count as usize);
     for i in 1..=count {
         columns.push(describe_column(prepared, i as u16)?);
@@ -34,10 +50,13 @@ fn collect_columns(prepared: &mut PreparedStatement) -> Result<Vec<OdbcColumn>, 
 
 fn collect_statement_metadata(
     prepared: &mut PreparedStatement,
+    allow_deferred_result_columns: bool,
 ) -> Result<OdbcStatementMetadata, Error> {
+    let parameters = usize::from(prepared.num_params()?);
+
     Ok(OdbcStatementMetadata {
-        columns: collect_columns(prepared)?,
-        parameters: usize::from(prepared.num_params()?),
+        columns: collect_columns(prepared, parameters, allow_deferred_result_columns)?,
+        parameters,
     })
 }
 
@@ -216,7 +235,12 @@ impl OdbcConnection {
         Ok(())
     }
 
-    pub async fn prepare<'a>(&mut self, sql: &'a str) -> Result<OdbcStatement<'a>, Error> {
+    async fn prepare_with_metadata_policy<'a>(
+        &mut self,
+        sql: &'a str,
+        store_to_cache: bool,
+        allow_deferred_result_columns: bool,
+    ) -> Result<OdbcStatement<'a>, Error> {
         let cached = self
             .stmt_cache
             .get_mut(sql)
@@ -227,7 +251,7 @@ impl OdbcConnection {
                 let mut prepared = prepared.lock().map_err(|_| {
                     Error::Protocol("ODBC prepare: failed to lock prepared statement".into())
                 })?;
-                collect_statement_metadata(&mut prepared)
+                collect_statement_metadata(&mut prepared, allow_deferred_result_columns)
             })
             .await?;
 
@@ -242,12 +266,13 @@ impl OdbcConnection {
         let sql_clone = sql_owned.clone();
         let (prepared, metadata) = spawn_blocking(move || {
             let mut prepared = conn.into_prepared(&sql_clone)?;
-            let metadata = collect_statement_metadata(&mut prepared)?;
+            let metadata =
+                collect_statement_metadata(&mut prepared, allow_deferred_result_columns)?;
             Ok::<_, Error>((prepared, metadata))
         })
         .await?;
 
-        if self.stmt_cache.is_enabled() {
+        if store_to_cache && self.stmt_cache.is_enabled() {
             self.stmt_cache
                 .insert(&sql_owned, Arc::new(Mutex::new(prepared)));
         }
@@ -256,6 +281,17 @@ impl OdbcConnection {
             sql: Cow::Borrowed(sql),
             metadata,
         })
+    }
+
+    pub async fn prepare<'a>(&mut self, sql: &'a str) -> Result<OdbcStatement<'a>, Error> {
+        self.prepare_with_metadata_policy(sql, true, true).await
+    }
+
+    pub(crate) async fn describe_statement<'a>(
+        &mut self,
+        sql: &'a str,
+    ) -> Result<OdbcStatement<'a>, Error> {
+        self.prepare_with_metadata_policy(sql, false, false).await
     }
 }
 
