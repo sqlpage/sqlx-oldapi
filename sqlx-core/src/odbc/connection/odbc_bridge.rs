@@ -155,7 +155,31 @@ fn to_param(arg: OdbcArgumentValue) -> Box<dyn odbc_api::parameter::InputParamet
             }
             .into_parameter(),
         ),
-        OdbcArgumentValue::Null => Box::new(Option::<String>::None.into_parameter()),
+        OdbcArgumentValue::Null(type_info) => Box::new(
+            WithDataType {
+                value: Option::<String>::None.into_parameter(),
+                data_type: type_info.data_type(),
+            }
+            .into_parameter(),
+        ),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::arguments::Arguments;
+    use odbc_api::handles::HasDataType;
+
+    #[test]
+    fn typed_none_parameter_preserves_non_string_data_type() {
+        let mut args = OdbcArguments::default();
+
+        args.add(Option::<i32>::None);
+
+        let params = prepare_parameters(Some(args));
+        assert_eq!(params.len(), 1);
+        assert_eq!(params[0].data_type(), odbc_api::DataType::Integer);
     }
 }
 

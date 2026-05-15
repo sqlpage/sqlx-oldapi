@@ -1,6 +1,6 @@
 use crate::arguments::Arguments;
 use crate::encode::Encode;
-use crate::odbc::Odbc;
+use crate::odbc::{Odbc, OdbcTypeInfo};
 use crate::types::Type;
 
 #[derive(Default, Debug)]
@@ -18,7 +18,7 @@ pub enum OdbcArgumentValue {
     Date(odbc_api::sys::Date),
     Time(odbc_api::sys::Time),
     Timestamp(odbc_api::sys::Timestamp),
-    Null,
+    Null(OdbcTypeInfo),
 }
 
 impl<'q> Arguments<'q> for OdbcArguments {
@@ -54,7 +54,7 @@ where
         match self {
             Some(v) => v.encode(buf),
             None => {
-                buf.push(OdbcArgumentValue::Null);
+                buf.push(OdbcArgumentValue::Null(T::type_info()));
                 crate::encode::IsNull::Yes
             }
         }
@@ -64,7 +64,7 @@ where
         match self {
             Some(v) => v.encode_by_ref(buf),
             None => {
-                buf.push(OdbcArgumentValue::Null);
+                buf.push(OdbcArgumentValue::Null(T::type_info()));
                 crate::encode::IsNull::Yes
             }
         }
