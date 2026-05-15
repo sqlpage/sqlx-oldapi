@@ -134,6 +134,27 @@ async fn it_streams_multiple_rows() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
+async fn it_streams_multiple_result_sets() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+
+    if conn.dbms_name().await? != "PostgreSQL" {
+        return Ok(());
+    }
+
+    let rows = conn.fetch_all("SELECT 1 AS v; SELECT 2 AS v").await?;
+    let vals = rows
+        .iter()
+        .map(|row| {
+            row.try_get_raw(0)
+                .map(|value| value.to_owned().decode::<i64>())
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    assert_eq!(vals, vec![1, 2]);
+    Ok(())
+}
+
+#[tokio::test]
 async fn it_handles_empty_result() -> anyhow::Result<()> {
     let mut conn = new::<Odbc>().await?;
     let mut s = conn.fetch("SELECT 1 WHERE 1=0");

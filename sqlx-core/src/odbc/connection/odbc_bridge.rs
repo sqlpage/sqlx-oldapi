@@ -71,24 +71,30 @@ pub fn execute_sql(
     log::trace!("Executing {:?} with params {:?}", maybe_prepared, args);
     let params = prepare_parameters(args);
 
-    let affected = match maybe_prepared {
+    let (affected, receiver_open) = match maybe_prepared {
         MaybePrepared::Prepared(prepared) => {
             let mut prepared = prepared.lock().expect("prepared statement lock");
-            if let Some(cursor) = prepared.execute(&params[..])? {
-                handle_cursor(cursor, tx, buffer_settings);
-            }
-            extract_rows_affected(&mut *prepared)
+            let receiver_open = if let Some(cursor) = prepared.execute(&params[..])? {
+                handle_result_sets(cursor, tx, buffer_settings)?
+            } else {
+                true
+            };
+            (extract_rows_affected(&mut *prepared), receiver_open)
         }
         MaybePrepared::NotPrepared(sql) => {
             let mut preallocated = conn.preallocate().map_err(Error::from)?;
-            if let Some(cursor) = preallocated.execute(&sql, &params[..])? {
-                handle_cursor(cursor, tx, buffer_settings);
-            }
-            extract_rows_affected(&mut preallocated)
+            let receiver_open = if let Some(cursor) = preallocated.execute(&sql, &params[..])? {
+                handle_result_sets(cursor, tx, buffer_settings)?
+            } else {
+                true
+            };
+            (extract_rows_affected(&mut preallocated), receiver_open)
         }
     };
 
-    let _ = send_done(tx, affected);
+    if receiver_open {
+        let _ = send_done(tx, affected);
+    }
     Ok(())
 }
 
@@ -183,53 +189,60 @@ mod tests {
     }
 }
 
+fn handle_result_sets<C: Cursor + ResultSetMetadata>(
+    mut cursor: C,
+    tx: &ExecuteSender,
+    buffer_settings: OdbcBufferSettings,
+) -> Result<bool, Error> {
+    loop {
+        let (receiver_open, finished_cursor) = handle_cursor(cursor, tx, buffer_settings)?;
+
+        if !receiver_open {
+            return Ok(false);
+        }
+
+        match finished_cursor.more_results()? {
+            Some(next_cursor) => cursor = next_cursor,
+            None => return Ok(true),
+        }
+    }
+}
+
 fn handle_cursor<C: Cursor + ResultSetMetadata>(
     mut cursor: C,
     tx: &ExecuteSender,
     buffer_settings: OdbcBufferSettings,
-) {
+) -> Result<(bool, C), Error> {
+    if cursor.num_result_cols()? == 0 {
+        let receiver_open = send_done(tx, extract_rows_affected(&mut cursor)).is_ok();
+        return Ok((receiver_open, cursor));
+    }
+
     match buffer_settings.max_column_size {
         Some(max_column_size) => {
             // Buffered mode - use batch fetching with columnar buffers
-            let bindings = match build_bindings(&mut cursor, max_column_size) {
-                Ok(b) => b,
-                Err(e) => {
-                    send_error(tx, e);
-                    return;
-                }
-            };
+            let bindings = build_bindings(&mut cursor, max_column_size)?;
 
-            match stream_rows(cursor, bindings, tx, buffer_settings) {
-                Ok(true) => {
-                    let _ = send_done(tx, 0);
-                }
-                Ok(false) => {}
-                Err(e) => {
-                    send_error(tx, e);
-                }
+            let (receiver_open, cursor) = stream_rows(cursor, bindings, tx, buffer_settings)?;
+            if receiver_open {
+                let _ = send_done(tx, 0);
             }
+            Ok((receiver_open, cursor))
         }
         None => {
             // Unbuffered mode - use batched row-by-row fetching
-            match stream_rows_unbuffered(cursor, tx, buffer_settings.batch_size) {
-                Ok(true) => {
-                    let _ = send_done(tx, 0);
-                }
-                Ok(false) => {}
-                Err(e) => {
-                    send_error(tx, e);
-                }
+            let (receiver_open, cursor) =
+                stream_rows_unbuffered(cursor, tx, buffer_settings.batch_size)?;
+            if receiver_open {
+                let _ = send_done(tx, 0);
             }
+            Ok((receiver_open, cursor))
         }
     }
 }
 
 fn send_done(tx: &ExecuteSender, rows_affected: u64) -> Result<(), SendError<ExecuteResult>> {
     tx.send(Ok(Either::Left(OdbcQueryResult { rows_affected })))
-}
-
-fn send_error(tx: &ExecuteSender, error: Error) {
-    let _ = tx.send(Err(error));
 }
 
 fn send_row(tx: &ExecuteSender, row: OdbcRow) -> Result<(), SendError<ExecuteResult>> {
@@ -369,7 +382,7 @@ fn stream_rows<C>(
     bindings: Vec<ColumnBinding>,
     tx: &ExecuteSender,
     buffer_settings: OdbcBufferSettings,
-) -> Result<bool, Error>
+) -> Result<(bool, C), Error>
 where
     C: Cursor + ResultSetMetadata,
 {
@@ -387,7 +400,7 @@ fn stream_rows_buffered<C>(
     bindings: Vec<ColumnBinding>,
     tx: &ExecuteSender,
     batch_size: usize,
-) -> Result<bool, Error>
+) -> Result<(bool, C), Error>
 where
     C: Cursor + ResultSetMetadata,
 {
@@ -415,14 +428,16 @@ where
         }
     }
 
-    Ok(receiver_open)
+    let (cursor, _) = row_set_cursor.unbind()?;
+
+    Ok((receiver_open, cursor))
 }
 
 fn stream_rows_unbuffered<C>(
     mut cursor: C,
     tx: &ExecuteSender,
     batch_size: usize,
-) -> Result<bool, Error>
+) -> Result<(bool, C), Error>
 where
     C: Cursor + ResultSetMetadata,
 {
@@ -581,5 +596,5 @@ where
         }
     }
 
-    Ok(receiver_open)
+    Ok((receiver_open, cursor))
 }
