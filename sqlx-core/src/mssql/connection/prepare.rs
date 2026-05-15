@@ -77,12 +77,12 @@ pub(crate) async fn prepare(
         let message = conn.stream.recv_message().await?;
 
         match message {
-            Message::DoneProc(done) | Message::Done(done) => {
-                if !done.status.contains(Status::DONE_MORE) {
-                    // done with prepare
-                    conn.stream.handle_done(&done);
-                    break;
-                }
+            Message::DoneProc(done) | Message::Done(done)
+                if !done.status.contains(Status::DONE_MORE) =>
+            {
+                // done with prepare
+                conn.stream.handle_done(&done);
+                break;
             }
 
             Message::ReturnValue(rv) => {
@@ -120,12 +120,12 @@ pub(crate) async fn prepare(
             let message = conn.stream.recv_message().await?;
 
             match message {
-                Message::DoneProc(done) | Message::Done(done) => {
-                    if !done.status.contains(Status::DONE_MORE) {
-                        // done with unprepare
-                        conn.stream.handle_done(&done);
-                        break;
-                    }
+                Message::DoneProc(done) | Message::Done(done)
+                    if !done.status.contains(Status::DONE_MORE) =>
+                {
+                    // done with unprepare
+                    conn.stream.handle_done(&done);
+                    break;
                 }
 
                 _ => {}
