@@ -306,13 +306,13 @@ fn map_buffer_desc(
     Ok(buffer_desc)
 }
 
-fn create_column_data(slice: AnySlice<'_>, column: &OdbcColumn) -> Arc<ColumnData> {
-    let (values, nulls) = crate::odbc::value::convert_any_slice_to_value_vec(slice);
-    Arc::new(ColumnData {
+fn create_column_data(slice: AnySlice<'_>, column: &OdbcColumn) -> Result<Arc<ColumnData>, Error> {
+    let (values, nulls) = crate::odbc::value::convert_any_slice_to_value_vec(slice)?;
+    Ok(Arc::new(ColumnData {
         values,
         type_info: column.type_info.clone(),
         nulls,
-    })
+    }))
 }
 
 fn build_columns_from_cursor<C>(cursor: &mut C) -> Result<Vec<OdbcColumn>, Error>
@@ -401,7 +401,7 @@ where
             .map(|(col_index, binding)| {
                 create_column_data(batch.column(col_index), &binding.column)
             })
-            .collect();
+            .collect::<Result<_, _>>()?;
 
         if !send_rows_for_batch(tx, &col_arc, column_data, batch.num_rows(), logger) {
             receiver_open = false;

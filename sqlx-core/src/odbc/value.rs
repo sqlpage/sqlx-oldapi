@@ -1,3 +1,4 @@
+use crate::error::Error;
 use crate::odbc::{Odbc, OdbcBatch, OdbcTypeInfo};
 use crate::type_info::TypeInfo;
 use crate::value::{Value, ValueRef};
@@ -401,14 +402,37 @@ fn handle_nullable_with_indicators<T: Default + Copy>(
     (constructor(raw_values.to_vec()), nulls)
 }
 
+fn handle_non_nullable_u8_slice(slice: &[u8]) -> (OdbcValueVec, Vec<bool>) {
+    (
+        OdbcValueVec::BigInt(slice.iter().map(|&value| i64::from(value)).collect()),
+        vec![false; slice.len()],
+    )
+}
+
+fn handle_nullable_u8_slice(slice: NullableSlice<'_, u8>) -> (OdbcValueVec, Vec<bool>) {
+    let size = slice.size_hint().1.unwrap_or(0);
+    let mut values = Vec::with_capacity(size);
+    let mut nulls = Vec::with_capacity(size);
+
+    for opt in slice {
+        values.push(opt.copied().map(i64::from).unwrap_or_default());
+        nulls.push(opt.is_none());
+    }
+
+    (OdbcValueVec::BigInt(values), nulls)
+}
+
 /// Convert AnySlice to owned OdbcValueVec and nulls vector, preserving original types
-pub fn convert_any_slice_to_value_vec(slice: AnySlice<'_>) -> (OdbcValueVec, Vec<bool>) {
-    match slice {
+pub(crate) fn convert_any_slice_to_value_vec(
+    slice: AnySlice<'_>,
+) -> Result<(OdbcValueVec, Vec<bool>), Error> {
+    Ok(match slice {
         // Non-nullable integer types
         AnySlice::I8(s) => handle_non_nullable_slice(s, OdbcValueVec::TinyInt),
         AnySlice::I16(s) => handle_non_nullable_slice(s, OdbcValueVec::SmallInt),
         AnySlice::I32(s) => handle_non_nullable_slice(s, OdbcValueVec::Integer),
         AnySlice::I64(s) => handle_non_nullable_slice(s, OdbcValueVec::BigInt),
+        AnySlice::U8(s) => handle_non_nullable_u8_slice(s),
 
         // Non-nullable floating point types
         AnySlice::F32(s) => handle_non_nullable_slice(s, OdbcValueVec::Real),
@@ -428,6 +452,7 @@ pub fn convert_any_slice_to_value_vec(slice: AnySlice<'_>) -> (OdbcValueVec, Vec
         AnySlice::NullableI16(s) => handle_nullable_slice(s, OdbcValueVec::SmallInt),
         AnySlice::NullableI32(s) => handle_nullable_slice(s, OdbcValueVec::Integer),
         AnySlice::NullableI64(s) => handle_nullable_slice(s, OdbcValueVec::BigInt),
+        AnySlice::NullableU8(s) => handle_nullable_u8_slice(s),
         AnySlice::NullableF32(s) => handle_nullable_slice(s, OdbcValueVec::Real),
         AnySlice::NullableF64(s) => handle_nullable_slice(s, OdbcValueVec::Double),
         AnySlice::NullableBit(s) => {
@@ -451,6 +476,19 @@ pub fn convert_any_slice_to_value_vec(slice: AnySlice<'_>) -> (OdbcValueVec, Vec
             for bytes_opt in s.iter() {
                 nulls.push(bytes_opt.is_none());
                 values.push(String::from_utf8_lossy(bytes_opt.unwrap_or_default()).into_owned());
+            }
+            (OdbcValueVec::Text(values), nulls)
+        }
+        AnySlice::WText(s) => {
+            let mut values = Vec::with_capacity(s.len());
+            let mut nulls = Vec::with_capacity(s.len());
+            for chars_opt in s.iter() {
+                nulls.push(chars_opt.is_none());
+                values.push(
+                    chars_opt
+                        .map(|chars| String::from_utf16_lossy(chars.into()))
+                        .unwrap_or_default(),
+                );
             }
             (OdbcValueVec::Text(values), nulls)
         }
@@ -478,7 +516,25 @@ pub fn convert_any_slice_to_value_vec(slice: AnySlice<'_>) -> (OdbcValueVec, Vec
             handle_nullable_with_indicators(raw_values, indicators, OdbcValueVec::Timestamp)
         }
 
-        _ => panic!("Unsupported AnySlice variant"),
+        unsupported => {
+            return Err(Error::Protocol(format!(
+                "unsupported ODBC buffer slice variant: {:?}",
+                std::mem::discriminant(&unsupported)
+            )));
+        }
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn converts_unsigned_tinyint_slices() {
+        let (values, nulls) = convert_any_slice_to_value_vec(AnySlice::U8(&[0, 255])).unwrap();
+
+        assert_eq!(nulls, vec![false, false]);
+        assert!(matches!(values, OdbcValueVec::BigInt(values) if values == vec![0, 255]));
     }
 }
 
