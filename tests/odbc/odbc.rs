@@ -61,6 +61,26 @@ async fn it_can_work_with_transactions() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
+async fn it_bounds_statement_cache() -> anyhow::Result<()> {
+    let database_url = std::env::var("DATABASE_URL")?;
+    let mut opts = OdbcConnectOptions::from_str(&database_url)?;
+    opts.statement_cache_capacity(1);
+
+    let mut conn = OdbcConnection::connect_with(&opts).await?;
+
+    conn.prepare("SELECT 1").await?;
+    assert_eq!(conn.cached_statements_size(), 1);
+
+    conn.prepare("SELECT 2").await?;
+    assert_eq!(conn.cached_statements_size(), 1);
+
+    conn.clear_cached_statements().await?;
+    assert_eq!(conn.cached_statements_size(), 0);
+
+    Ok(())
+}
+
+#[tokio::test]
 async fn it_rolls_back_dropped_transaction() -> anyhow::Result<()> {
     let mut conn = new::<Odbc>().await?;
 
