@@ -8,9 +8,8 @@ use crate::odbc::{
 use either::Either;
 use flume::{SendError, Sender};
 use odbc_api::buffers::{AnySlice, BufferDesc, ColumnarAnyBuffer};
-use odbc_api::handles::{AsStatementRef, CDataMut, Nullability, Statement};
-use odbc_api::parameter::CElement;
-use odbc_api::{Cursor, IntoParameter, Nullable, ResultSetMetadata};
+use odbc_api::handles::{AsStatementRef, Nullability, Statement};
+use odbc_api::{Cursor, IntoParameter, ResultSetMetadata};
 use std::sync::Arc;
 
 // Bulk fetch implementation using columnar buffers instead of row-by-row fetching
@@ -428,8 +427,6 @@ fn stream_rows_unbuffered<C>(
 where
     C: Cursor + ResultSetMetadata,
 {
-    use odbc_api::DataType;
-
     let mut receiver_open = true;
 
     let columns = build_columns_from_cursor(&mut cursor)?;
@@ -437,118 +434,11 @@ where
 
     let col_arc: Arc<[OdbcColumn]> = Arc::from(columns.clone());
 
-    fn init_value_vec(dt: DataType, capacity: usize) -> OdbcValueVec {
-        match dt {
-            DataType::TinyInt => OdbcValueVec::TinyInt(Vec::with_capacity(capacity)),
-            DataType::SmallInt => OdbcValueVec::SmallInt(Vec::with_capacity(capacity)),
-            DataType::Integer => OdbcValueVec::BigInt(Vec::with_capacity(capacity)), // the SQLite driver reports "INTEGER" even though it supports 64-bit integers
-            DataType::BigInt => OdbcValueVec::BigInt(Vec::with_capacity(capacity)),
-            DataType::Real => OdbcValueVec::Real(Vec::with_capacity(capacity)),
-            DataType::Float { .. } | DataType::Double => {
-                OdbcValueVec::Double(Vec::with_capacity(capacity))
-            }
-            DataType::Bit => OdbcValueVec::Bit(Vec::with_capacity(capacity)),
-            DataType::Date => OdbcValueVec::Date(Vec::with_capacity(capacity)),
-            DataType::Time { .. } => OdbcValueVec::Time(Vec::with_capacity(capacity)),
-            DataType::Timestamp { .. } => OdbcValueVec::Timestamp(Vec::with_capacity(capacity)),
-            DataType::Binary { .. }
-            | DataType::Varbinary { .. }
-            | DataType::LongVarbinary { .. } => OdbcValueVec::Binary(Vec::with_capacity(capacity)),
-            _ => OdbcValueVec::Text(Vec::with_capacity(capacity)),
-        }
-    }
-
-    fn push_get_data<T: Default + Copy + CElement + CDataMut>(
-        cursor_row: &mut odbc_api::CursorRow<'_>,
-        col_index: u16,
-        vec: &mut Vec<T>,
-        nulls: &mut Vec<bool>,
-    ) -> Result<(), odbc_api::Error>
-    where
-        Nullable<T>: CElement + CDataMut,
-    {
-        let mut tmp = Nullable::null();
-        cursor_row.get_data(col_index, &mut tmp)?;
-        let option = tmp.into_opt();
-        nulls.push(option.is_none());
-        vec.push(option.unwrap_or_default());
-        Ok(())
-    }
-
-    fn push_binary(
-        cursor_row: &mut odbc_api::CursorRow<'_>,
-        col_index: u16,
-        vec: &mut Vec<Vec<u8>>,
-        nulls: &mut Vec<bool>,
-    ) -> Result<(), odbc_api::Error> {
-        let mut buf = Vec::new();
-        let is_not_null = cursor_row.get_binary(col_index, &mut buf)?;
-        nulls.push(!is_not_null);
-        vec.push(buf);
-        Ok(())
-    }
-
-    fn push_text(
-        cursor_row: &mut odbc_api::CursorRow<'_>,
-        col_index: u16,
-        vec: &mut Vec<String>,
-        nulls: &mut Vec<bool>,
-    ) -> Result<(), odbc_api::Error> {
-        let mut buf = Vec::<u16>::new();
-        let is_not_null = cursor_row.get_wide_text(col_index, &mut buf)?;
-        vec.push(String::from_utf16_lossy(&buf).to_string());
-        nulls.push(!is_not_null);
-        Ok(())
-    }
-
-    fn push_bit(
-        cursor_row: &mut odbc_api::CursorRow<'_>,
-        col_index: u16,
-        vec: &mut Vec<bool>,
-        nulls: &mut Vec<bool>,
-    ) -> Result<(), odbc_api::Error> {
-        let mut bit_val = Nullable::<odbc_api::Bit>::null();
-        cursor_row.get_data(col_index, &mut bit_val)?;
-        match bit_val.into_opt() {
-            Some(bit) => {
-                nulls.push(false);
-                vec.push(bit.as_bool());
-            }
-            None => {
-                nulls.push(true);
-                vec.push(false);
-            }
-        }
-        Ok(())
-    }
-
-    fn push_from_cursor_row(
-        cursor_row: &mut odbc_api::CursorRow<'_>,
-        col_index: u16,
-        values: &mut OdbcValueVec,
-        nulls: &mut Vec<bool>,
-    ) -> Result<(), odbc_api::Error> {
-        match values {
-            OdbcValueVec::TinyInt(v) => push_get_data(cursor_row, col_index, v, nulls),
-            OdbcValueVec::SmallInt(v) => push_get_data(cursor_row, col_index, v, nulls),
-            OdbcValueVec::Integer(v) => push_get_data(cursor_row, col_index, v, nulls),
-            OdbcValueVec::BigInt(v) => push_get_data(cursor_row, col_index, v, nulls),
-            OdbcValueVec::Real(v) => push_get_data(cursor_row, col_index, v, nulls),
-            OdbcValueVec::Double(v) => push_get_data(cursor_row, col_index, v, nulls),
-            OdbcValueVec::Bit(v) => push_bit(cursor_row, col_index, v, nulls),
-            OdbcValueVec::Date(v) => push_get_data(cursor_row, col_index, v, nulls),
-            OdbcValueVec::Time(v) => push_get_data(cursor_row, col_index, v, nulls),
-            OdbcValueVec::Timestamp(v) => push_get_data(cursor_row, col_index, v, nulls),
-            OdbcValueVec::Binary(v) => push_binary(cursor_row, col_index, v, nulls),
-            OdbcValueVec::Text(v) => push_text(cursor_row, col_index, v, nulls),
-        }
-    }
-
     loop {
         // Initialize per-column containers for this batch
         let mut value_vecs: Vec<OdbcValueVec> = columns
             .iter()
-            .map(|c| init_value_vec(c.type_info.data_type(), batch_size))
+            .map(|c| OdbcValueVec::with_capacity_for_type(c.type_info.data_type(), batch_size))
             .collect();
         let mut nulls_vecs: Vec<Vec<bool>> = (0..column_count)
             .map(|_| Vec::with_capacity(batch_size))
@@ -558,10 +448,9 @@ where
         while let Some(mut cursor_row) = cursor.next_row()? {
             for col in 0..column_count {
                 let col_idx = (col as u16) + 1;
-                push_from_cursor_row(
+                value_vecs[col].push_from_cursor_row(
                     &mut cursor_row,
                     col_idx,
-                    &mut value_vecs[col],
                     &mut nulls_vecs[col],
                 )?;
             }

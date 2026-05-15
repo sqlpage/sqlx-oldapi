@@ -2,7 +2,10 @@ use crate::odbc::{Odbc, OdbcBatch, OdbcTypeInfo};
 use crate::type_info::TypeInfo;
 use crate::value::{Value, ValueRef};
 use odbc_api::buffers::{AnySlice, NullableSlice};
+use odbc_api::handles::CDataMut;
+use odbc_api::parameter::CElement;
 use odbc_api::sys::NULL_DATA;
+use odbc_api::{DataType, Nullable};
 use std::borrow::Cow;
 use std::sync::Arc;
 
@@ -32,6 +35,117 @@ pub enum OdbcValueVec {
     Date(Vec<odbc_api::sys::Date>),
     Time(Vec<odbc_api::sys::Time>),
     Timestamp(Vec<odbc_api::sys::Timestamp>),
+}
+
+impl OdbcValueVec {
+    pub(crate) fn with_capacity_for_type(data_type: DataType, capacity: usize) -> Self {
+        match data_type {
+            DataType::TinyInt => OdbcValueVec::TinyInt(Vec::with_capacity(capacity)),
+            DataType::SmallInt => OdbcValueVec::SmallInt(Vec::with_capacity(capacity)),
+            // Some drivers report INTEGER even when the value range is 64-bit.
+            DataType::Integer | DataType::BigInt => {
+                OdbcValueVec::BigInt(Vec::with_capacity(capacity))
+            }
+            DataType::Real => OdbcValueVec::Real(Vec::with_capacity(capacity)),
+            DataType::Float { .. } | DataType::Double => {
+                OdbcValueVec::Double(Vec::with_capacity(capacity))
+            }
+            DataType::Bit => OdbcValueVec::Bit(Vec::with_capacity(capacity)),
+            DataType::Date => OdbcValueVec::Date(Vec::with_capacity(capacity)),
+            DataType::Time { .. } => OdbcValueVec::Time(Vec::with_capacity(capacity)),
+            DataType::Timestamp { .. } => OdbcValueVec::Timestamp(Vec::with_capacity(capacity)),
+            DataType::Binary { .. }
+            | DataType::Varbinary { .. }
+            | DataType::LongVarbinary { .. } => OdbcValueVec::Binary(Vec::with_capacity(capacity)),
+            _ => OdbcValueVec::Text(Vec::with_capacity(capacity)),
+        }
+    }
+
+    pub(crate) fn push_from_cursor_row(
+        &mut self,
+        cursor_row: &mut odbc_api::CursorRow<'_>,
+        col_index: u16,
+        nulls: &mut Vec<bool>,
+    ) -> Result<(), odbc_api::Error> {
+        match self {
+            OdbcValueVec::TinyInt(v) => push_get_data(cursor_row, col_index, v, nulls),
+            OdbcValueVec::SmallInt(v) => push_get_data(cursor_row, col_index, v, nulls),
+            OdbcValueVec::Integer(v) => push_get_data(cursor_row, col_index, v, nulls),
+            OdbcValueVec::BigInt(v) => push_get_data(cursor_row, col_index, v, nulls),
+            OdbcValueVec::Real(v) => push_get_data(cursor_row, col_index, v, nulls),
+            OdbcValueVec::Double(v) => push_get_data(cursor_row, col_index, v, nulls),
+            OdbcValueVec::Bit(v) => push_bit(cursor_row, col_index, v, nulls),
+            OdbcValueVec::Date(v) => push_get_data(cursor_row, col_index, v, nulls),
+            OdbcValueVec::Time(v) => push_get_data(cursor_row, col_index, v, nulls),
+            OdbcValueVec::Timestamp(v) => push_get_data(cursor_row, col_index, v, nulls),
+            OdbcValueVec::Binary(v) => push_binary(cursor_row, col_index, v, nulls),
+            OdbcValueVec::Text(v) => push_text(cursor_row, col_index, v, nulls),
+        }
+    }
+}
+
+fn push_get_data<T: Default + Copy + CElement + CDataMut>(
+    cursor_row: &mut odbc_api::CursorRow<'_>,
+    col_index: u16,
+    vec: &mut Vec<T>,
+    nulls: &mut Vec<bool>,
+) -> Result<(), odbc_api::Error>
+where
+    Nullable<T>: CElement + CDataMut,
+{
+    let mut tmp = Nullable::null();
+    cursor_row.get_data(col_index, &mut tmp)?;
+    let option = tmp.into_opt();
+    nulls.push(option.is_none());
+    vec.push(option.unwrap_or_default());
+    Ok(())
+}
+
+fn push_binary(
+    cursor_row: &mut odbc_api::CursorRow<'_>,
+    col_index: u16,
+    vec: &mut Vec<Vec<u8>>,
+    nulls: &mut Vec<bool>,
+) -> Result<(), odbc_api::Error> {
+    let mut buf = Vec::new();
+    let is_not_null = cursor_row.get_binary(col_index, &mut buf)?;
+    nulls.push(!is_not_null);
+    vec.push(buf);
+    Ok(())
+}
+
+fn push_text(
+    cursor_row: &mut odbc_api::CursorRow<'_>,
+    col_index: u16,
+    vec: &mut Vec<String>,
+    nulls: &mut Vec<bool>,
+) -> Result<(), odbc_api::Error> {
+    let mut buf = Vec::<u16>::new();
+    let is_not_null = cursor_row.get_wide_text(col_index, &mut buf)?;
+    vec.push(String::from_utf16_lossy(&buf).to_string());
+    nulls.push(!is_not_null);
+    Ok(())
+}
+
+fn push_bit(
+    cursor_row: &mut odbc_api::CursorRow<'_>,
+    col_index: u16,
+    vec: &mut Vec<bool>,
+    nulls: &mut Vec<bool>,
+) -> Result<(), odbc_api::Error> {
+    let mut bit_val = Nullable::<odbc_api::Bit>::null();
+    cursor_row.get_data(col_index, &mut bit_val)?;
+    match bit_val.into_opt() {
+        Some(bit) => {
+            nulls.push(false);
+            vec.push(bit.as_bool());
+        }
+        None => {
+            nulls.push(true);
+            vec.push(false);
+        }
+    }
+    Ok(())
 }
 
 /// Container for column data with type information
