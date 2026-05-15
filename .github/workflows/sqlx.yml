@@ -11,7 +11,7 @@ jobs:
     name: Format
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - run: cargo fmt --all -- --check
 
   check:
@@ -22,8 +22,8 @@ jobs:
         runtime: [async-std, tokio]
         tls: [native-tls, rustls]
     steps:
-      - uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@v6
+      - uses: Swatinem/rust-cache@65012b490220f477f20ab979e35ae732e6de4e68
         with:
           prefix-key: v1-sqlx
           save-if: ${{ false }}
@@ -51,11 +51,11 @@ jobs:
     name: Unit Test ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-2025-vs2026]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@v6
+      - uses: Swatinem/rust-cache@65012b490220f477f20ab979e35ae732e6de4e68
         with:
           prefix-key: v1-sqlx
           save-if: ${{ false }}
@@ -71,13 +71,13 @@ jobs:
 
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest] #, macOS-latest]
+        os: [ubuntu-latest, windows-2025-vs2026] #, macOS-latest]
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-musl
             args: --features openssl-vendored
             bin: target/debug/cargo-sqlx
-          - os: windows-latest
+          - os: windows-2025-vs2026
             target: x86_64-pc-windows-msvc
             bin: target/debug/cargo-sqlx.exe
           # FIXME: macOS build fails because of missing pin-project-internal
@@ -86,8 +86,8 @@ jobs:
     #            bin: target/debug/cargo-sqlx
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@v6
+      - uses: Swatinem/rust-cache@65012b490220f477f20ab979e35ae732e6de4e68
         with:
           prefix-key: v1-sqlx
           save-if: ${{ github.ref == 'refs/heads/main' }}
@@ -96,7 +96,7 @@ jobs:
           --bin cargo-sqlx
           ${{ matrix.args }}
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: cargo-sqlx-${{ matrix.target }}
           path: ${{ matrix.bin }}
@@ -110,9 +110,9 @@ jobs:
         tls: [native-tls, rustls]
     needs: check
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - run: mkdir /tmp/sqlite3-lib && wget -O /tmp/sqlite3-lib/ipaddr.so https://github.com/nalgeon/sqlean/releases/download/0.15.2/ipaddr.so
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@65012b490220f477f20ab979e35ae732e6de4e68
         with:
           prefix-key: v1-sqlx
           shared-key: sqlite-${{ matrix.runtime }}-${{ matrix.tls }}
@@ -141,9 +141,9 @@ jobs:
         tls: [native-tls, rustls]
     needs: check
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@65012b490220f477f20ab979e35ae732e6de4e68
         with:
           prefix-key: v1-sqlx
           shared-key: postgres-${{ matrix.runtime }}-${{ matrix.tls }}
@@ -190,8 +190,8 @@ jobs:
     runs-on: ubuntu-24.04
     needs: check
     steps:
-      - uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@v6
+      - uses: Swatinem/rust-cache@65012b490220f477f20ab979e35ae732e6de4e68
         with:
           prefix-key: v1-sqlx
           shared-key: postgres-actix-rustls
@@ -212,9 +212,9 @@ jobs:
         tls: [native-tls, rustls]
     needs: check
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@65012b490220f477f20ab979e35ae732e6de4e68
         with:
           prefix-key: v1-sqlx
           shared-key: mysql-${{ matrix.runtime }}-${{ matrix.tls }}
@@ -255,9 +255,9 @@ jobs:
         tls: [native-tls, rustls]
     needs: check
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@65012b490220f477f20ab979e35ae732e6de4e68
         with:
           prefix-key: v1-sqlx
           shared-key: mariadb-${{ matrix.runtime }}-${{ matrix.tls }}
@@ -291,9 +291,9 @@ jobs:
         tls: [native-tls, rustls]
     needs: check
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@65012b490220f477f20ab979e35ae732e6de4e68
         with:
           prefix-key: v1-sqlx
           shared-key: mssql-${{ matrix.runtime }}-${{ matrix.tls }}
@@ -323,8 +323,8 @@ jobs:
     needs: check
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@v6
+      - uses: Swatinem/rust-cache@65012b490220f477f20ab979e35ae732e6de4e68
         with:
           prefix-key: v1-sqlx
           shared-key: odbc
