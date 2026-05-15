@@ -1,5 +1,6 @@
 use super::describe_column;
 use crate::error::Error;
+use crate::logger::QueryLogger;
 use crate::odbc::OdbcValueVec;
 use crate::odbc::{
     connection::MaybePrepared, ColumnData, OdbcArgumentValue, OdbcArguments, OdbcBatch,
@@ -66,8 +67,8 @@ pub fn execute_sql(
     args: Option<OdbcArguments>,
     tx: &ExecuteSender,
     buffer_settings: OdbcBufferSettings,
+    logger: &mut QueryLogger<'_>,
 ) -> Result<(), Error> {
-    log::trace!("Executing {:?} with params {:?}", maybe_prepared, args);
     let params = prepare_parameters(args);
 
     let (affected, receiver_open) = match maybe_prepared {
@@ -76,7 +77,7 @@ pub fn execute_sql(
                 Error::Protocol("ODBC execute: failed to lock prepared statement".into())
             })?;
             let receiver_open = if let Some(cursor) = prepared.execute(&params[..])? {
-                handle_result_sets(cursor, tx, buffer_settings)?
+                handle_result_sets(cursor, tx, buffer_settings, logger)?
             } else {
                 true
             };
@@ -85,7 +86,7 @@ pub fn execute_sql(
         MaybePrepared::NotPrepared(sql) => {
             let mut preallocated = conn.preallocate().map_err(Error::from)?;
             let receiver_open = if let Some(cursor) = preallocated.execute(&sql, &params[..])? {
-                handle_result_sets(cursor, tx, buffer_settings)?
+                handle_result_sets(cursor, tx, buffer_settings, logger)?
             } else {
                 true
             };
@@ -93,8 +94,8 @@ pub fn execute_sql(
         }
     };
 
-    if receiver_open {
-        let _ = send_done(tx, affected);
+    if receiver_open && send_done(tx, affected).is_ok() {
+        logger.increase_rows_affected(affected);
     }
     Ok(())
 }
@@ -194,9 +195,10 @@ fn handle_result_sets<C: Cursor + ResultSetMetadata>(
     mut cursor: C,
     tx: &ExecuteSender,
     buffer_settings: OdbcBufferSettings,
+    logger: &mut QueryLogger<'_>,
 ) -> Result<bool, Error> {
     loop {
-        let (receiver_open, finished_cursor) = handle_cursor(cursor, tx, buffer_settings)?;
+        let (receiver_open, finished_cursor) = handle_cursor(cursor, tx, buffer_settings, logger)?;
 
         if !receiver_open {
             return Ok(false);
@@ -213,9 +215,14 @@ fn handle_cursor<C: Cursor + ResultSetMetadata>(
     mut cursor: C,
     tx: &ExecuteSender,
     buffer_settings: OdbcBufferSettings,
+    logger: &mut QueryLogger<'_>,
 ) -> Result<(bool, C), Error> {
     if cursor.num_result_cols()? == 0 {
-        let receiver_open = send_done(tx, extract_rows_affected(&mut cursor)).is_ok();
+        let rows_affected = extract_rows_affected(&mut cursor);
+        let receiver_open = send_done(tx, rows_affected).is_ok();
+        if receiver_open {
+            logger.increase_rows_affected(rows_affected);
+        }
         return Ok((receiver_open, cursor));
     }
 
@@ -224,7 +231,8 @@ fn handle_cursor<C: Cursor + ResultSetMetadata>(
             // Buffered mode - use batch fetching with columnar buffers
             let bindings = build_bindings(&mut cursor, max_column_size)?;
 
-            let (receiver_open, cursor) = stream_rows(cursor, bindings, tx, buffer_settings)?;
+            let (receiver_open, cursor) =
+                stream_rows(cursor, bindings, tx, buffer_settings, logger)?;
             if receiver_open {
                 let _ = send_done(tx, 0);
             }
@@ -233,7 +241,7 @@ fn handle_cursor<C: Cursor + ResultSetMetadata>(
         None => {
             // Unbuffered mode - use batched row-by-row fetching
             let (receiver_open, cursor) =
-                stream_rows_unbuffered(cursor, tx, buffer_settings.batch_size)?;
+                stream_rows_unbuffered(cursor, tx, buffer_settings.batch_size, logger)?;
             if receiver_open {
                 let _ = send_done(tx, 0);
             }
@@ -345,6 +353,7 @@ fn send_rows_for_batch(
     col_arc: &Arc<[OdbcColumn]>,
     column_data: Vec<Arc<ColumnData>>,
     num_rows: usize,
+    logger: &mut QueryLogger<'_>,
 ) -> bool {
     let odbc_batch = Arc::new(OdbcBatch {
         columns: Arc::clone(col_arc),
@@ -361,6 +370,7 @@ fn send_rows_for_batch(
             receiver_open = false;
             break;
         }
+        logger.increment_rows_returned();
     }
     receiver_open
 }
@@ -370,16 +380,17 @@ fn stream_rows<C>(
     bindings: Vec<ColumnBinding>,
     tx: &ExecuteSender,
     buffer_settings: OdbcBufferSettings,
+    logger: &mut QueryLogger<'_>,
 ) -> Result<(bool, C), Error>
 where
     C: Cursor + ResultSetMetadata,
 {
     if buffer_settings.max_column_size.is_some() {
         // Buffered mode
-        stream_rows_buffered(cursor, bindings, tx, buffer_settings.batch_size)
+        stream_rows_buffered(cursor, bindings, tx, buffer_settings.batch_size, logger)
     } else {
         // Unbuffered mode - we shouldn't reach here, but handle it just in case
-        stream_rows_unbuffered(cursor, tx, buffer_settings.batch_size)
+        stream_rows_unbuffered(cursor, tx, buffer_settings.batch_size, logger)
     }
 }
 
@@ -388,6 +399,7 @@ fn stream_rows_buffered<C>(
     bindings: Vec<ColumnBinding>,
     tx: &ExecuteSender,
     batch_size: usize,
+    logger: &mut QueryLogger<'_>,
 ) -> Result<(bool, C), Error>
 where
     C: Cursor + ResultSetMetadata,
@@ -410,7 +422,7 @@ where
             })
             .collect();
 
-        if !send_rows_for_batch(tx, &col_arc, column_data, batch.num_rows()) {
+        if !send_rows_for_batch(tx, &col_arc, column_data, batch.num_rows(), logger) {
             receiver_open = false;
             break;
         }
@@ -425,6 +437,7 @@ fn stream_rows_unbuffered<C>(
     mut cursor: C,
     tx: &ExecuteSender,
     batch_size: usize,
+    logger: &mut QueryLogger<'_>,
 ) -> Result<(bool, C), Error>
 where
     C: Cursor + ResultSetMetadata,
@@ -464,7 +477,7 @@ where
 
         let column_data = build_column_data_from_values(&columns, value_vecs, nulls_vecs);
 
-        if !send_rows_for_batch(tx, &col_arc, column_data, num_rows) {
+        if !send_rows_for_batch(tx, &col_arc, column_data, num_rows, logger) {
             receiver_open = false;
             break;
         }

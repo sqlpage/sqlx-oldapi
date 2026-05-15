@@ -1,5 +1,5 @@
 use crate::common::StatementCache;
-use crate::connection::Connection;
+use crate::connection::{Connection, LogSettings};
 use crate::error::Error;
 use crate::odbc::{
     Odbc, OdbcArguments, OdbcBufferSettings, OdbcColumn, OdbcConnectOptions, OdbcQueryResult,
@@ -74,6 +74,7 @@ pub struct OdbcConnection {
     pub(crate) conn: SharedConnection<'static>,
     pub(crate) stmt_cache: StatementCache<SharedPreparedStatement>,
     pub(crate) buffer_settings: OdbcBufferSettings,
+    pub(crate) log_settings: LogSettings,
 }
 
 impl std::fmt::Debug for OdbcConnection {
@@ -117,6 +118,7 @@ impl OdbcConnection {
             conn: shared_conn,
             stmt_cache: StatementCache::new(options.statement_cache_capacity),
             buffer_settings: options.buffer_settings,
+            log_settings: options.log_settings.clone(),
         })
     }
 
@@ -164,20 +166,30 @@ impl OdbcConnection {
     ) -> flume::Receiver<Result<Either<OdbcQueryResult, OdbcRow>, Error>> {
         let (tx, rx) = flume::bounded(64);
 
+        let sql_owned = sql.to_string();
         let maybe_prepared = if let Some(prepared) = self.stmt_cache.get_mut(sql) {
             MaybePrepared::Prepared(Arc::clone(prepared))
         } else {
-            MaybePrepared::NotPrepared(sql.to_string())
+            MaybePrepared::NotPrepared(sql_owned.clone())
         };
 
         let conn = Arc::clone(&self.conn);
         let buffer_settings = self.buffer_settings;
+        let log_settings = self.log_settings.clone();
         sqlx_rt::spawn(sqlx_rt::spawn_blocking(move || {
+            let mut logger = crate::logger::QueryLogger::new(&sql_owned, log_settings);
             let result = conn
                 .lock()
                 .map_err(|_| Error::Protocol("ODBC execute: failed to lock connection".into()))
                 .and_then(|mut conn| {
-                    execute_sql(&mut conn, maybe_prepared, args, &tx, buffer_settings)
+                    execute_sql(
+                        &mut conn,
+                        maybe_prepared,
+                        args,
+                        &tx,
+                        buffer_settings,
+                        &mut logger,
+                    )
                 });
 
             if let Err(e) = result {
