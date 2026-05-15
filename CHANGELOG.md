@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.6.54
+ - odbc: improve prepared statement metadata handling and keep execution working when drivers defer result column metadata until bind/execute
+ - odbc: reuse cached prepared statements, bound statement cache size, and harden statement/result handling against unsupported buffer slices, invalid column indices, and result-count-only responses
+ - odbc: reduce driver-specific logging, buffering, and row streaming duplication
+
 ## 0.6.53
  - fix: handle negative timezone offsets in timestamptz text-format decode
 
