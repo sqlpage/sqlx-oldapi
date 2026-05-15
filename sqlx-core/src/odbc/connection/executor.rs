@@ -7,8 +7,6 @@ use futures_core::future::BoxFuture;
 use futures_core::stream::BoxStream;
 use futures_util::{future, FutureExt, StreamExt};
 
-// run method removed; fetch_many implements streaming directly
-
 impl<'c> Executor<'c> for &'c mut OdbcConnection {
     type Database = Odbc;
 

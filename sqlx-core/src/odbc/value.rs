@@ -610,8 +610,6 @@ fn value_vec_blob(column_data: &ColumnData, row_index: usize) -> Option<&[u8]> {
     }
 }
 
-// Decode implementations have been moved to the types module
-
 #[cfg(feature = "any")]
 impl<'r> From<OdbcValueRef<'r>> for crate::any::AnyValueRef<'r> {
     fn from(value: OdbcValueRef<'r>) -> Self {

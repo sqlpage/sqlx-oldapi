@@ -131,8 +131,6 @@ impl OdbcConnection {
         })
     }
 
-    // (dbms_name moved to the Connection trait implementation)
-
     pub(crate) async fn ping_blocking(&mut self) -> Result<(), Error> {
         self.with_conn("ping", move |conn| {
             conn.execute("SELECT 1", (), None)?;
@@ -326,5 +324,3 @@ impl Connection for OdbcConnection {
         })
     }
 }
-
-// moved helpers to connection/inner.rs

@@ -232,7 +232,7 @@ fn handle_cursor<C: Cursor + ResultSetMetadata>(
             let bindings = build_bindings(&mut cursor, max_column_size)?;
 
             let (receiver_open, cursor) =
-                stream_rows(cursor, bindings, tx, buffer_settings, logger)?;
+                stream_rows_buffered(cursor, bindings, tx, buffer_settings.batch_size, logger)?;
             if receiver_open {
                 let _ = send_done(tx, 0);
             }
@@ -373,25 +373,6 @@ fn send_rows_for_batch(
         logger.increment_rows_returned();
     }
     receiver_open
-}
-
-fn stream_rows<C>(
-    cursor: C,
-    bindings: Vec<ColumnBinding>,
-    tx: &ExecuteSender,
-    buffer_settings: OdbcBufferSettings,
-    logger: &mut QueryLogger<'_>,
-) -> Result<(bool, C), Error>
-where
-    C: Cursor + ResultSetMetadata,
-{
-    if buffer_settings.max_column_size.is_some() {
-        // Buffered mode
-        stream_rows_buffered(cursor, bindings, tx, buffer_settings.batch_size, logger)
-    } else {
-        // Unbuffered mode - we shouldn't reach here, but handle it just in case
-        stream_rows_unbuffered(cursor, tx, buffer_settings.batch_size, logger)
-    }
 }
 
 fn stream_rows_buffered<C>(

@@ -37,7 +37,6 @@ impl<'q> Statement<'q> for OdbcStatement<'q> {
         &self.metadata.columns
     }
 
-    // ODBC arguments placeholder
     impl_statement_query!(crate::odbc::OdbcArguments);
 }
 
