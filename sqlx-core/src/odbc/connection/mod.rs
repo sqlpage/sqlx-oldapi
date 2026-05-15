@@ -32,6 +32,15 @@ fn collect_columns(prepared: &mut PreparedStatement) -> Result<Vec<OdbcColumn>, 
     Ok(columns)
 }
 
+fn collect_statement_metadata(
+    prepared: &mut PreparedStatement,
+) -> Result<OdbcStatementMetadata, Error> {
+    Ok(OdbcStatementMetadata {
+        columns: collect_columns(prepared)?,
+        parameters: usize::from(prepared.num_params()?),
+    })
+}
+
 pub(super) fn describe_column<S>(stmt: &mut S, index: u16) -> Result<OdbcColumn, Error>
 where
     S: ResultSetMetadata,
@@ -206,15 +215,32 @@ impl OdbcConnection {
     }
 
     pub async fn prepare<'a>(&mut self, sql: &'a str) -> Result<OdbcStatement<'a>, Error> {
+        let cached = self
+            .stmt_cache
+            .get_mut(sql)
+            .map(|prepared| Arc::clone(prepared));
+
+        if let Some(prepared) = cached {
+            let metadata = spawn_blocking(move || {
+                let mut prepared = prepared.lock().map_err(|_| {
+                    Error::Protocol("ODBC prepare: failed to lock prepared statement".into())
+                })?;
+                collect_statement_metadata(&mut prepared)
+            })
+            .await?;
+
+            return Ok(OdbcStatement {
+                sql: Cow::Borrowed(sql),
+                metadata,
+            });
+        }
+
         let conn = Arc::clone(&self.conn);
         let sql_owned = sql.to_string();
         let sql_clone = sql_owned.clone();
         let (prepared, metadata) = spawn_blocking(move || {
             let mut prepared = conn.into_prepared(&sql_clone)?;
-            let metadata = OdbcStatementMetadata {
-                columns: collect_columns(&mut prepared)?,
-                parameters: usize::from(prepared.num_params()?),
-            };
+            let metadata = collect_statement_metadata(&mut prepared)?;
             Ok::<_, Error>((prepared, metadata))
         })
         .await?;
