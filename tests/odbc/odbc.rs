@@ -561,7 +561,7 @@ where
     use sqlx_oldapi::odbc::OdbcConnectOptions;
 
     for &buf_settings in buffer_settings {
-        let database_url = std::env::var("DATABASE_URL").unwrap();
+        let database_url = std::env::var("DATABASE_URL")?;
         let mut opts = OdbcConnectOptions::from_str(&database_url)?;
         opts.buffer_settings(buf_settings);
 
@@ -658,7 +658,6 @@ async fn it_handles_mixed_null_and_values() -> anyhow::Result<()> {
         .fetch_all(&mut conn)
         .await?;
 
-    dbg!(&rows);
     assert_eq!(rows.len(), 2, "should have 2 rows");
     assert_eq!(rows[0].get::<Option<i32>, _>(0), Some(42));
     assert_eq!(rows[0].get::<Option<i32>, _>(1), None);
