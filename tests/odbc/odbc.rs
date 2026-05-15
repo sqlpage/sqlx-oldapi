@@ -175,6 +175,23 @@ async fn it_streams_multiple_result_sets() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
+async fn fetch_optional_skips_empty_result_sets() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+
+    if conn.dbms_name().await? != "PostgreSQL" {
+        return Ok(());
+    }
+
+    let row = conn
+        .fetch_optional("SELECT 1 WHERE 1=0; SELECT 2 AS v")
+        .await?
+        .expect("second result set should contain one row");
+
+    assert_eq!(row.try_get::<i64, _>("v")?, 2);
+    Ok(())
+}
+
+#[tokio::test]
 async fn it_handles_empty_result() -> anyhow::Result<()> {
     let mut conn = new::<Odbc>().await?;
     let mut s = conn.fetch("SELECT 1 WHERE 1=0");
