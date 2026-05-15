@@ -11,6 +11,40 @@ use sqlx_test::new;
 use std::str::FromStr;
 
 #[tokio::test]
+async fn it_does_not_report_unbuffered_get_data_errors_as_null() -> anyhow::Result<()> {
+    let database_url = std::env::var("DATABASE_URL")?;
+    let mut opts = OdbcConnectOptions::from_str(&database_url)?;
+    opts.buffer_settings(OdbcBufferSettings {
+        batch_size: 1,
+        max_column_size: None,
+    });
+
+    let mut conn = OdbcConnection::connect_with(&opts).await?;
+    let dbms_name = conn.dbms_name().await?;
+    let dbms_name_lower = dbms_name.to_ascii_lowercase();
+
+    let query = if dbms_name_lower.contains("postgresql") {
+        "SELECT B'101'::bit(3) AS v"
+    } else if dbms_name_lower.contains("duckdb") {
+        "SELECT CAST('101' AS BIT) AS v"
+    } else {
+        return Ok(());
+    };
+
+    match conn.fetch_one(query).await {
+        Err(_) => Ok(()),
+        Ok(row) => {
+            let raw = row.try_get_raw(0)?;
+            assert!(
+                !raw.is_null(),
+                "unbuffered ODBC converted a SQLGetData error into NULL for {dbms_name}"
+            );
+            Ok(())
+        }
+    }
+}
+
+#[tokio::test]
 async fn it_connects_and_pings() -> anyhow::Result<()> {
     let mut conn = new::<Odbc>().await?;
     conn.ping().await?;

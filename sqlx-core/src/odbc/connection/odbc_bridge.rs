@@ -480,7 +480,8 @@ where
         nulls: &mut Vec<bool>,
     ) -> Result<(), odbc_api::Error> {
         let mut buf = Vec::new();
-        nulls.push(cursor_row.get_binary(col_index, &mut buf).is_err());
+        let is_not_null = cursor_row.get_binary(col_index, &mut buf)?;
+        nulls.push(!is_not_null);
         vec.push(buf);
         Ok(())
     }
@@ -492,9 +493,9 @@ where
         nulls: &mut Vec<bool>,
     ) -> Result<(), odbc_api::Error> {
         let mut buf = Vec::<u16>::new();
-        let txt = cursor_row.get_wide_text(col_index, &mut buf);
+        let is_not_null = cursor_row.get_wide_text(col_index, &mut buf)?;
         vec.push(String::from_utf16_lossy(&buf).to_string());
-        nulls.push(!txt.unwrap_or(false));
+        nulls.push(!is_not_null);
         Ok(())
     }
 
@@ -504,10 +505,18 @@ where
         vec: &mut Vec<bool>,
         nulls: &mut Vec<bool>,
     ) -> Result<(), odbc_api::Error> {
-        let mut bit_val = odbc_api::Bit(0);
-        let result = cursor_row.get_data(col_index, &mut bit_val);
-        vec.push(bit_val.as_bool());
-        nulls.push(result.is_err());
+        let mut bit_val = Nullable::<odbc_api::Bit>::null();
+        cursor_row.get_data(col_index, &mut bit_val)?;
+        match bit_val.into_opt() {
+            Some(bit) => {
+                nulls.push(false);
+                vec.push(bit.as_bool());
+            }
+            None => {
+                nulls.push(true);
+                vec.push(false);
+            }
+        }
         Ok(())
     }
 
