@@ -117,15 +117,14 @@ impl<'c> Executor<'c> for &'c mut MssqlConnection {
                         }
                     }
 
-                    Message::DoneInProc(done) => {
-                        if done.status.contains(Status::DONE_COUNT) {
+                    Message::DoneInProc(done)
+                        if done.status.contains(Status::DONE_COUNT) => {
                             let rows_affected = done.affected_rows;
                             logger.increase_rows_affected(rows_affected);
                             r#yield!(Either::Left(MssqlQueryResult {
                                 rows_affected,
                             }));
                         }
-                    }
 
                     _ => {}
                 }
