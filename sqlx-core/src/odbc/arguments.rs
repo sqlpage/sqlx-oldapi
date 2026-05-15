@@ -13,6 +13,7 @@ pub enum OdbcArgumentValue {
     Text(String),
     Bytes(Vec<u8>),
     Int(i64),
+    UInt(u64),
     Float(f64),
     Date(odbc_api::sys::Date),
     Time(odbc_api::sys::Time),

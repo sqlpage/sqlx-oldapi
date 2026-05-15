@@ -222,32 +222,22 @@ impl<'q> Encode<'q, Odbc> for u32 {
 
 impl<'q> Encode<'q, Odbc> for u64 {
     fn encode(self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
-        match i64::try_from(self) {
-            Ok(value) => {
-                buf.push(OdbcArgumentValue::Int(value));
-                crate::encode::IsNull::No
-            }
-            Err(_) => {
-                log::warn!("u64 value {} too large for ODBC, encoding as NULL", self);
-                buf.push(OdbcArgumentValue::Null);
-                crate::encode::IsNull::Yes
-            }
-        }
+        encode_u64(self, buf)
     }
 
     fn encode_by_ref(&self, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
-        match i64::try_from(*self) {
-            Ok(value) => {
-                buf.push(OdbcArgumentValue::Int(value));
-                crate::encode::IsNull::No
-            }
-            Err(_) => {
-                log::warn!("u64 value {} too large for ODBC, encoding as NULL", self);
-                buf.push(OdbcArgumentValue::Null);
-                crate::encode::IsNull::Yes
-            }
-        }
+        encode_u64(*self, buf)
     }
+}
+
+fn encode_u64(value: u64, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::IsNull {
+    if let Ok(value) = i64::try_from(value) {
+        buf.push(OdbcArgumentValue::Int(value));
+    } else {
+        buf.push(OdbcArgumentValue::UInt(value));
+    }
+
+    crate::encode::IsNull::No
 }
 
 // Helper functions for numeric parsing
@@ -324,8 +314,9 @@ impl<'r> Decode<'r, Odbc> for u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::arguments::Arguments;
     use crate::odbc::{
-        ColumnData, OdbcBatch, OdbcColumn, OdbcTypeInfo, OdbcValueRef, OdbcValueVec,
+        ColumnData, OdbcArguments, OdbcBatch, OdbcColumn, OdbcTypeInfo, OdbcValueRef, OdbcValueVec,
     };
     use odbc_api::DataType;
     use std::sync::Arc;
@@ -541,17 +532,11 @@ mod tests {
     }
 
     #[test]
-    fn test_encode_u64_overflow() {
-        let mut buf = Vec::new();
-        let large_val = u64::MAX;
-        let result = <u64 as Encode<Odbc>>::encode(large_val, &mut buf);
-        assert!(matches!(result, crate::encode::IsNull::Yes));
-        assert_eq!(buf.len(), 1);
-        if let OdbcArgumentValue::Null = &buf[0] {
-            // Expected
-        } else {
-            panic!("Expected Null argument for overflow");
-        }
+    fn test_bind_u64_max_does_not_become_null() {
+        let mut args = OdbcArguments::default();
+        args.add(u64::MAX);
+
+        assert_eq!(args.values, vec![OdbcArgumentValue::UInt(u64::MAX)]);
     }
 
     #[test]

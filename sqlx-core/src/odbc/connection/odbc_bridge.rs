@@ -124,6 +124,13 @@ fn to_param(arg: OdbcArgumentValue) -> Box<dyn odbc_api::parameter::InputParamet
 
     match arg {
         OdbcArgumentValue::Int(i) => Box::new(i.into_parameter()),
+        OdbcArgumentValue::UInt(u) => Box::new(
+            WithDataType {
+                value: u,
+                data_type: DataType::BigInt,
+            }
+            .into_parameter(),
+        ),
         OdbcArgumentValue::Float(f) => Box::new(f.into_parameter()),
         OdbcArgumentValue::Text(s) => Box::new(s.into_parameter()),
         OdbcArgumentValue::Bytes(b) => Box::new(b.into_parameter()),
