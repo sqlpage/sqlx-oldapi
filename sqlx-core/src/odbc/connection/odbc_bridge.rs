@@ -34,7 +34,7 @@ fn build_bindings<C: Cursor>(
             .col_nullability(index as u16)
             .unwrap_or(Nullability::Unknown)
             .could_be_nullable();
-        let buffer_desc = map_buffer_desc(&column.type_info, nullable, max_column_size)?;
+        let buffer_desc = map_buffer_desc(&column.type_info, nullable, max_column_size);
         bindings.push(ColumnBinding {
             column,
             buffer_desc,
@@ -258,11 +258,7 @@ fn send_row(tx: &ExecuteSender, row: OdbcRow) -> Result<(), SendError<ExecuteRes
     tx.send(Ok(Either::Right(row)))
 }
 
-fn map_buffer_desc(
-    type_info: &OdbcTypeInfo,
-    nullable: bool,
-    max_column_size: usize,
-) -> Result<BufferDesc, Error> {
+fn map_buffer_desc(type_info: &OdbcTypeInfo, nullable: bool, max_column_size: usize) -> BufferDesc {
     use odbc_api::DataType;
 
     // Some drivers report datatype lengths that are smaller than the actual data,
@@ -270,7 +266,7 @@ fn map_buffer_desc(
     let data_type = type_info.data_type();
     let max_str_len = max_column_size;
 
-    let buffer_desc = match data_type {
+    match data_type {
         // Integer types - all map to I64
         DataType::TinyInt | DataType::SmallInt | DataType::Integer | DataType::BigInt => {
             BufferDesc::I64 { nullable }
@@ -301,9 +297,7 @@ fn map_buffer_desc(
         // Fallback cases
         DataType::Unknown => BufferDesc::Text { max_str_len },
         DataType::Decimal { .. } | DataType::Numeric { .. } => BufferDesc::Text { max_str_len },
-    };
-
-    Ok(buffer_desc)
+    }
 }
 
 fn create_column_data(slice: AnySlice<'_>, column: &OdbcColumn) -> Result<Arc<ColumnData>, Error> {
