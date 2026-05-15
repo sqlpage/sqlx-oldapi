@@ -217,19 +217,6 @@ fn parse_yyyymmdd_text_as_naive_date(s: &str) -> Option<NaiveDate> {
     None
 }
 
-fn get_text_from_value(value: &OdbcValueRef<'_>) -> Result<Option<String>, BoxDynError> {
-    if let Some(text) = value.text() {
-        let trimmed = text.trim_matches('\u{0}').trim();
-        return Ok(Some(trimmed.to_string()));
-    }
-    if let Some(bytes) = value.blob() {
-        let s = std::str::from_utf8(bytes)?;
-        let trimmed = s.trim_matches('\u{0}').trim();
-        return Ok(Some(trimmed.to_string()));
-    }
-    Ok(None)
-}
-
 impl<'r> Decode<'r, Odbc> for NaiveDate {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
         // Handle raw ODBC Date values first
@@ -663,34 +650,6 @@ mod tests {
                 day: 2,
             })]
         );
-    }
-
-    #[test]
-    fn test_get_text_from_value() -> Result<(), BoxDynError> {
-        // From text
-        let value = create_test_value_text("  test  ", DataType::Varchar { length: None });
-        assert_eq!(get_text_from_value(&value)?, Some("test".to_string()));
-
-        // From empty
-        let column = ColumnData {
-            values: OdbcValueVec::Text(vec![String::new()]),
-            type_info: OdbcTypeInfo::new(DataType::Date),
-            nulls: vec![true],
-        };
-        let column_data = vec![Arc::new(column)];
-        let batch = OdbcBatch {
-            columns: Arc::new([OdbcColumn {
-                name: "test".to_string(),
-                type_info: OdbcTypeInfo::new(DataType::Date),
-                ordinal: 0,
-            }]),
-            column_data,
-        };
-        let batch_ptr = Box::leak(Box::new(batch));
-        let value = OdbcValueRef::new(batch_ptr, 0, 0);
-        assert_eq!(get_text_from_value(&value)?, None);
-
-        Ok(())
     }
 
     #[test]

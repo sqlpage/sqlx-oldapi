@@ -240,29 +240,6 @@ fn encode_u64(value: u64, buf: &mut Vec<OdbcArgumentValue>) -> crate::encode::Is
     crate::encode::IsNull::No
 }
 
-// Helper functions for numeric parsing
-fn parse_numeric_as_i64(s: &str) -> Option<i64> {
-    let trimmed = s.trim();
-    if let Ok(parsed) = trimmed.parse::<i64>() {
-        Some(parsed)
-    } else if let Ok(parsed) = trimmed.parse::<f64>() {
-        Some(parsed as i64)
-    } else {
-        None
-    }
-}
-
-fn get_text_for_numeric_parsing(value: &OdbcValueRef<'_>) -> Result<Option<String>, BoxDynError> {
-    if let Some(text) = value.text() {
-        return Ok(Some(text.trim().to_string()));
-    }
-    if let Some(bytes) = value.blob() {
-        let s = std::str::from_utf8(bytes)?;
-        return Ok(Some(s.trim().to_string()));
-    }
-    Ok(None)
-}
-
 impl<'r> Decode<'r, Odbc> for i64 {
     fn decode(value: OdbcValueRef<'r>) -> Result<Self, BoxDynError> {
         Ok(value.try_int::<i64>()?)
