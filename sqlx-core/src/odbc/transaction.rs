@@ -1,5 +1,5 @@
 use crate::error::Error;
-use crate::odbc::Odbc;
+use crate::odbc::{Odbc, OdbcConnection};
 use crate::transaction::TransactionManager;
 use futures_core::future::BoxFuture;
 
@@ -26,7 +26,11 @@ impl TransactionManager for OdbcTransactionManager {
         Box::pin(async move { conn.rollback_blocking().await })
     }
 
-    fn start_rollback(_conn: &mut <Self::Database as crate::database::Database>::Connection) {
-        // no-op best effort
+    fn start_rollback(conn: &mut OdbcConnection) {
+        if let Ok(conn) = conn.conn.lock() {
+            if conn.rollback().is_ok() {
+                let _ = conn.set_autocommit(true);
+            }
+        }
     }
 }

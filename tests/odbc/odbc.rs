@@ -27,6 +27,29 @@ async fn it_can_work_with_transactions() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
+async fn it_rolls_back_dropped_transaction() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+
+    conn.execute("CREATE TEMPORARY TABLE sqlx_odbc_drop_tx (id INTEGER NOT NULL)")
+        .await?;
+
+    {
+        let mut tx = conn.begin().await?;
+        tx.execute("INSERT INTO sqlx_odbc_drop_tx (id) VALUES (1)")
+            .await?;
+    }
+
+    let count: i64 = sqlx_oldapi::query("SELECT COUNT(*) FROM sqlx_odbc_drop_tx")
+        .fetch_one(&mut conn)
+        .await?
+        .try_get(0)?;
+
+    assert_eq!(count, 0);
+
+    Ok(())
+}
+
+#[tokio::test]
 async fn it_streams_row_and_metadata() -> anyhow::Result<()> {
     let mut conn = new::<Odbc>().await?;
 
