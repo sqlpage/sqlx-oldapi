@@ -51,7 +51,11 @@ where
     Ok(OdbcColumn {
         name: decode_column_name(cd.name, index),
         type_info: OdbcTypeInfo::new(cd.data_type),
-        ordinal: usize::from(index.checked_sub(1).unwrap()),
+        ordinal: usize::from(
+            index
+                .checked_sub(1)
+                .ok_or_else(|| Error::Protocol("ODBC column indices are 1-based".into()))?,
+        ),
     })
 }
 
