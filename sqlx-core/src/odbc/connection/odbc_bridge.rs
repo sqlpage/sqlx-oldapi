@@ -72,7 +72,9 @@ pub fn execute_sql(
 
     let (affected, receiver_open) = match maybe_prepared {
         MaybePrepared::Prepared(prepared) => {
-            let mut prepared = prepared.lock().expect("prepared statement lock");
+            let mut prepared = prepared.lock().map_err(|_| {
+                Error::Protocol("ODBC execute: failed to lock prepared statement".into())
+            })?;
             let receiver_open = if let Some(cursor) = prepared.execute(&params[..])? {
                 handle_result_sets(cursor, tx, buffer_settings)?
             } else {
