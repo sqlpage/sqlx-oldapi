@@ -1,3 +1,4 @@
+use crate::common::StatementCache;
 use crate::connection::Connection;
 use crate::error::Error;
 use crate::odbc::{
@@ -16,7 +17,6 @@ use odbc_api::ConnectionTransitions;
 use odbc_api::{handles::StatementConnection, Prepared, ResultSetMetadata, SharedConnection};
 use odbc_bridge::{establish_connection, execute_sql};
 use std::borrow::Cow;
-use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 mod executor;
@@ -73,7 +73,7 @@ pub(super) fn decode_column_name<T: ColumnNameDecode>(name: T, index: u16) -> St
 /// thread-pool via `spawn_blocking` and synchronize access with a mutex.
 pub struct OdbcConnection {
     pub(crate) conn: SharedConnection<'static>,
-    pub(crate) stmt_cache: HashMap<Arc<str>, SharedPreparedStatement>,
+    pub(crate) stmt_cache: StatementCache<SharedPreparedStatement>,
     pub(crate) buffer_settings: OdbcBufferSettings,
 }
 
@@ -116,7 +116,7 @@ impl OdbcConnection {
 
         Ok(Self {
             conn: shared_conn,
-            stmt_cache: HashMap::new(),
+            stmt_cache: StatementCache::new(options.statement_cache_capacity),
             buffer_settings: options.buffer_settings,
         })
     }
@@ -165,7 +165,7 @@ impl OdbcConnection {
     ) -> flume::Receiver<Result<Either<OdbcQueryResult, OdbcRow>, Error>> {
         let (tx, rx) = flume::bounded(64);
 
-        let maybe_prepared = if let Some(prepared) = self.stmt_cache.get(sql) {
+        let maybe_prepared = if let Some(prepared) = self.stmt_cache.get_mut(sql) {
             MaybePrepared::Prepared(Arc::clone(prepared))
         } else {
             MaybePrepared::NotPrepared(sql.to_string())
@@ -184,15 +184,14 @@ impl OdbcConnection {
     }
 
     pub(crate) async fn clear_cached_statements(&mut self) -> Result<(), Error> {
-        // Clear the statement metadata cache
-        self.stmt_cache.clear();
+        while self.stmt_cache.remove_lru().is_some() {}
         Ok(())
     }
 
     pub async fn prepare<'a>(&mut self, sql: &'a str) -> Result<OdbcStatement<'a>, Error> {
         let conn = Arc::clone(&self.conn);
-        let sql_arc = Arc::from(sql.to_string());
-        let sql_clone = Arc::clone(&sql_arc);
+        let sql_owned = sql.to_string();
+        let sql_clone = sql_owned.clone();
         let (prepared, metadata) = spawn_blocking(move || {
             let mut prepared = conn.into_prepared(&sql_clone)?;
             let metadata = OdbcStatementMetadata {
@@ -202,8 +201,12 @@ impl OdbcConnection {
             Ok::<_, Error>((prepared, metadata))
         })
         .await?;
-        self.stmt_cache
-            .insert(Arc::clone(&sql_arc), Arc::new(Mutex::new(prepared)));
+
+        if self.stmt_cache.is_enabled() {
+            self.stmt_cache
+                .insert(&sql_owned, Arc::new(Mutex::new(prepared)));
+        }
+
         Ok(OdbcStatement {
             sql: Cow::Borrowed(sql),
             metadata,
@@ -254,6 +257,10 @@ impl Connection for OdbcConnection {
         Self: Sized,
     {
         Transaction::begin(self)
+    }
+
+    fn cached_statements_size(&self) -> usize {
+        self.stmt_cache.len()
     }
 
     #[doc(hidden)]

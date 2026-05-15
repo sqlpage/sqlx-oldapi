@@ -81,6 +81,7 @@ pub struct OdbcConnectOptions {
     pub(crate) conn_str: String,
     pub(crate) log_settings: LogSettings,
     pub(crate) buffer_settings: OdbcBufferSettings,
+    pub(crate) statement_cache_capacity: usize,
 }
 
 impl OdbcConnectOptions {
@@ -155,6 +156,16 @@ impl OdbcConnectOptions {
     pub fn buffer_settings_ref(&self) -> &OdbcBufferSettings {
         &self.buffer_settings
     }
+
+    /// Sets the maximum number of prepared statements retained by each connection.
+    ///
+    /// Set this to `0` to disable statement caching.
+    ///
+    /// Default: 100.
+    pub fn statement_cache_capacity(&mut self, capacity: usize) -> &mut Self {
+        self.statement_cache_capacity = capacity;
+        self
+    }
 }
 
 impl Debug for OdbcConnectOptions {
@@ -162,6 +173,7 @@ impl Debug for OdbcConnectOptions {
         f.debug_struct("OdbcConnectOptions")
             .field("conn_str", &"<redacted>")
             .field("buffer_settings", &self.buffer_settings)
+            .field("statement_cache_capacity", &self.statement_cache_capacity)
             .finish()
     }
 }
@@ -190,6 +202,7 @@ impl FromStr for OdbcConnectOptions {
             conn_str,
             log_settings: LogSettings::default(),
             buffer_settings: OdbcBufferSettings::default(),
+            statement_cache_capacity: 100,
         })
     }
 }
