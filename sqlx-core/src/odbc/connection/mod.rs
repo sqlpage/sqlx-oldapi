@@ -28,12 +28,15 @@ fn collect_columns(prepared: &mut PreparedStatement) -> Result<Vec<OdbcColumn>, 
     let count = prepared.num_result_cols()?;
     let mut columns = Vec::with_capacity(count as usize);
     for i in 1..=count {
-        columns.push(create_column(prepared, i as u16)?);
+        columns.push(describe_column(prepared, i as u16)?);
     }
     Ok(columns)
 }
 
-fn create_column(stmt: &mut PreparedStatement, index: u16) -> Result<OdbcColumn, Error> {
+pub(super) fn describe_column<S>(stmt: &mut S, index: u16) -> Result<OdbcColumn, Error>
+where
+    S: ResultSetMetadata,
+{
     let mut cd = odbc_api::ColumnDescription::default();
     stmt.describe_col(index, &mut cd)?;
 

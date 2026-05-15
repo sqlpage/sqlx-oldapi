@@ -1,4 +1,4 @@
-use super::decode_column_name;
+use super::describe_column;
 use crate::error::Error;
 use crate::odbc::OdbcValueVec;
 use crate::odbc::{
@@ -29,7 +29,7 @@ fn build_bindings<C: Cursor>(
     let column_count = cursor.num_result_cols().unwrap_or(0);
     let mut bindings = Vec::with_capacity(column_count as usize);
     for index in 1..=column_count {
-        let column = create_column(cursor, index as u16);
+        let column = describe_column(cursor, index as u16)?;
         let nullable = cursor
             .col_nullability(index as u16)
             .unwrap_or(Nullability::Unknown)
@@ -249,20 +249,6 @@ fn send_row(tx: &ExecuteSender, row: OdbcRow) -> Result<(), SendError<ExecuteRes
     tx.send(Ok(Either::Right(row)))
 }
 
-fn create_column<C>(cursor: &mut C, index: u16) -> OdbcColumn
-where
-    C: ResultSetMetadata,
-{
-    let mut cd = odbc_api::ColumnDescription::default();
-    let _ = cursor.describe_col(index, &mut cd);
-
-    OdbcColumn {
-        name: decode_column_name(cd.name, index),
-        type_info: OdbcTypeInfo::new(cd.data_type),
-        ordinal: usize::from(index.checked_sub(1).unwrap()),
-    }
-}
-
 fn map_buffer_desc(
     type_info: &OdbcTypeInfo,
     nullable: bool,
@@ -320,17 +306,18 @@ fn create_column_data(slice: AnySlice<'_>, column: &OdbcColumn) -> Arc<ColumnDat
     })
 }
 
-fn build_columns_from_cursor<C>(cursor: &mut C) -> Vec<OdbcColumn>
+fn build_columns_from_cursor<C>(cursor: &mut C) -> Result<Vec<OdbcColumn>, Error>
 where
     C: ResultSetMetadata,
 {
-    let column_count = cursor.num_result_cols().expect("no column count found");
-    let column_count = u16::try_from(column_count).expect("invalid column count");
+    let column_count = cursor.num_result_cols()?;
+    let column_count = u16::try_from(column_count)
+        .map_err(|_| Error::Protocol(format!("ODBC column count {column_count} exceeds u16")))?;
     let mut columns = Vec::with_capacity(usize::from(column_count));
     for index in 1..=column_count {
-        columns.push(create_column(cursor, index));
+        columns.push(describe_column(cursor, index)?);
     }
-    columns
+    Ok(columns)
 }
 
 fn build_column_data_from_values(
@@ -445,7 +432,7 @@ where
 
     let mut receiver_open = true;
 
-    let columns = build_columns_from_cursor(&mut cursor);
+    let columns = build_columns_from_cursor(&mut cursor)?;
     let column_count = columns.len();
 
     let col_arc: Arc<[OdbcColumn]> = Arc::from(columns.clone());
