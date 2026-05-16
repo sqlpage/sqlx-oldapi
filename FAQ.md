@@ -61,7 +61,7 @@ The ideal solution, of course, is to upgrade your database server to a version t
 If you're running a third-party database that talks one of these protocols, consult its documentation for supported TLS versions.
 
 If you're stuck on an outdated version, which is unfortunate but tends to happen for one reason or another, try switching to the corresponding
-`runtime-<tokio, actix>-native-tls` feature for SQLx. That will use the system APIs for TLS which tend to have much wider support.
+`native-tls` feature for SQLx. That will use the system APIs for TLS which tend to have much wider support.
 See [the `native-tls` crate docs](https://docs.rs/native-tls/latest/native_tls/) for details.
 
 The `CorruptMessage` error occurs in similar situations and many users have had success with switching to `-native-tls` to get around it.

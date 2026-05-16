@@ -116,7 +116,7 @@ pub use self::options::{PoolConnectionMetadata, PoolOptions};
 /// application/daemon/web server/etc. and then shared with all tasks throughout the process'
 /// lifetime. How best to accomplish this depends on your program architecture.
 ///
-/// In Actix-Web, for example, you can share a single pool with all request handlers using [web::Data].
+/// For web servers, clone the pool and move the clone into each request handler.
 ///
 /// Cloning `Pool` is cheap as it is simply a reference-counted handle to the inner pool state.
 /// When the last remaining handle to the pool is dropped, the connections owned by the pool are
@@ -137,8 +137,6 @@ pub use self::options::{PoolConnectionMetadata, PoolOptions};
 /// * [MySqlPool][crate::mysql::MySqlPool] (MySQL)
 /// * [PgPool][crate::postgres::PgPool] (PostgreSQL)
 /// * [SqlitePool][crate::sqlite::SqlitePool] (SQLite)
-///
-/// [web::Data]: https://docs.rs/actix-web/3/actix_web/web/struct.Data.html
 ///
 /// ### Why Use a Pool?
 ///

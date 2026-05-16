@@ -262,9 +262,7 @@ impl<DB: Database> PoolInner<DB> {
                         } else {
                             // This can happen for a child pool that's at its connection limit.
                             log::debug!("woke but was unable to acquire idle connection or open new one; retrying");
-                            // If so, we're likely in the current-thread runtime if it's Tokio
-                            // and so we should yield to let any spawned release_to_pool() tasks
-                            // execute.
+                            // Yield so spawned release_to_pool() tasks can execute.
                             sqlx_rt::yield_now().await;
                             continue;
                         }

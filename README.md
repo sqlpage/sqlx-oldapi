@@ -223,7 +223,6 @@ use sqlx_oldapi::{query, query_as, query_as_unchecked, query_scalar, query_with}
 // etc.
 
 #[tokio::main]
-// or #[actix_web::main]
 async fn main() -> Result<(), sqlx_oldapi::Error> {
     // Create a connection pool
     //  for MySQL, use MySqlPoolOptions::new()

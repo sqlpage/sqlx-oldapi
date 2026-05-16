@@ -16,7 +16,7 @@ pub use tokio_native_tls::{TlsConnector, TlsStream};
 #[cfg(all(feature = "_tls-rustls", not(feature = "_tls-native-tls")))]
 pub use tokio_rustls::{client::TlsStream, TlsConnector};
 
-// lazily initialize a global runtime once for multiple invocations of the macros
+// Lazily initialize one runtime for multiple macro invocations.
 static RUNTIME: Lazy<Runtime> = Lazy::new(|| {
     runtime::Builder::new_multi_thread()
         .enable_io()

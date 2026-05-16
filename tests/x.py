@@ -127,101 +127,98 @@ for path in glob(os.path.join(os.path.dirname(__file__), "target/**/*.gc*"), rec
 # check
 #
 
-for runtime in ["tokio", "actix"]:
-    for tls in ["native-tls", "rustls"]:
-        run(
-            f"cargo c --no-default-features --features all-databases,all-types,offline,macros,runtime-{runtime}-{tls}",
-            comment=f"check with {runtime}",
-            tag=f"check_{runtime}_{tls}"
-        )
+for tls in ["native-tls", "rustls"]:
+    run(
+        f"cargo c --no-default-features --features all-databases,all-types,offline,macros,{tls}",
+        comment=f"check with {tls}",
+        tag=f"check_{tls}",
+    )
 
 #
 # unit test
 #
 
-for runtime in ["tokio", "actix"]:
-    for tls in ["native-tls", "rustls"]:
-        run(
-            f"cargo test --no-default-features --manifest-path sqlx-core/Cargo.toml --features all-databases,all-types,runtime-{runtime}-{tls}",
-            comment="unit test core",
-            tag=f"unit_{runtime}_{tls}"
-        )
+for tls in ["native-tls", "rustls"]:
+    run(
+        f"cargo test --no-default-features --manifest-path sqlx-core/Cargo.toml --features all-databases,all-types,{tls}",
+        comment="unit test core",
+        tag=f"unit_{tls}",
+    )
 
 #
 # integration tests
 #
 
-for runtime in ["tokio", "actix"]:
-    for tls in ["native-tls", "rustls"]:
+for tls in ["native-tls", "rustls"]:
 
-        #
-        # sqlite
-        #
+    #
+    # sqlite
+    #
 
+    run(
+        f"cargo test --no-default-features --features macros,offline,any,all-types,sqlite,{tls}",
+        comment="test sqlite",
+        service="sqlite",
+        tag=f"sqlite_{tls}",
+    )
+
+    #
+    # postgres
+    #
+
+    for version in ["14", "13", "12", "11", "10"]:
         run(
-            f"cargo test --no-default-features --features macros,offline,any,all-types,sqlite,runtime-{runtime}-{tls}",
-            comment=f"test sqlite",
-            service="sqlite",
-            tag=f"sqlite_{runtime}",
+            f"cargo test --no-default-features --features macros,offline,any,all-types,postgres,{tls}",
+            comment=f"test postgres {version}",
+            service=f"postgres_{version}",
+            tag=f"postgres_{version}_{tls}",
         )
 
-        #
-        # postgres
-        #
+    ## +ssl
+    for version in ["14", "13", "12", "11", "10"]:
+        run(
+            f"cargo test --no-default-features --features macros,offline,any,all-types,postgres,{tls}",
+            comment=f"test postgres {version} ssl",
+            database_url_args="sslmode=verify-ca&sslrootcert=.%2Ftests%2Fcerts%2Fca.crt",
+            service=f"postgres_{version}",
+            tag=f"postgres_{version}_ssl_{tls}",
+        )
 
-        for version in ["14", "13", "12", "11", "10"]:
-            run(
-                f"cargo test --no-default-features --features macros,offline,any,all-types,postgres,runtime-{runtime}-{tls}",
-                comment=f"test postgres {version}",
-                service=f"postgres_{version}",
-                tag=f"postgres_{version}_{runtime}",
-            )
+    #
+    # mysql
+    #
 
-        ## +ssl
-        for version in ["14", "13", "12", "11", "10"]:
-            run(
-                f"cargo test --no-default-features --features macros,offline,any,all-types,postgres,runtime-{runtime}-{tls}",
-                comment=f"test postgres {version} ssl",
-                database_url_args="sslmode=verify-ca&sslrootcert=.%2Ftests%2Fcerts%2Fca.crt",
-                service=f"postgres_{version}",
-                tag=f"postgres_{version}_ssl_{runtime}",
-            )
+    for version in ["8", "5_7"]:
+        run(
+            f"cargo test --no-default-features --features macros,offline,any,all-types,mysql,{tls}",
+            comment=f"test mysql {version}",
+            service=f"mysql_{version}",
+            tag=f"mysql_{version}_{tls}",
+        )
 
-        #
-        # mysql
-        #
+    #
+    # mariadb
+    #
 
-        for version in ["8", "5_7"]:
-            run(
-                f"cargo test --no-default-features --features macros,offline,any,all-types,mysql,runtime-{runtime}-{tls}",
-                comment=f"test mysql {version}",
-                service=f"mysql_{version}",
-                tag=f"mysql_{version}_{runtime}",
-            )
+    for version in ["10_6", "10_5", "10_4", "10_3", "10_2"]:
+        run(
+            f"cargo test --no-default-features --features macros,offline,any,all-types,mysql,{tls}",
+            comment=f"test mariadb {version}",
+            service=f"mariadb_{version}",
+            tag=f"mariadb_{version}_{tls}",
+        )
 
-        #
-        # mariadb
-        #
+    #
+    # mssql
+    #
 
-        for version in ["10_6", "10_5", "10_4", "10_3", "10_2"]:
-            run(
-                f"cargo test --no-default-features --features macros,offline,any,all-types,mysql,runtime-{runtime}-{tls}",
-                comment=f"test mariadb {version}",
-                service=f"mariadb_{version}",
-                tag=f"mariadb_{version}_{runtime}",
-            )
-
-        #
-        # mssql
-        #
-
-        for version in ["2019", "2017"]:
-            run(
-                f"cargo test --no-default-features --features macros,offline,any,all-types,chrono,mssql,runtime-{runtime}-{tls}",
-                comment=f"test mssql {version}",
-                service=f"mssql_{version}",
-                tag=f"mssql_{version}_{runtime}",
-            )
+    for version in ["2019", "2017"]:
+        run(
+            f"cargo test --no-default-features --features macros,offline,any,all-types,chrono,mssql,{tls}",
+            comment=f"test mssql {version}",
+            service=f"mssql_{version}",
+            tag=f"mssql_{version}_{tls}",
+        )
 
 # TODO: Use [grcov] if available
 # ~/.cargo/bin/grcov tests/.cache/target/debug -s sqlx-core/ -t html --llvm --branch -o ./target/debug/coverage
