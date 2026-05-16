@@ -13,11 +13,7 @@ use crate::odbc::{OdbcStatement, OdbcStatementMetadata};
 use futures_core::future::BoxFuture;
 use futures_util::future;
 use odbc_api::ConnectionTransitions;
-use odbc_api::Error as OdbcApiError;
-use odbc_api::{
-    handles::{slice_to_cow_utf8, StatementConnection},
-    Prepared, ResultSetMetadata, SharedConnection,
-};
+use odbc_api::{handles::StatementConnection, Prepared, ResultSetMetadata, SharedConnection};
 use odbc_bridge::{establish_connection, execute_sql};
 use std::borrow::Cow;
 use std::sync::{Arc, Mutex};
@@ -39,11 +35,7 @@ fn collect_columns(
 ) -> Result<CollectedColumns, Error> {
     let count = match prepared.num_result_cols() {
         Ok(count) => count,
-        Err(error)
-            if allow_deferred_result_columns
-                && parameter_count > 0
-                && is_unbound_parameter_metadata_error(&error) =>
-        {
+        Err(error) if allow_deferred_result_columns && parameter_count > 0 => {
             log::debug!("ODBC prepare deferred result columns until execution: {error}");
             return Ok(CollectedColumns {
                 columns: Vec::new(),
@@ -78,16 +70,6 @@ fn collect_statement_metadata(
         },
         metadata_complete,
     ))
-}
-
-fn is_unbound_parameter_metadata_error(error: &OdbcApiError) -> bool {
-    match error {
-        OdbcApiError::Diagnostics { record, .. } if record.state.as_str() == "01000" => {
-            let message = slice_to_cow_utf8(&record.message).to_ascii_lowercase();
-            message.contains("parameter") && message.contains("bound")
-        }
-        _ => false,
-    }
 }
 
 pub(super) fn describe_column<S>(stmt: &mut S, index: u16) -> Result<OdbcColumn, Error>
