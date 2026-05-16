@@ -82,7 +82,7 @@ SQLx is an async, pure Rust<sub>†</sub> SQL crate featuring compile-time check
 
 -   **Pure Rust**. The Postgres and MySQL/MariaDB drivers are written in pure Rust using **zero** unsafe<sub>††</sub> code.
 
--   **Runtime Agnostic**. Works on different runtimes ([`async-std`] / [`tokio`] / [`actix`]) and TLS backends ([`native-tls`], [`rustls`]).
+-   **Runtime Agnostic**. Works on different runtimes ([`tokio`] / [`actix`]) and TLS backends ([`native-tls`], [`rustls`]).
 
 <small><small>
 
@@ -124,9 +124,8 @@ with C, those interactions are `unsafe`.
 
 ## Install
 
-SQLx is compatible with the [`async-std`], [`tokio`] and [`actix`] runtimes; and, the [`native-tls`] and [`rustls`] TLS backends. When adding the dependency, you must chose a runtime feature that is `runtime` + `tls`.
+SQLx is compatible with the [`tokio`] and [`actix`] runtimes; and, the [`native-tls`] and [`rustls`] TLS backends. When adding the dependency, you must chose a runtime feature that is `runtime` + `tls`.
 
-[`async-std`]: https://github.com/async-rs/async-std
 [`tokio`]: https://github.com/tokio-rs/tokio
 [`actix`]: https://github.com/actix/actix-net
 [`native-tls`]: https://crates.io/crates/native-tls
@@ -137,17 +136,11 @@ SQLx is compatible with the [`async-std`], [`tokio`] and [`actix`] runtimes; and
 [dependencies]
 # tokio + rustls
 sqlx-oldapi = { version = "0.6", features = [ "runtime-tokio-rustls" ] }
-# async-std + native-tls
-sqlx-oldapi = { version = "0.6", features = [ "runtime-async-std-native-tls" ] }
 ```
 
 <small><small>The runtime and TLS backend not being separate feature sets to select is a workaround for a [Cargo issue](https://github.com/rust-lang/cargo/issues/3494).</small></small>
 
 #### Cargo Feature Flags
-
--   `runtime-async-std-native-tls`: Use the `async-std` runtime and `native-tls` TLS backend.
-
--   `runtime-async-std-rustls`: Use the `async-std` runtime and `rustls` TLS backend.
 
 -   `runtime-tokio-native-tls`: Use the `tokio` runtime and `native-tls` TLS backend.
 
@@ -225,10 +218,6 @@ See the `examples/` folder for more in-depth usage.
 ```toml
 [dependencies]
 # PICK ONE:
-# Async-std:
-sqlx-oldapi = { version = "0.6", features = [  "runtime-async-std-native-tls", "postgres" ] }
-async-std = { version = "1", features = [ "attributes" ] }
-
 # Tokio:
 sqlx-oldapi = { version = "0.6", features = [ "runtime-tokio-native-tls" , "postgres" ] }
 tokio = { version = "1", features = ["full"] }
@@ -244,8 +233,7 @@ use sqlx_oldapi::{query, query_as, query_as_unchecked, query_scalar, query_with}
 // use sqlx_oldapi::mysql::MySqlPoolOptions;
 // etc.
 
-#[async_std::main]
-// or #[tokio::main]
+#[tokio::main]
 // or #[actix_web::main]
 async fn main() -> Result<(), sqlx_oldapi::Error> {
     // Create a connection pool

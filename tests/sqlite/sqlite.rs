@@ -783,15 +783,6 @@ async fn concurrent_read_and_write() {
         }
     });
 
-    #[cfg(any(feature = "_rt-tokio", feature = "_rt-actix"))]
-    {
-        read.await.unwrap();
-        write.await.unwrap();
-    }
-
-    #[cfg(feature = "_rt-async-std")]
-    {
-        read.await;
-        write.await;
-    }
+    read.await.unwrap();
+    write.await.unwrap();
 }

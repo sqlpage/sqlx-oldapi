@@ -37,8 +37,8 @@ pub use ssl_mode::MySqlSslMode;
 /// # use sqlx_core_oldapi::mysql::{MySqlConnectOptions, MySqlConnection, MySqlSslMode};
 /// #
 /// # fn main() {
-/// # #[cfg(feature = "_rt-async-std")]
-/// # sqlx_rt::async_std::task::block_on::<_, Result<(), Error>>(async move {
+/// # #[cfg(feature = "_rt-tokio")]
+/// # sqlx_rt::block_on(async move {
 /// // URL connection string
 /// let conn = MySqlConnection::connect("mysql://root:password@localhost/db").await?;
 ///
@@ -49,7 +49,7 @@ pub use ssl_mode::MySqlSslMode;
 ///     .password("password")
 ///     .database("db")
 ///     .connect().await?;
-/// # Ok(())
+/// # Ok::<(), Error>(())
 /// # }).unwrap();
 /// # }
 /// ```

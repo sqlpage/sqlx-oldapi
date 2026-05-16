@@ -134,13 +134,9 @@ impl<DB: Database> Drop for PoolConnection<DB> {
     fn drop(&mut self) {
         // We still need to spawn a task to maintain `min_connections`.
         if self.live.is_some() || self.pool.options.min_connections > 0 {
-            #[cfg(not(feature = "_rt-async-std"))]
             if let Ok(handle) = sqlx_rt::Handle::try_current() {
                 handle.spawn(self.return_to_pool());
             }
-
-            #[cfg(feature = "_rt-async-std")]
-            sqlx_rt::spawn(self.return_to_pool());
         }
     }
 }

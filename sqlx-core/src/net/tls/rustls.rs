@@ -1,11 +1,11 @@
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
 use rustls::client::{VerifierBuilderError, WebPkiServerVerifier};
-use rustls::pki_types::{CertificateDer, PrivateKeyDer, ServerName, UnixTime};
+use rustls::pki_types::{pem::PemObject, CertificateDer, PrivateKeyDer, ServerName, UnixTime};
 use rustls::{
     CertificateError, ClientConfig, DigitallySignedStruct, Error as TlsError, KeyLogFile,
     RootCertStore, SignatureScheme,
 };
-use std::io::{BufReader, Cursor};
+use std::io;
 use std::sync::Arc;
 
 use crate::error::Error;
@@ -79,14 +79,13 @@ pub async fn configure_tls_connector(
             let path_description = ca.to_string();
             let data = ca.data().await.map_err(|e| RustlsError::ParsePemCert {
                 file_description: path_description.clone(),
-                source: std::io::Error::other(e),
+                source: io::Error::other(e),
             })?;
-            let mut cursor = Cursor::new(data);
 
-            for cert_result in rustls_pemfile::certs(&mut cursor) {
+            for cert_result in CertificateDer::pem_slice_iter(&data) {
                 let cert = cert_result.map_err(|e| RustlsError::ParsePemCert {
                     file_description: path_description.clone(),
-                    source: e,
+                    source: io::Error::new(io::ErrorKind::InvalidData, e),
                 })?;
                 cert_store.add(cert).map_err(|e| RustlsError::AddRootCert {
                     path_desc: path_description.clone(),
@@ -116,13 +115,13 @@ pub async fn configure_tls_connector(
             let cert_chain = certs_from_pem(cert_path.data().await.map_err(|e| {
                 RustlsError::ParseClientCert {
                     file_description: cert_file_desc.clone(),
-                    source: std::io::Error::other(e),
+                    source: io::Error::other(e),
                 }
             })?)?;
             let key_der = private_key_from_pem(key_path.data().await.map_err(|e| {
                 RustlsError::ParseClientKey {
                     file_description: key_file_desc.clone(),
-                    source: std::io::Error::other(e),
+                    source: io::Error::other(e),
                 }
             })?)?;
             config
@@ -148,34 +147,23 @@ pub async fn configure_tls_connector(
 }
 
 fn certs_from_pem(pem: Vec<u8>) -> Result<Vec<CertificateDer<'static>>, RustlsError> {
-    let cur = Cursor::new(pem);
-    let mut reader = BufReader::new(cur);
-    rustls_pemfile::certs(&mut reader)
+    CertificateDer::pem_slice_iter(&pem)
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| RustlsError::ParsePemCert {
             file_description: String::from("PEM data"),
-            source: e,
+            source: io::Error::new(io::ErrorKind::InvalidData, e),
         })
 }
 
 fn private_key_from_pem(pem: Vec<u8>) -> Result<PrivateKeyDer<'static>, RustlsError> {
-    let cur = Cursor::new(pem);
-    let mut reader = BufReader::new(cur);
-
-    loop {
-        match rustls_pemfile::read_one(&mut reader).map_err(|e| RustlsError::ParseClientKey {
+    PrivateKeyDer::pem_slice_iter(&pem)
+        .next()
+        .transpose()
+        .map_err(|e| RustlsError::ParseClientKey {
             file_description: String::from("PEM data"),
-            source: e,
-        })? {
-            Some(rustls_pemfile::Item::Sec1Key(key)) => return Ok(PrivateKeyDer::Sec1(key)),
-            Some(rustls_pemfile::Item::Pkcs8Key(key)) => return Ok(PrivateKeyDer::Pkcs8(key)),
-            Some(rustls_pemfile::Item::Pkcs1Key(key)) => return Ok(PrivateKeyDer::Pkcs1(key)),
-            None => break,
-            _ => {}
-        }
-    }
-
-    Err(RustlsError::NoKeysFound)
+            source: io::Error::new(io::ErrorKind::InvalidData, e),
+        })?
+        .ok_or(RustlsError::NoKeysFound)
 }
 
 #[derive(Debug)]

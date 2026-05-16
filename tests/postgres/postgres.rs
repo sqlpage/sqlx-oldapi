@@ -950,14 +950,10 @@ from (values (null)) vals(val)
     Ok(())
 }
 
-#[cfg(feature = "_rt-tokio")] // TODO: fix stack overflow on async-std
+#[cfg(feature = "_rt-tokio")]
 #[sqlx_macros::test]
 async fn test_listener_cleanup() -> anyhow::Result<()> {
-    #[cfg(feature = "_rt-tokio")]
     use tokio::time::timeout;
-
-    #[cfg(feature = "_rt-async-std")]
-    use async_std::future::timeout;
 
     use sqlx_oldapi::pool::PoolOptions;
     use sqlx_oldapi::postgres::PgListener;

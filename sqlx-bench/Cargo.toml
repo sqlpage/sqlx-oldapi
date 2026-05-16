@@ -7,20 +7,12 @@ publish = false
 
 [features]
 runtime-actix-native-tls = ["runtime-tokio-native-tls"]
-runtime-async-std-native-tls = [
-    "sqlx/runtime-async-std-native-tls",
-    "sqlx-rt/runtime-async-std-native-tls",
-]
 runtime-tokio-native-tls = [
     "sqlx/runtime-tokio-native-tls",
     "sqlx-rt/runtime-tokio-native-tls",
 ]
 
 runtime-actix-rustls = ["runtime-tokio-rustls"]
-runtime-async-std-rustls = [
-    "sqlx/runtime-async-std-rustls",
-    "sqlx-rt/runtime-async-std-rustls",
-]
 runtime-tokio-rustls = [
     "sqlx/runtime-tokio-rustls",
     "sqlx-rt/runtime-tokio-rustls",
@@ -33,8 +25,8 @@ sqlite = ["sqlx/sqlite"]
 criterion = "0.8"
 dotenvy = "0.15.0"
 once_cell = "1.4"
-sqlx = { package = "sqlx-oldapi",  version = "0.6.54", path = "../", default-features = false, features = ["macros"] }
-sqlx-rt = { package = "sqlx-rt-oldapi", version = "0.6.54", path = "../sqlx-rt", default-features = false }
+sqlx = { package = "sqlx-oldapi",  version = "0.6.55", path = "../", default-features = false, features = ["macros"] }
+sqlx-rt = { package = "sqlx-rt-oldapi", version = "0.6.55", path = "../sqlx-rt", default-features = false }
 
 chrono = "0.4.19"
 

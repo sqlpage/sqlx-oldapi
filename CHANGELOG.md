@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.6.55
+ - remove discontinued async-std runtime support and async-std-only runtime/TLS dependencies
+ - remove unmaintained paste dependency from test and Any helper macros
+ - replace rustls-pemfile with rustls pki-types PEM parsing
+
 ## 0.6.54
  - odbc: improve prepared statement metadata handling and keep execution working when drivers defer result column metadata until bind/execute
  - odbc: reuse cached prepared statements, bound statement cache size, and harden statement/result handling against unsupported buffer slices, invalid column indices, and result-count-only responses

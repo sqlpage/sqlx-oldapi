@@ -1,9 +1,9 @@
 Mark an `async fn` as a test with SQLx support.
 
-The test will automatically be executed in the async runtime according to the chosen 
-`runtime-{async-std, tokio}-{native-tls, rustls}` feature.
+The test will automatically be executed in the async runtime according to the chosen
+`runtime-{tokio, actix}-{native-tls, rustls}` feature.
 
-By default, this behaves identically to `#[tokio::test]`<sup>1</sup> or `#[async_std::test]`:
+By default, this behaves identically to `#[tokio::test]`<sup>1</sup>:
 
 ```rust,no_run
 # // Note if reading these examples directly in `test.md`:

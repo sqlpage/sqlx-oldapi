@@ -48,28 +48,13 @@ impl Socket {
     }
 
     pub async fn shutdown(&mut self) -> io::Result<()> {
-        #[cfg(feature = "_rt-async-std")]
-        {
-            use std::net::Shutdown;
+        use sqlx_rt::AsyncWriteExt;
 
-            match self {
-                Socket::Tcp(s) => s.shutdown(Shutdown::Both),
+        match self {
+            Socket::Tcp(s) => s.shutdown().await,
 
-                #[cfg(unix)]
-                Socket::Unix(s) => s.shutdown(Shutdown::Both),
-            }
-        }
-
-        #[cfg(feature = "_rt-tokio")]
-        {
-            use sqlx_rt::AsyncWriteExt;
-
-            match self {
-                Socket::Tcp(s) => s.shutdown().await,
-
-                #[cfg(unix)]
-                Socket::Unix(s) => s.shutdown().await,
-            }
+            #[cfg(unix)]
+            Socket::Unix(s) => s.shutdown().await,
         }
     }
 }
@@ -112,23 +97,12 @@ impl AsyncWrite for Socket {
         }
     }
 
-    #[cfg(feature = "_rt-tokio")]
     fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         match &mut *self {
             Socket::Tcp(s) => Pin::new(s).poll_shutdown(cx),
 
             #[cfg(unix)]
             Socket::Unix(s) => Pin::new(s).poll_shutdown(cx),
-        }
-    }
-
-    #[cfg(feature = "_rt-async-std")]
-    fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        match &mut *self {
-            Socket::Tcp(s) => Pin::new(s).poll_close(cx),
-
-            #[cfg(unix)]
-            Socket::Unix(s) => Pin::new(s).poll_close(cx),
         }
     }
 }

@@ -489,7 +489,6 @@ fn spawn_maintenance_tasks<DB: Database>(pool: &Arc<PoolInner<DB>>) {
                     pool.min_connections_maintenance(Some(next_run)).await;
 
                     if let Some(duration) = next_run.checked_duration_since(Instant::now()) {
-                        // `async-std` doesn't have a `sleep_until()`
                         sqlx_rt::sleep(duration).await;
                     } else {
                         sqlx_rt::yield_now().await;

@@ -35,26 +35,14 @@ impl Connection for MssqlConnection {
 
     type Options = MssqlConnectOptions;
 
-    #[allow(unused_mut)]
     fn close(mut self) -> BoxFuture<'static, Result<(), Error>> {
         // NOTE: there does not seem to be a clean shutdown packet to send to MSSQL
 
-        #[cfg(feature = "_rt-async-std")]
-        {
-            use std::future::ready;
-            use std::net::Shutdown;
+        use sqlx_rt::AsyncWriteExt;
 
-            ready(self.stream.shutdown(Shutdown::Both).map_err(Into::into)).boxed()
-        }
-
-        #[cfg(feature = "_rt-tokio")]
-        {
-            use sqlx_rt::AsyncWriteExt;
-
-            // FIXME: This is equivalent to Shutdown::Write, not Shutdown::Both like above
-            // https://docs.rs/tokio/1.0.1/tokio/io/trait.AsyncWriteExt.html#method.shutdown
-            async move { self.stream.shutdown().await.map_err(Into::into) }.boxed()
-        }
+        // FIXME: This is equivalent to Shutdown::Write, not Shutdown::Both.
+        // https://docs.rs/tokio/1.0.1/tokio/io/trait.AsyncWriteExt.html#method.shutdown
+        async move { self.stream.shutdown().await.map_err(Into::into) }.boxed()
     }
 
     fn close_hard(self) -> BoxFuture<'static, Result<(), Error>> {

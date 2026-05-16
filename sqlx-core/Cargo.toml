@@ -1,6 +1,6 @@
 [package]
 name = "sqlx-core-oldapi"
-version = "0.6.54"
+version = "0.6.55"
 repository = "https://github.com/lovasoa/sqlx"
 description = "Core of SQLx, the rust SQL toolkit. Not intended to be used directly."
 license = "MIT OR Apache-2.0"
@@ -65,11 +65,6 @@ json = ["serde", "serde_json"]
 
 # runtimes
 runtime-actix-native-tls = ["runtime-tokio-native-tls"]
-runtime-async-std-native-tls = [
-    "sqlx-rt/runtime-async-std-native-tls",
-    "_tls-native-tls",
-    "_rt-async-std",
-]
 runtime-tokio-native-tls = [
     "sqlx-rt/runtime-tokio-native-tls",
     "_tls-native-tls",
@@ -77,11 +72,6 @@ runtime-tokio-native-tls = [
 ]
 
 runtime-actix-rustls = ['runtime-tokio-rustls']
-runtime-async-std-rustls = [
-    "sqlx-rt/runtime-async-std-rustls",
-    "_tls-rustls",
-    "_rt-async-std",
-]
 runtime-tokio-rustls = [
     "sqlx-rt/runtime-tokio-rustls",
     "_tls-rustls",
@@ -89,10 +79,9 @@ runtime-tokio-rustls = [
 ]
 
 # for conditional compilation
-_rt-async-std = []
 _rt-tokio = ["tokio-stream", "tokio-util"]
 _tls-native-tls = []
-_tls-rustls = ["rustls", "rustls-pemfile", "webpki-roots"]
+_tls-rustls = ["rustls", "webpki-roots"]
 aws_lc_rs = ["rustls/aws_lc_rs", "sqlx-rt/aws_lc_rs"]
 tls12 = ["rustls/tls12"]
 
@@ -100,10 +89,9 @@ tls12 = ["rustls/tls12"]
 offline = ["serde", "either/serde"]
 
 [dependencies]
-paste = "1.0.6"
 ahash = "0.8.3"
 atoi = "2.0.0"
-sqlx-rt = { path = "../sqlx-rt", version = "0.6.54", package = "sqlx-rt-oldapi" }
+sqlx-rt = { path = "../sqlx-rt", version = "0.6.55", package = "sqlx-rt-oldapi" }
 base64 = { version = "0.22", default-features = false, optional = true, features = ["std"] }
 bigdecimal_ = { version = "0.4.1", optional = true, package = "bigdecimal" }
 rust_decimal = { version = "1.19.0", optional = true }
@@ -146,7 +134,6 @@ rand = { version = "0.10", default-features = false, optional = true, features =
 regex = { version = "1.5.5", optional = true }
 rsa = { version = "0.9.2", optional = true, features = ["getrandom"] }
 rustls = { version = "0.23", optional = true, default-features = false }
-rustls-pemfile = { version = "2.1", optional = true }
 serde = { version = "1.0.132", features = ["derive", "rc"], optional = true }
 serde_json = { version = "1.0.73", features = ["raw_value"], optional = true }
 sha1 = { version = "0.10.1", default-features = false, optional = true }

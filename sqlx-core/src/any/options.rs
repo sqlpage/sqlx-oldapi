@@ -53,7 +53,7 @@ impl AnyConnectOptions {
 }
 
 macro_rules! try_from_any_connect_options_to {
-    ($to:ty, $kind:path, $name:expr) => {
+    ($to:ty, $kind:path, $name:expr, $as_ref:ident, $as_mut:ident) => {
         impl TryFrom<AnyConnectOptions> for $to {
             type Error = Error;
 
@@ -70,23 +70,21 @@ macro_rules! try_from_any_connect_options_to {
         }
 
         impl AnyConnectOptions {
-            paste::item! {
-                pub fn [< as_ $name >] (&self) -> Option<&$to> {
-                    #[allow(irrefutable_let_patterns)]
-                    if let $kind(ref connect_options) = self.0 {
-                        Some(connect_options)
-                    } else {
-                        None
-                    }
+            pub fn $as_ref(&self) -> Option<&$to> {
+                #[allow(irrefutable_let_patterns)]
+                if let $kind(ref connect_options) = self.0 {
+                    Some(connect_options)
+                } else {
+                    None
                 }
+            }
 
-                pub fn [< as_ $name _mut >] (&mut self) -> Option<&mut $to> {
-                    #[allow(irrefutable_let_patterns)]
-                    if let $kind(ref mut connect_options) = self.0 {
-                        Some(connect_options)
-                    } else {
-                        None
-                    }
+            pub fn $as_mut(&mut self) -> Option<&mut $to> {
+                #[allow(irrefutable_let_patterns)]
+                if let $kind(ref mut connect_options) = self.0 {
+                    Some(connect_options)
+                } else {
+                    None
                 }
             }
         }
@@ -97,24 +95,46 @@ macro_rules! try_from_any_connect_options_to {
 try_from_any_connect_options_to!(
     PgConnectOptions,
     AnyConnectOptionsKind::Postgres,
-    "postgres"
+    "postgres",
+    as_postgres,
+    as_postgres_mut
 );
 
 #[cfg(feature = "mysql")]
-try_from_any_connect_options_to!(MySqlConnectOptions, AnyConnectOptionsKind::MySql, "mysql");
+try_from_any_connect_options_to!(
+    MySqlConnectOptions,
+    AnyConnectOptionsKind::MySql,
+    "mysql",
+    as_mysql,
+    as_mysql_mut
+);
 
 #[cfg(feature = "sqlite")]
 try_from_any_connect_options_to!(
     SqliteConnectOptions,
     AnyConnectOptionsKind::Sqlite,
-    "sqlite"
+    "sqlite",
+    as_sqlite,
+    as_sqlite_mut
 );
 
 #[cfg(feature = "mssql")]
-try_from_any_connect_options_to!(MssqlConnectOptions, AnyConnectOptionsKind::Mssql, "mssql");
+try_from_any_connect_options_to!(
+    MssqlConnectOptions,
+    AnyConnectOptionsKind::Mssql,
+    "mssql",
+    as_mssql,
+    as_mssql_mut
+);
 
 #[cfg(feature = "odbc")]
-try_from_any_connect_options_to!(OdbcConnectOptions, AnyConnectOptionsKind::Odbc, "odbc");
+try_from_any_connect_options_to!(
+    OdbcConnectOptions,
+    AnyConnectOptionsKind::Odbc,
+    "odbc",
+    as_odbc,
+    as_odbc_mut
+);
 
 #[derive(Debug, Clone)]
 pub(crate) enum AnyConnectOptionsKind {

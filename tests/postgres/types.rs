@@ -93,7 +93,7 @@ test_type!(i8(
     "120::\"char\"" == 120_i8,
 ));
 
-test_type!(Oid(Postgres, "325235::oid" == Oid(325235),));
+test_type!(oid<Oid>(Postgres, "325235::oid" == Oid(325235),));
 
 test_type!(i16(
     Postgres,

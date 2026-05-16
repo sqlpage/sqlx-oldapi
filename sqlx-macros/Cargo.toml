@@ -1,6 +1,6 @@
 [package]
 name = "sqlx-macros-oldapi"
-version = "0.6.54"
+version = "0.6.55"
 repository = "https://github.com/lovasoa/sqlx"
 description = "Macros for SQLx, the rust SQL toolkit. Not intended to be used directly."
 license = "MIT OR Apache-2.0"
@@ -21,11 +21,6 @@ migrate = ["sha2", "sqlx-core/migrate"]
 
 # runtimes
 runtime-actix-native-tls = ["runtime-tokio-native-tls"]
-runtime-async-std-native-tls = [
-    "sqlx-core/runtime-async-std-native-tls",
-    "sqlx-rt/runtime-async-std-native-tls",
-    "_rt-async-std",
-]
 runtime-tokio-native-tls = [
     "sqlx-core/runtime-tokio-native-tls",
     "sqlx-rt/runtime-tokio-native-tls",
@@ -33,11 +28,6 @@ runtime-tokio-native-tls = [
 ]
 
 runtime-actix-rustls = ["runtime-tokio-rustls"]
-runtime-async-std-rustls = [
-    "sqlx-core/runtime-async-std-rustls",
-    "sqlx-rt/runtime-async-std-rustls",
-    "_rt-async-std",
-]
 runtime-tokio-rustls = [
     "sqlx-core/runtime-tokio-rustls",
     "sqlx-rt/runtime-tokio-rustls",
@@ -45,7 +35,6 @@ runtime-tokio-rustls = [
 ]
 
 # for conditional compilation
-_rt-async-std = []
 _rt-tokio = []
 
 # offline building support
@@ -75,8 +64,8 @@ heck = { version = "0.5" }
 either = "1.6.1"
 once_cell = "1.9.0"
 proc-macro2 = { version = "1.0.36", default-features = false }
-sqlx-core = { package = "sqlx-core-oldapi",  version = "0.6.54", default-features = false, features = ["any", "aws_lc_rs", "tls12"], path = "../sqlx-core" }
-sqlx-rt = { version = "0.6.54", default-features = false, path = "../sqlx-rt", package = "sqlx-rt-oldapi", features = ["aws_lc_rs"] }
+sqlx-core = { package = "sqlx-core-oldapi",  version = "0.6.55", default-features = false, features = ["any", "aws_lc_rs", "tls12"], path = "../sqlx-core" }
+sqlx-rt = { version = "0.6.55", default-features = false, path = "../sqlx-rt", package = "sqlx-rt-oldapi", features = ["aws_lc_rs"] }
 serde = { version = "1.0.132", features = ["derive"], optional = true }
 serde_json = { version = "1.0.73", optional = true }
 sha2 = { version = "0.11", optional = true }

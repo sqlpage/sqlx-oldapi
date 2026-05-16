@@ -1,6 +1,6 @@
 [package]
 name = "sqlx-cli"
-version = "0.6.54"
+version = "0.6.55"
 description = "Command-line utility for SQLx, the Rust SQL toolkit."
 edition = "2021"
 readme = "README.md"
@@ -28,7 +28,7 @@ path = "src/bin/cargo-sqlx.rs"
 [dependencies]
 dotenvy = "0.15.0"
 tokio = { version = "1.15.0", features = ["macros", "rt", "rt-multi-thread", "time"] }
-sqlx = { package = "sqlx-oldapi",  version = "0.6.54", path = "..", default-features = false, features = [
+sqlx = { package = "sqlx-oldapi",  version = "0.6.55", path = "..", default-features = false, features = [
     "migrate",
     "any",
     "offline",
@@ -52,7 +52,6 @@ default = ["postgres", "sqlite", "mysql", "native-tls"]
 rustls = ["sqlx/runtime-tokio-rustls"]
 native-tls = ["sqlx/runtime-tokio-native-tls"]
 runtime-actix-rustls = ["sqlx/runtime-actix-rustls"]
-runtime-async-std-rustls = ["sqlx/runtime-async-std-rustls"]
 runtime-tokio-rustls = ["sqlx/runtime-tokio-rustls"]
 
 # databases

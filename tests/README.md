@@ -15,4 +15,4 @@ Run all tests against all supported databases using:
 
 If you see test failures, or want to run a more specific set of tests against a specific database, you can specify both the features to be tests and the DATABASE_URL. e.g.
 
-    $ DATABASE_URL=mysql://root:password@127.0.0.1:49183/sqlx cargo test --no-default-features --features macros,offline,any,all-types,mysql,runtime-async-std-native-tls
+    $ DATABASE_URL=mysql://root:password@127.0.0.1:49183/sqlx cargo test --no-default-features --features macros,offline,any,all-types,mysql,runtime-tokio-native-tls

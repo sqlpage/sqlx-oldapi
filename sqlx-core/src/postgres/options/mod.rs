@@ -60,8 +60,8 @@ pub use ssl_mode::PgSslMode;
 /// # use sqlx_core_oldapi::postgres::{PgConnectOptions, PgConnection, PgSslMode};
 /// #
 /// # fn main() {
-/// # #[cfg(feature = "_rt-async-std")]
-/// # sqlx_rt::async_std::task::block_on::<_, Result<(), Error>>(async move {
+/// # #[cfg(feature = "_rt-tokio")]
+/// # sqlx_rt::block_on(async move {
 /// // URL connection string
 /// let conn = PgConnection::connect("postgres://localhost/mydb").await?;
 ///
@@ -73,7 +73,7 @@ pub use ssl_mode::PgSslMode;
 ///     .password("secret-password")
 ///     .ssl_mode(PgSslMode::Require)
 ///     .connect().await?;
-/// # Ok(())
+/// # Ok::<(), Error>(())
 /// # }).unwrap();
 /// # }
 /// ```

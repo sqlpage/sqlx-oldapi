@@ -1,9 +1,9 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-#[cfg(any(feature = "runtime-async-std", feature = "runtime-tokio"))]
+#[cfg(any(feature = "runtime-actix", feature = "runtime-tokio"))]
 compile_error!(
-    "the features 'runtime-actix', 'runtime-async-std' and 'runtime-tokio' have been removed in
-     favor of new features 'runtime-{rt}-{tls}' where rt is one of 'actix', 'async-std' and 'tokio'
+    "the features 'runtime-actix' and 'runtime-tokio' have been removed in
+     favor of new features 'runtime-{rt}-{tls}' where rt is one of 'actix' and 'tokio'
      and 'tls' is one of 'native-tls' and 'rustls'."
 );
 

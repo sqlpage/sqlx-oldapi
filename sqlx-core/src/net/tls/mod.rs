@@ -193,11 +193,7 @@ async fn configure_tls_connector(config: TlsConfig<'_>) -> Result<sqlx_rt::TlsCo
         builder.identity(identity);
     }
 
-    #[cfg(not(feature = "_rt-async-std"))]
     let connector = builder.build()?.into();
-
-    #[cfg(feature = "_rt-async-std")]
-    let connector = builder.into();
 
     Ok(connector)
 }
@@ -249,21 +245,10 @@ where
         }
     }
 
-    #[cfg(feature = "_rt-tokio")]
     fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         match &mut *self {
             MaybeTlsStream::Raw(s) => Pin::new(s).poll_shutdown(cx),
             MaybeTlsStream::Tls(s) => Pin::new(&mut **s).poll_shutdown(cx),
-
-            MaybeTlsStream::Upgrading => Poll::Ready(Err(io::ErrorKind::ConnectionAborted.into())),
-        }
-    }
-
-    #[cfg(feature = "_rt-async-std")]
-    fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        match &mut *self {
-            MaybeTlsStream::Raw(s) => Pin::new(s).poll_close(cx),
-            MaybeTlsStream::Tls(s) => Pin::new(&mut **s).poll_close(cx),
 
             MaybeTlsStream::Upgrading => Poll::Ready(Err(io::ErrorKind::ConnectionAborted.into())),
         }
@@ -283,10 +268,7 @@ where
             #[cfg(feature = "_tls-rustls")]
             MaybeTlsStream::Tls(s) => s.get_ref().0,
 
-            #[cfg(all(feature = "_rt-async-std", feature = "_tls-native-tls"))]
-            MaybeTlsStream::Tls(s) => s.get_ref(),
-
-            #[cfg(all(not(feature = "_rt-async-std"), feature = "_tls-native-tls"))]
+            #[cfg(feature = "_tls-native-tls")]
             MaybeTlsStream::Tls(s) => s.get_ref().get_ref().get_ref(),
 
             MaybeTlsStream::Upgrading => {
@@ -307,10 +289,7 @@ where
             #[cfg(feature = "_tls-rustls")]
             MaybeTlsStream::Tls(s) => s.get_mut().0,
 
-            #[cfg(all(feature = "_rt-async-std", feature = "_tls-native-tls"))]
-            MaybeTlsStream::Tls(s) => s.get_mut(),
-
-            #[cfg(all(not(feature = "_rt-async-std"), feature = "_tls-native-tls"))]
+            #[cfg(feature = "_tls-native-tls")]
             MaybeTlsStream::Tls(s) => s.get_mut().get_mut().get_mut(),
 
             MaybeTlsStream::Upgrading => {

@@ -43,13 +43,13 @@ use indexmap::IndexMap;
 /// use std::str::FromStr;
 ///
 /// # fn main() {
-/// # #[cfg(feature = "_rt-async-std")]
-/// # sqlx_rt::async_std::task::block_on::<_, Result<(), Error>>(async move {
+/// # #[cfg(feature = "_rt-tokio")]
+/// # sqlx_rt::block_on(async move {
 /// let conn = SqliteConnectOptions::from_str("sqlite://data.db")?
 ///     .journal_mode(SqliteJournalMode::Wal)
 ///     .read_only(true)
 ///     .connect().await?;
-/// # Ok(())
+/// # Ok::<(), Error>(())
 /// # }).unwrap();
 /// # }
 /// ```

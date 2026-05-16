@@ -192,8 +192,8 @@ impl PgListener {
     /// # use sqlx_core_oldapi::postgres::PgListener;
     /// # use sqlx_core_oldapi::error::Error;
     /// #
-    /// # #[cfg(feature = "_rt-async-std")]
-    /// # sqlx_rt::block_on::<_, Result<(), Error>>(async move {
+    /// # #[cfg(feature = "_rt-tokio")]
+    /// # sqlx_rt::block_on(async move {
     /// # let mut listener = PgListener::connect("postgres:// ...").await?;
     /// loop {
     ///     // ask for next notification, re-connecting (transparently) if needed
@@ -201,7 +201,7 @@ impl PgListener {
     ///
     ///     // handle notification, do something interesting
     /// }
-    /// # Ok(())
+    /// # Ok::<(), Error>(())
     /// # }).unwrap();
     /// ```
     pub async fn recv(&mut self) -> Result<PgNotification, Error> {
@@ -223,8 +223,8 @@ impl PgListener {
     /// # use sqlx_core_oldapi::postgres::PgListener;
     /// # use sqlx_core_oldapi::error::Error;
     /// #
-    /// # #[cfg(feature = "_rt-async-std")]
-    /// # sqlx_rt::block_on::<_, Result<(), Error>>(async move {
+    /// # #[cfg(feature = "_rt-tokio")]
+    /// # sqlx_rt::block_on(async move {
     /// # let mut listener = PgListener::connect("postgres:// ...").await?;
     /// loop {
     ///     // start handling notifications, connecting if needed
@@ -234,7 +234,7 @@ impl PgListener {
     ///
     ///     // connection lost, do something interesting
     /// }
-    /// # Ok(())
+    /// # Ok::<(), Error>(())
     /// # }).unwrap();
     /// ```
     pub async fn try_recv(&mut self) -> Result<Option<PgNotification>, Error> {
@@ -322,13 +322,9 @@ impl Drop for PgListener {
             };
 
             // Unregister any listeners before returning the connection to the pool.
-            #[cfg(not(feature = "_rt-async-std"))]
             if let Ok(handle) = sqlx_rt::Handle::try_current() {
                 handle.spawn(fut);
             }
-
-            #[cfg(feature = "_rt-async-std")]
-            sqlx_rt::spawn(fut);
         }
     }
 }

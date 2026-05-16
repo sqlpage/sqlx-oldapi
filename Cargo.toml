@@ -26,7 +26,7 @@ unexpected_cfgs = { level = "warn", check-cfg = [
 
 [package]
 name = "sqlx-oldapi"
-version = "0.6.54"
+version = "0.6.55"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/lovasoa/sqlx"
@@ -78,17 +78,10 @@ all-types = [
 # previous runtimes, available as features for error messages better than just
 # "feature doesn't exist"
 runtime-actix = []
-runtime-async-std = []
 runtime-tokio = []
 
 # actual runtimes
 runtime-actix-native-tls = ["runtime-tokio-native-tls"]
-runtime-async-std-native-tls = [
-    "sqlx-core/runtime-async-std-native-tls",
-    "sqlx-macros/runtime-async-std-native-tls",
-    "sqlx-rt/runtime-async-std-native-tls",
-    "_rt-async-std",
-]
 runtime-tokio-native-tls = [
     "sqlx-core/runtime-tokio-native-tls",
     "sqlx-macros/runtime-tokio-native-tls",
@@ -96,20 +89,6 @@ runtime-tokio-native-tls = [
 ]
 
 runtime-actix-rustls = ["runtime-tokio-rustls"]
-runtime-async-std-rustls = [
-    "sqlx-core/runtime-async-std-rustls",
-    "sqlx-macros/runtime-async-std-rustls",
-    "sqlx-rt/runtime-async-std-rustls",
-    "aws_lc_rs",
-    "tls12",
-    "_rt-async-std",
-]
-runtime-async-std-rustls-nocrypto = [
-    "sqlx-core/runtime-async-std-rustls",
-    "sqlx-macros/runtime-async-std-rustls",
-    "sqlx-rt/runtime-async-std-rustls",
-    "_rt-async-std",
-]
 runtime-tokio-rustls = [
     "sqlx-core/runtime-tokio-rustls",
     "sqlx-macros/runtime-tokio-rustls",
@@ -129,7 +108,6 @@ aws_lc_rs = ["sqlx-core/aws_lc_rs"]
 tls12 = ["sqlx-core/tls12"]
 
 # for conditional compilation
-_rt-async-std = []
 _rt-tokio = []
 _rt-actix = []
 
@@ -155,21 +133,19 @@ bstr = ["sqlx-core/bstr"]
 git2 = ["sqlx-core/git2"]
 
 [dependencies]
-sqlx-core = { package = "sqlx-core-oldapi", version = "0.6.54", path = "sqlx-core", default-features = false }
-sqlx-macros = { package = "sqlx-macros-oldapi", version = "0.6.54", path = "sqlx-macros", default-features = false, optional = true }
+sqlx-core = { package = "sqlx-core-oldapi", version = "0.6.55", path = "sqlx-core", default-features = false }
+sqlx-macros = { package = "sqlx-macros-oldapi", version = "0.6.55", path = "sqlx-macros", default-features = false, optional = true }
 
 [dev-dependencies]
 anyhow = "1.0.52"
 time_ = { version = "0.3.2", package = "time" }
 futures = "0.3.19"
 env_logger = "0.11.1"
-async-std = { version = "1.10.0", features = ["attributes"] }
 tokio = { version = "1.15.0", features = ["full"] }
 dotenvy = "0.15.0"
 trybuild = "1.0.53"
 sqlx-rt = { path = "./sqlx-rt", package = "sqlx-rt-oldapi" }
 sqlx-test = { path = "./sqlx-test" }
-paste = "1.0.6"
 serde = { version = "1.0.132", features = ["derive"] }
 serde_json = "1.0.73"
 url = "2.2.2"
