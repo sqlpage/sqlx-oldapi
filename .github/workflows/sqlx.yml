@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        runtime: [async-std, tokio]
+        runtime: [tokio]
         tls: [native-tls, rustls]
     steps:
       - uses: actions/checkout@v6
@@ -106,7 +106,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        runtime: [async-std, tokio, actix]
+        runtime: [tokio, actix]
         tls: [native-tls, rustls]
     needs: check
     steps:
@@ -137,7 +137,7 @@ jobs:
     strategy:
       matrix:
         postgres: [14, 10]
-        runtime: [async-std, tokio, actix]
+        runtime: [tokio, actix]
         tls: [native-tls, rustls]
     needs: check
     steps:
@@ -208,7 +208,7 @@ jobs:
     strategy:
       matrix:
         mysql: [8, 5_7]
-        runtime: [async-std, tokio, actix]
+        runtime: [tokio, actix]
         tls: [native-tls, rustls]
     needs: check
     steps:
@@ -251,7 +251,7 @@ jobs:
     strategy:
       matrix:
         mariadb: [10_6, 10_3]
-        runtime: [async-std, tokio, actix]
+        runtime: [tokio, actix]
         tls: [native-tls, rustls]
     needs: check
     steps:
@@ -287,7 +287,7 @@ jobs:
     strategy:
       matrix:
         mssql: [2019, 2022]
-        runtime: [async-std, tokio, actix]
+        runtime: [tokio, actix]
         tls: [native-tls, rustls]
     needs: check
     steps:
