@@ -13,7 +13,11 @@ use crate::odbc::{OdbcStatement, OdbcStatementMetadata};
 use futures_core::future::BoxFuture;
 use futures_util::future;
 use odbc_api::ConnectionTransitions;
-use odbc_api::{handles::StatementConnection, Prepared, ResultSetMetadata, SharedConnection};
+use odbc_api::Error as OdbcApiError;
+use odbc_api::{
+    handles::{slice_to_cow_utf8, StatementConnection},
+    Prepared, ResultSetMetadata, SharedConnection,
+};
 use odbc_bridge::{establish_connection, execute_sql};
 use std::borrow::Cow;
 use std::sync::{Arc, Mutex};
@@ -23,20 +27,28 @@ mod executor;
 type PreparedStatement = Prepared<StatementConnection<SharedConnection<'static>>>;
 type SharedPreparedStatement = Arc<Mutex<PreparedStatement>>;
 
+struct CollectedColumns {
+    columns: Vec<OdbcColumn>,
+    deferred: bool,
+}
+
 fn collect_columns(
     prepared: &mut PreparedStatement,
     parameter_count: usize,
     allow_deferred_result_columns: bool,
-) -> Result<Vec<OdbcColumn>, Error> {
+) -> Result<CollectedColumns, Error> {
     let count = match prepared.num_result_cols() {
         Ok(count) => count,
-        Err(error) if allow_deferred_result_columns && parameter_count > 0 => {
-            // Some ODBC drivers only expose result columns for parameterized
-            // statements after values are bound and the statement is executed.
-            // Row execution still gets authoritative metadata from the cursor;
-            // describe() uses the strict path and will surface this error.
-            log::debug!("ODBC prepare did not expose result columns: {error}");
-            return Ok(Vec::new());
+        Err(error)
+            if allow_deferred_result_columns
+                && parameter_count > 0
+                && is_unbound_parameter_metadata_error(&error) =>
+        {
+            log::debug!("ODBC prepare deferred result columns until execution: {error}");
+            return Ok(CollectedColumns {
+                columns: Vec::new(),
+                deferred: true,
+            });
         }
         Err(error) => return Err(error.into()),
     };
@@ -45,19 +57,38 @@ fn collect_columns(
     for i in 1..=count {
         columns.push(describe_column(prepared, i as u16)?);
     }
-    Ok(columns)
+    Ok(CollectedColumns {
+        columns,
+        deferred: false,
+    })
 }
 
 fn collect_statement_metadata(
     prepared: &mut PreparedStatement,
     allow_deferred_result_columns: bool,
-) -> Result<OdbcStatementMetadata, Error> {
+) -> Result<(OdbcStatementMetadata, bool), Error> {
     let parameters = usize::from(prepared.num_params()?);
+    let collected = collect_columns(prepared, parameters, allow_deferred_result_columns)?;
+    let metadata_complete =
+        !collected.deferred && !(parameters > 0 && collected.columns.is_empty());
 
-    Ok(OdbcStatementMetadata {
-        columns: collect_columns(prepared, parameters, allow_deferred_result_columns)?,
-        parameters,
-    })
+    Ok((
+        OdbcStatementMetadata {
+            columns: collected.columns,
+            parameters,
+        },
+        metadata_complete,
+    ))
+}
+
+fn is_unbound_parameter_metadata_error(error: &OdbcApiError) -> bool {
+    match error {
+        OdbcApiError::Diagnostics { record, .. } if record.state.as_str() == "01000" => {
+            let message = slice_to_cow_utf8(&record.message).to_ascii_lowercase();
+            message.contains("parameter") && message.contains("bound")
+        }
+        _ => false,
+    }
 }
 
 pub(super) fn describe_column<S>(stmt: &mut S, index: u16) -> Result<OdbcColumn, Error>
@@ -241,6 +272,7 @@ impl OdbcConnection {
         store_to_cache: bool,
         allow_deferred_result_columns: bool,
     ) -> Result<OdbcStatement<'a>, Error> {
+        let sql_owned = sql.to_string();
         let cached = self
             .stmt_cache
             .get_mut(sql)
@@ -252,6 +284,7 @@ impl OdbcConnection {
                     Error::Protocol("ODBC prepare: failed to lock prepared statement".into())
                 })?;
                 collect_statement_metadata(&mut prepared, allow_deferred_result_columns)
+                    .map(|(metadata, _)| metadata)
             })
             .await?;
 
@@ -262,17 +295,16 @@ impl OdbcConnection {
         }
 
         let conn = Arc::clone(&self.conn);
-        let sql_owned = sql.to_string();
         let sql_clone = sql_owned.clone();
-        let (prepared, metadata) = spawn_blocking(move || {
+        let (prepared, metadata, metadata_complete) = spawn_blocking(move || {
             let mut prepared = conn.into_prepared(&sql_clone)?;
             let metadata =
                 collect_statement_metadata(&mut prepared, allow_deferred_result_columns)?;
-            Ok::<_, Error>((prepared, metadata))
+            Ok::<_, Error>((prepared, metadata.0, metadata.1))
         })
         .await?;
 
-        if store_to_cache && self.stmt_cache.is_enabled() {
+        if store_to_cache && metadata_complete && self.stmt_cache.is_enabled() {
             self.stmt_cache
                 .insert(&sql_owned, Arc::new(Mutex::new(prepared)));
         }

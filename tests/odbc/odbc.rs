@@ -333,6 +333,77 @@ async fn describe_does_not_succeed_with_missing_columns() -> anyhow::Result<()> 
     Ok(())
 }
 
+const PARAMETERIZED_SELECT_WITH_COLUMN: &str = "SELECT ? AS value";
+const MISSING_TABLE_READ: &str = "SELECT contents from sqlx_missing_fs WHERE path = ?";
+const MISSING_TABLE_EXISTS: &str = "SELECT 1 from sqlx_missing_fs WHERE path = ?";
+const MISSING_TABLE_MODIFIED: &str =
+    "SELECT 1 from sqlx_missing_fs WHERE last_modified >= ? AND path = ?";
+
+#[tokio::test]
+async fn prepare_missing_table_does_not_return_empty_metadata() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+
+    for sql in [
+        MISSING_TABLE_READ,
+        MISSING_TABLE_EXISTS,
+        MISSING_TABLE_MODIFIED,
+    ] {
+        if let Ok(statement) = conn.prepare(sql).await {
+            assert!(
+                !statement.columns().is_empty(),
+                "ODBC prepare must not turn a metadata error into zero columns for {sql}"
+            );
+        }
+    }
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn empty_metadata_prepare_is_not_cached() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+
+    conn.clear_cached_statements().await?;
+    assert_eq!(conn.cached_statements_size(), 0);
+
+    match conn.prepare(PARAMETERIZED_SELECT_WITH_COLUMN).await {
+        Ok(statement) if statement.columns().is_empty() => assert_eq!(
+            conn.cached_statements_size(),
+            0,
+            "ODBC prepare must not cache statements whose result metadata is deferred"
+        ),
+        Ok(_) => {}
+        Err(_) => assert_eq!(
+            conn.cached_statements_size(),
+            0,
+            "ODBC prepare must not cache a statement after result-column metadata failed"
+        ),
+    }
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn failed_metadata_prepare_does_not_poison_execute() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+
+    let _ = conn.prepare(MISSING_TABLE_READ).await;
+
+    let error = sqlx_oldapi::query::<Odbc>(MISSING_TABLE_READ)
+        .bind("index.sql")
+        .fetch_optional(&mut conn)
+        .await
+        .expect_err("querying a missing table should fail");
+    let message = format!("{error:#}");
+
+    assert!(
+        message.contains("sqlx_missing_fs"),
+        "failed ODBC prepare metadata poisoned a later execute instead of returning a normal missing-table error: {message}"
+    );
+
+    Ok(())
+}
+
 #[tokio::test]
 async fn it_can_bind_many_params_dynamically() -> anyhow::Result<()> {
     let mut conn = new::<Odbc>().await?;
