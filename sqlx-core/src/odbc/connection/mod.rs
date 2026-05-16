@@ -303,6 +303,12 @@ impl OdbcConnection {
         })
         .await?;
 
+        if !allow_deferred_result_columns && !metadata_complete {
+            return Err(Error::Protocol(
+                "ODBC driver did not provide result-column metadata before execution".into(),
+            ));
+        }
+
         if store_to_cache && metadata_complete && self.stmt_cache.is_enabled() {
             self.stmt_cache
                 .insert(&sql_owned, Arc::new(Mutex::new(prepared)));

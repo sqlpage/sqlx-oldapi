@@ -131,34 +131,34 @@ fn to_param(arg: OdbcArgumentValue) -> Box<dyn odbc_api::parameter::InputParamet
     use odbc_api::DataType;
 
     match arg {
-        OdbcArgumentValue::Int(i) => Box::new(i.into_parameter()),
+        OdbcArgumentValue::Int(i) => Box::new(Some(i).into_parameter()),
         OdbcArgumentValue::UInt(u) => Box::new(
             WithDataType {
-                value: u,
+                value: odbc_api::Nullable::new(u),
                 data_type: DataType::BigInt,
             }
             .into_parameter(),
         ),
-        OdbcArgumentValue::Float(f) => Box::new(f.into_parameter()),
+        OdbcArgumentValue::Float(f) => Box::new(Some(f).into_parameter()),
         OdbcArgumentValue::Text(s) => Box::new(s.into_parameter()),
         OdbcArgumentValue::Bytes(b) => Box::new(b.into_parameter()),
         OdbcArgumentValue::Date(d) => Box::new(
             WithDataType {
-                value: d,
+                value: odbc_api::Nullable::new(d),
                 data_type: DataType::Date,
             }
             .into_parameter(),
         ),
         OdbcArgumentValue::Time(t) => Box::new(
             WithDataType {
-                value: t,
+                value: odbc_api::Nullable::new(t),
                 data_type: DataType::Time { precision: 0 },
             }
             .into_parameter(),
         ),
         OdbcArgumentValue::Timestamp(ts) => Box::new(
             WithDataType {
-                value: ts,
+                value: odbc_api::Nullable::new(ts),
                 data_type: DataType::Timestamp { precision: 6 },
             }
             .into_parameter(),
@@ -177,7 +177,7 @@ fn to_param(arg: OdbcArgumentValue) -> Box<dyn odbc_api::parameter::InputParamet
 mod tests {
     use super::*;
     use crate::arguments::Arguments;
-    use odbc_api::handles::HasDataType;
+    use odbc_api::handles::{CData, HasDataType};
 
     #[test]
     fn typed_none_parameter_preserves_non_string_data_type() {
@@ -188,6 +188,17 @@ mod tests {
         let params = prepare_parameters(Some(args));
         assert_eq!(params.len(), 1);
         assert_eq!(params[0].data_type(), odbc_api::DataType::Integer);
+    }
+
+    #[test]
+    fn fixed_sized_parameter_uses_explicit_non_null_indicator() {
+        let mut args = OdbcArguments::default();
+
+        args.add(5_i32);
+
+        let params = prepare_parameters(Some(args));
+        assert_eq!(params.len(), 1);
+        assert!(!params[0].indicator_ptr().is_null());
     }
 }
 

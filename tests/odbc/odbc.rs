@@ -650,7 +650,14 @@ where
         let mut opts = OdbcConnectOptions::from_str(&database_url)?;
         opts.buffer_settings(buf_settings);
 
-        let conn = OdbcConnection::connect_with(&opts).await?;
+        let mut conn = OdbcConnection::connect_with(&opts).await?;
+        let dbms_name = conn.dbms_name().await?;
+        if buf_settings.max_column_size.is_some()
+            && dbms_name.to_ascii_lowercase().contains("duckdb")
+        {
+            // DuckDB's ODBC driver rejects the rowset attributes used by buffered fetching.
+            continue;
+        }
         test_fn(conn, buf_settings).await?;
     }
     Ok(())
@@ -1385,7 +1392,8 @@ async fn it_handles_prepared_statement_with_wrong_parameter_count() -> anyhow::R
     assert!(
         err_str.contains("07002")
             || err_str.contains("parameter count")
-            || err_str.contains("unbound parameter"),
+            || err_str.contains("unbound parameter")
+            || err_str.contains("not all parameters are bound"),
         "{:?} should contain '07002' (COUNT field incorrect)",
         err
     );
