@@ -355,7 +355,7 @@ async fn it_can_prepare_then_execute() -> anyhow::Result<()> {
 }
 
 // repro is more reliable with the basic scheduler used by `#[tokio::test]`
-#[cfg(feature = "_rt-tokio")]
+#[cfg(any(feature = "native-tls", feature = "rustls"))]
 #[tokio::test]
 async fn test_issue_622() -> anyhow::Result<()> {
     use std::time::Instant;

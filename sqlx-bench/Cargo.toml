@@ -6,17 +6,20 @@ edition = "2021"
 publish = false
 
 [features]
-runtime-actix-native-tls = ["runtime-tokio-native-tls"]
-runtime-tokio-native-tls = [
-    "sqlx/runtime-tokio-native-tls",
-    "sqlx-rt/runtime-tokio-native-tls",
+native-tls = [
+    "sqlx/native-tls",
+    "sqlx-rt/native-tls",
 ]
 
-runtime-actix-rustls = ["runtime-tokio-rustls"]
-runtime-tokio-rustls = [
-    "sqlx/runtime-tokio-rustls",
-    "sqlx-rt/runtime-tokio-rustls",
+rustls = [
+    "sqlx/rustls",
+    "sqlx-rt/rustls",
 ]
+
+runtime-actix-native-tls = ["native-tls"]
+runtime-tokio-native-tls = ["native-tls"]
+runtime-actix-rustls = ["rustls"]
+runtime-tokio-rustls = ["rustls"]
 
 postgres = ["sqlx/postgres"]
 sqlite = ["sqlx/sqlite"]

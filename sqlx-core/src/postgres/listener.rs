@@ -192,7 +192,7 @@ impl PgListener {
     /// # use sqlx_core_oldapi::postgres::PgListener;
     /// # use sqlx_core_oldapi::error::Error;
     /// #
-    /// # #[cfg(feature = "_rt-tokio")]
+    /// # #[cfg(any(feature = "native-tls", feature = "rustls"))]
     /// # sqlx_rt::block_on(async move {
     /// # let mut listener = PgListener::connect("postgres:// ...").await?;
     /// loop {
@@ -223,7 +223,7 @@ impl PgListener {
     /// # use sqlx_core_oldapi::postgres::PgListener;
     /// # use sqlx_core_oldapi::error::Error;
     /// #
-    /// # #[cfg(feature = "_rt-tokio")]
+    /// # #[cfg(any(feature = "native-tls", feature = "rustls"))]
     /// # sqlx_rt::block_on(async move {
     /// # let mut listener = PgListener::connect("postgres:// ...").await?;
     /// loop {

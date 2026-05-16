@@ -70,7 +70,7 @@ async fn pool_should_be_returned_failed_transactions() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "runtime-tokio-rustls")]
+#[cfg(feature = "rustls")]
 #[sqlx_macros::test]
 async fn big_pool() -> anyhow::Result<()> {
     use sqlx_oldapi::Row;

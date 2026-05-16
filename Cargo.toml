@@ -43,7 +43,7 @@ authors = [
 ]
 
 [package.metadata.docs.rs]
-features = ["all", "runtime-tokio-native-tls"]
+features = ["all", "native-tls"]
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
@@ -75,41 +75,34 @@ all-types = [
     "git2",
 ]
 
-# previous runtimes, available as features for error messages better than just
-# "feature doesn't exist"
-runtime-actix = []
-runtime-tokio = []
-
-# actual runtimes
-runtime-actix-native-tls = ["runtime-tokio-native-tls"]
-runtime-tokio-native-tls = [
-    "sqlx-core/runtime-tokio-native-tls",
-    "sqlx-macros/runtime-tokio-native-tls",
-    "_rt-tokio",
+# TLS backends. Tokio is the supported async runtime.
+native-tls = [
+    "sqlx-core/native-tls",
+    "sqlx-macros/native-tls",
 ]
 
-runtime-actix-rustls = ["runtime-tokio-rustls"]
-runtime-tokio-rustls = [
-    "sqlx-core/runtime-tokio-rustls",
-    "sqlx-macros/runtime-tokio-rustls",
-    "sqlx-rt/runtime-tokio-rustls",
+rustls = [
+    "sqlx-core/rustls",
+    "sqlx-macros/rustls",
+    "sqlx-rt/rustls",
     "aws_lc_rs",
     "tls12",
-    "_rt-tokio",
 ]
-runtime-tokio-rustls-nocrypto = [
-    "sqlx-core/runtime-tokio-rustls",
-    "sqlx-macros/runtime-tokio-rustls",
-    "sqlx-rt/runtime-tokio-rustls",
-    "_rt-tokio",
+rustls-nocrypto = [
+    "sqlx-core/rustls",
+    "sqlx-macros/rustls",
+    "sqlx-rt/rustls",
 ]
+
+# Backward-compatible aliases for legacy runtime feature names.
+runtime-actix-native-tls = ["native-tls"]
+runtime-tokio-native-tls = ["native-tls"]
+runtime-actix-rustls = ["rustls"]
+runtime-tokio-rustls = ["rustls"]
+runtime-tokio-rustls-nocrypto = ["rustls-nocrypto"]
 
 aws_lc_rs = ["sqlx-core/aws_lc_rs"]
 tls12 = ["sqlx-core/tls12"]
-
-# for conditional compilation
-_rt-tokio = []
-_rt-actix = []
 
 # database
 any = ["sqlx-core/any"]

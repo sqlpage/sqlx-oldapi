@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  - remove discontinued async-std runtime support and async-std-only runtime/TLS dependencies
  - remove unmaintained paste dependency from test and Any helper macros
  - replace rustls-pemfile with rustls pki-types PEM parsing
+ - add TLS-oriented feature names (`native-tls`, `rustls`, `rustls-nocrypto`) while keeping legacy runtime feature names as aliases
 
 ## 0.6.54
  - odbc: improve prepared statement metadata handling and keep execution working when drivers defer result column metadata until bind/execute

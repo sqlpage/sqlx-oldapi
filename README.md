@@ -82,7 +82,7 @@ SQLx is an async, pure Rust<sub>†</sub> SQL crate featuring compile-time check
 
 -   **Pure Rust**. The Postgres and MySQL/MariaDB drivers are written in pure Rust using **zero** unsafe<sub>††</sub> code.
 
--   **Runtime Agnostic**. Works on different runtimes ([`tokio`] / [`actix`]) and TLS backends ([`native-tls`], [`rustls`]).
+-   **Tokio-based**. Uses [`tokio`] for async IO and supports multiple TLS backends ([`native-tls`], [`rustls`]).
 
 <small><small>
 
@@ -124,31 +124,26 @@ with C, those interactions are `unsafe`.
 
 ## Install
 
-SQLx is compatible with the [`tokio`] and [`actix`] runtimes; and, the [`native-tls`] and [`rustls`] TLS backends. When adding the dependency, you must chose a runtime feature that is `runtime` + `tls`.
+SQLx uses [`tokio`] for async IO and supports the [`native-tls`] and [`rustls`] TLS backends. When adding the dependency, choose one TLS backend feature.
 
 [`tokio`]: https://github.com/tokio-rs/tokio
-[`actix`]: https://github.com/actix/actix-net
 [`native-tls`]: https://crates.io/crates/native-tls
 [`rustls`]: https://crates.io/crates/rustls
 
 ```toml
 # Cargo.toml
 [dependencies]
-# tokio + rustls
-sqlx-oldapi = { version = "0.6", features = [ "runtime-tokio-rustls" ] }
+# rustls
+sqlx-oldapi = { version = "0.6", features = [ "rustls" ] }
 ```
-
-<small><small>The runtime and TLS backend not being separate feature sets to select is a workaround for a [Cargo issue](https://github.com/rust-lang/cargo/issues/3494).</small></small>
 
 #### Cargo Feature Flags
 
--   `runtime-tokio-native-tls`: Use the `tokio` runtime and `native-tls` TLS backend.
+-   `native-tls`: Use the `native-tls` TLS backend.
 
--   `runtime-tokio-rustls`: Use the `tokio` runtime and `rustls` TLS backend.
+-   `rustls`: Use the `rustls` TLS backend with the default crypto provider.
 
--   `runtime-actix-native-tls`: Use the `actix` runtime and `native-tls` TLS backend.
-
--   `runtime-actix-rustls`: Use the `actix` runtime and `rustls` TLS backend.
+-   `rustls-nocrypto`: Use the `rustls` TLS backend without selecting a crypto provider.
 
 -   `postgres`: Add support for the Postgres database server.
 
@@ -217,14 +212,8 @@ See the `examples/` folder for more in-depth usage.
 
 ```toml
 [dependencies]
-# PICK ONE:
-# Tokio:
-sqlx-oldapi = { version = "0.6", features = [ "runtime-tokio-native-tls" , "postgres" ] }
+sqlx-oldapi = { version = "0.6", features = [ "native-tls" , "postgres" ] }
 tokio = { version = "1", features = ["full"] }
-
-# Actix-web:
-sqlx-oldapi = { version = "0.6", features = [ "runtime-actix-native-tls" , "postgres" ] }
-actix-web = "4"
 ```
 
 ```rust

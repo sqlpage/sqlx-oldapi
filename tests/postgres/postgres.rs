@@ -821,7 +821,7 @@ async fn it_can_prepare_then_execute() -> anyhow::Result<()> {
 }
 
 // repro is more reliable with the basic scheduler used by `#[tokio::test]`
-#[cfg(feature = "_rt-tokio")]
+#[cfg(any(feature = "native-tls", feature = "rustls"))]
 #[tokio::test]
 async fn test_issue_622() -> anyhow::Result<()> {
     use std::time::Instant;
@@ -950,7 +950,7 @@ from (values (null)) vals(val)
     Ok(())
 }
 
-#[cfg(feature = "_rt-tokio")]
+#[cfg(any(feature = "native-tls", feature = "rustls"))]
 #[sqlx_macros::test]
 async fn test_listener_cleanup() -> anyhow::Result<()> {
     use tokio::time::timeout;

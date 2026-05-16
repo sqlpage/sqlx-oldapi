@@ -20,11 +20,11 @@ This Cargo project implements various benchmarks for SQLx using
 
 ### Running
 
-You must choose a runtime to execute the benchmarks on; the feature flags are the same as the `sqlx` crate:
+You must choose a TLS backend to execute the benchmarks with; the feature flags are the same as the `sqlx` crate:
 
 ```bash
-cargo bench --features runtime-tokio-native-tls
-cargo bench --features runtime-tokio-rustls
+cargo bench --features native-tls
+cargo bench --features rustls
 ```
 
 When complete, the benchmark results will be in `target/criterion/`. 

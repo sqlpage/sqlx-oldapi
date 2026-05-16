@@ -6,7 +6,7 @@
         "macros",
         "migrate",
         "all-types",
-        "runtime-actix-rustls"
+        "rustls"
     ],
     "rust-analyzer.linkedProjects": [
         "./Cargo.toml",

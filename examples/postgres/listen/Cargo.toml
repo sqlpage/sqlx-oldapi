@@ -6,6 +6,6 @@ publish = false
 workspace = "../../../"
 
 [dependencies]
-sqlx = { package = "sqlx-oldapi",  path = "../../../", features = [ "postgres", "tls", "runtime-tokio-native-tls" ] }
+sqlx = { package = "sqlx-oldapi",  path = "../../../", features = [ "postgres", "tls", "native-tls" ] }
 futures = "0.3.1"
 tokio = { version = "1.20.0", features = ["macros", "rt-multi-thread", "time"]}

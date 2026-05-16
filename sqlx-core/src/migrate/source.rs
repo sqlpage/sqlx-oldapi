@@ -24,7 +24,7 @@ impl<'s> MigrationSource<'s> for &'s Path {
             let mut s = fs::read_dir(self.canonicalize()?).await?;
             let mut migrations = Vec::new();
 
-            #[cfg(feature = "_rt-tokio")]
+            #[cfg(any(feature = "native-tls", feature = "rustls"))]
             let mut s = tokio_stream::wrappers::ReadDirStream::new(s);
 
             while let Some(entry) = s.try_next().await? {

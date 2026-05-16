@@ -5,7 +5,7 @@
 ///
 /// ```rust,ignore
 /// # use sqlx::Connect;
-/// # #[cfg(all(feature = "mysql", feature = "_rt-tokio"))]
+/// # #[cfg(all(feature = "mysql", any(feature = "native-tls", feature = "rustls")))]
 /// # #[tokio::main]
 /// # async fn main() -> sqlx::Result<()>{
 /// # let db_url = dotenvy::var("DATABASE_URL").expect("DATABASE_URL must be set");
@@ -24,7 +24,7 @@
 /// # Ok(())
 /// # }
 /// #
-/// # #[cfg(any(not(feature = "mysql"), not(feature = "_rt-tokio")))]
+/// # #[cfg(any(not(feature = "mysql"), not(any(feature = "native-tls", feature = "rustls"))))]
 /// # fn main() {}
 /// ```
 ///
@@ -70,7 +70,7 @@
 ///
 /// ```rust,ignore
 /// # use sqlx::Connect;
-/// # #[cfg(all(feature = "mysql", feature = "_rt-tokio"))]
+/// # #[cfg(all(feature = "mysql", any(feature = "native-tls", feature = "rustls")))]
 /// # #[tokio::main]
 /// # async fn main() -> sqlx::Result<()>{
 /// # let db_url = dotenvy::var("DATABASE_URL").expect("DATABASE_URL must be set");
@@ -91,7 +91,7 @@
 /// # Ok(())
 /// # }
 /// #
-/// # #[cfg(any(not(feature = "mysql"), not(feature = "_rt-tokio")))]
+/// # #[cfg(any(not(feature = "mysql"), not(any(feature = "native-tls", feature = "rustls"))))]
 /// # fn main() {}
 /// ```
 ///
@@ -355,7 +355,7 @@ macro_rules! query_unchecked (
 /// `src/my_query.rs`:
 /// ```rust,ignore
 /// # use sqlx::Connect;
-/// # #[cfg(all(feature = "mysql", feature = "_rt-tokio"))]
+/// # #[cfg(all(feature = "mysql", any(feature = "native-tls", feature = "rustls")))]
 /// # #[tokio::main]
 /// # async fn main() -> sqlx::Result<()>{
 /// # let db_url = dotenvy::var("DATABASE_URL").expect("DATABASE_URL must be set");
@@ -372,7 +372,7 @@ macro_rules! query_unchecked (
 /// # Ok(())
 /// # }
 /// #
-/// # #[cfg(any(not(feature = "mysql"), not(feature = "_rt-tokio")))]
+/// # #[cfg(any(not(feature = "mysql"), not(any(feature = "native-tls", feature = "rustls"))))]
 /// # fn main() {}
 /// ```
 #[macro_export]
@@ -427,7 +427,7 @@ macro_rules! query_file_unchecked (
 /// string:
 /// ```rust,ignore
 /// # use sqlx::Connect;
-/// # #[cfg(all(feature = "mysql", feature = "_rt-tokio"))]
+/// # #[cfg(all(feature = "mysql", any(feature = "native-tls", feature = "rustls")))]
 /// # #[tokio::main]
 /// # async fn main() -> sqlx::Result<()>{
 /// # let db_url = dotenvy::var("DATABASE_URL").expect("DATABASE_URL must be set");
@@ -455,7 +455,7 @@ macro_rules! query_file_unchecked (
 /// # Ok(())
 /// # }
 /// #
-/// # #[cfg(any(not(feature = "mysql"), not(feature = "_rt-tokio")))]
+/// # #[cfg(any(not(feature = "mysql"), not(any(feature = "native-tls", feature = "rustls"))))]
 /// # fn main() {}
 /// ```
 ///
@@ -568,7 +568,7 @@ macro_rules! query_as (
 ///
 /// ```rust,ignore
 /// # use sqlx::Connect;
-/// # #[cfg(all(feature = "mysql", feature = "_rt-tokio"))]
+/// # #[cfg(all(feature = "mysql", any(feature = "native-tls", feature = "rustls")))]
 /// # #[tokio::main]
 /// # async fn main() -> sqlx::Result<()>{
 /// # let db_url = dotenvy::var("DATABASE_URL").expect("DATABASE_URL must be set");
@@ -592,7 +592,7 @@ macro_rules! query_as (
 /// # Ok(())
 /// # }
 /// #
-/// # #[cfg(any(not(feature = "mysql"), not(feature = "_rt-tokio")))]
+/// # #[cfg(any(not(feature = "mysql"), not(any(feature = "native-tls", feature = "rustls"))))]
 /// # fn main() {}
 /// ```
 #[macro_export]

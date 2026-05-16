@@ -49,10 +49,10 @@ filetime = "0.2"
 
 [features]
 default = ["postgres", "sqlite", "mysql", "native-tls"]
-rustls = ["sqlx/runtime-tokio-rustls"]
-native-tls = ["sqlx/runtime-tokio-native-tls"]
-runtime-actix-rustls = ["sqlx/runtime-actix-rustls"]
-runtime-tokio-rustls = ["sqlx/runtime-tokio-rustls"]
+rustls = ["sqlx/rustls"]
+native-tls = ["sqlx/native-tls"]
+runtime-actix-rustls = ["rustls"]
+runtime-tokio-rustls = ["rustls"]
 
 # databases
 mysql = ["sqlx/mysql"]

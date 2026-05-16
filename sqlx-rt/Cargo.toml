@@ -11,25 +11,26 @@ authors = [
 ]
 
 [features]
-runtime-actix-native-tls = ["runtime-tokio-native-tls"]
-runtime-tokio-native-tls = ["_rt-tokio", "_tls-native-tls", "tokio-native-tls"]
-runtime-actix-rustls = ["runtime-tokio-rustls"]
-runtime-tokio-rustls = ["_rt-tokio", "_tls-rustls", "tokio-rustls"]
-aws_lc_rs = ["tokio-rustls/aws_lc_rs"]
+native-tls = ["_tls-native-tls", "dep:tokio-native-tls"]
+rustls = ["_tls-rustls", "dep:tokio-rustls"]
+
+# Backward-compatible aliases for legacy runtime feature names.
+runtime-actix-native-tls = ["native-tls"]
+runtime-tokio-native-tls = ["native-tls"]
+runtime-actix-rustls = ["rustls"]
+runtime-tokio-rustls = ["rustls"]
+aws_lc_rs = ["tokio-rustls?/aws_lc_rs"]
 
 # Not used directly and not re-exported from sqlx
-_rt-tokio = ["tokio", "once_cell"]
-_rt-actix = []
-_tls-native-tls = ["native-tls"]
+_tls-native-tls = ["dep:native-tls"]
 _tls-rustls = []
 
 [dependencies]
 tokio-native-tls = { version = "0.3.0", optional = true }
 tokio-rustls = { version = "0.26", optional = true, default-features = false }
 native-tls = { version = "0.2.4", optional = true }
-once_cell = { version = "1.4", features = ["std"], optional = true }
+once_cell = { version = "1.4", features = ["std"] }
 
 [dependencies.tokio]
 version = "1.0.1"
 features = ["fs", "net", "rt", "rt-multi-thread", "time", "io-util", "sync"]
-optional = true

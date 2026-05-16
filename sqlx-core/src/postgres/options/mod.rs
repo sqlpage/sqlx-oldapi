@@ -60,7 +60,7 @@ pub use ssl_mode::PgSslMode;
 /// # use sqlx_core_oldapi::postgres::{PgConnectOptions, PgConnection, PgSslMode};
 /// #
 /// # fn main() {
-/// # #[cfg(feature = "_rt-tokio")]
+/// # #[cfg(any(feature = "native-tls", feature = "rustls"))]
 /// # sqlx_rt::block_on(async move {
 /// // URL connection string
 /// let conn = PgConnection::connect("postgres://localhost/mydb").await?;

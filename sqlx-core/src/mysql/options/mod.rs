@@ -37,7 +37,7 @@ pub use ssl_mode::MySqlSslMode;
 /// # use sqlx_core_oldapi::mysql::{MySqlConnectOptions, MySqlConnection, MySqlSslMode};
 /// #
 /// # fn main() {
-/// # #[cfg(feature = "_rt-tokio")]
+/// # #[cfg(any(feature = "native-tls", feature = "rustls"))]
 /// # sqlx_rt::block_on(async move {
 /// // URL connection string
 /// let conn = MySqlConnection::connect("mysql://root:password@localhost/db").await?;

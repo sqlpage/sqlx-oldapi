@@ -1,7 +1,7 @@
 Mark an `async fn` as a test with SQLx support.
 
-The test will automatically be executed in the async runtime according to the chosen
-`runtime-{tokio, actix}-{native-tls, rustls}` feature.
+The test will automatically be executed on Tokio according to the chosen
+`tls-{native-tls, rustls}` feature.
 
 By default, this behaves identically to `#[tokio::test]`<sup>1</sup>:
 
@@ -9,7 +9,7 @@ By default, this behaves identically to `#[tokio::test]`<sup>1</sup>:
 # // Note if reading these examples directly in `test.md`:
 # // lines prefixed with `#` are not meant to be shown;
 # // they are supporting code to help the examples to compile successfully.
-# #[cfg(feature = "_rt-tokio")]
+# #[cfg(any(feature = "native-tls", feature = "rustls"))]
 #[sqlx_oldapi::test]
 async fn test_async_fn() {
     tokio::task::yield_now().await;

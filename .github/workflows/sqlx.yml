@@ -30,20 +30,20 @@ jobs:
         run: |
           cargo clippy --manifest-path sqlx-core/Cargo.toml \
             --no-default-features \
-            --features offline,all-databases,all-types,migrate,runtime-tokio-${{ matrix.tls }} \
+            --features offline,all-databases,all-types,migrate,${{ matrix.tls }} \
             -- -D warnings
       - name: Run clippy for root with all features
         run: |
           cargo clippy \
             --no-default-features \
-            --features offline,all-databases,all-types,migrate,runtime-tokio-${{ matrix.tls }},macros \
+            --features offline,all-databases,all-types,migrate,${{ matrix.tls }},macros \
             -- -D warnings
       - name: Run clippy for all targets
         run: |
           cargo clippy \
             --no-default-features \
             --all-targets \
-            --features offline,all-databases,all-types,migrate,runtime-tokio-${{ matrix.tls }} \
+            --features offline,all-databases,all-types,migrate,${{ matrix.tls }} \
             -- -D warnings
 
   test:
@@ -62,7 +62,7 @@ jobs:
         if: ${{ matrix.os == 'ubuntu-latest' }}
       - run: cargo test
           --manifest-path sqlx-core/Cargo.toml
-          --features offline,all-databases,all-types,runtime-tokio-rustls
+          --features offline,all-databases,all-types,rustls
 
   cli:
     name: CLI Binaries
@@ -119,11 +119,11 @@ jobs:
         run: |
           cargo clippy \
             --no-default-features \
-            --features sqlite,all-types,runtime-tokio-${{ matrix.tls }},macros,migrate \
+            --features sqlite,all-types,${{ matrix.tls }},macros,migrate \
             -- -D warnings
       - run: cargo test
           --no-default-features
-          --features any,macros,migrate,sqlite,all-types,runtime-tokio-${{ matrix.tls }}
+          --features any,macros,migrate,sqlite,all-types,${{ matrix.tls }}
         env:
           DATABASE_URL: sqlite://tests/sqlite/sqlite.db
           RUSTFLAGS: --cfg sqlite_ipaddr
@@ -147,7 +147,7 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' && matrix.postgres == '14' }}
 
       - run: |
-          cargo build --features postgres,all-types,runtime-tokio-${{ matrix.tls }}
+          cargo build --features postgres,all-types,${{ matrix.tls }}
         env:
           # FIXME: needed to disable `ltree` tests in Postgres 9.6
           # but `PgLTree` should just fall back to text format
@@ -157,7 +157,7 @@ jobs:
         run: |
           cargo clippy \
             --no-default-features \
-            --features postgres,all-types,runtime-tokio-${{ matrix.tls }},macros,migrate \
+            --features postgres,all-types,${{ matrix.tls }},macros,migrate \
             -- -D warnings
         env:
           RUSTFLAGS: --cfg postgres_${{ matrix.postgres }}
@@ -167,7 +167,7 @@ jobs:
           docker exec postgres_${{ matrix.postgres }} bash -c "until pg_isready; do sleep 1; done"
 
       - run: |
-          cargo test --no-default-features --features any,postgres,macros,all-types,runtime-tokio-${{ matrix.tls }}
+          cargo test --no-default-features --features any,postgres,macros,all-types,${{ matrix.tls }}
         env:
           DATABASE_URL: postgres://postgres:password@localhost:5432/sqlx
           # FIXME: needed to disable `ltree` tests in Postgres 9.6
@@ -175,7 +175,7 @@ jobs:
           RUSTFLAGS: --cfg postgres_${{ matrix.postgres }}
 
       - run: |
-          cargo test --no-default-features --features any,postgres,macros,migrate,all-types,runtime-tokio-${{ matrix.tls }}
+          cargo test --no-default-features --features any,postgres,macros,migrate,all-types,${{ matrix.tls }}
         env:
           DATABASE_URL: postgres://postgres:password@localhost:5432/sqlx?sslmode=verify-ca&sslrootcert=./tests/certs/ca.crt
           # FIXME: needed to disable `ltree` tests in Postgres 9.6
@@ -191,11 +191,11 @@ jobs:
       - uses: Swatinem/rust-cache@65012b490220f477f20ab979e35ae732e6de4e68
         with:
           prefix-key: v1-sqlx
-          shared-key: postgres-tokio-rustls
+          shared-key: postgres-rustls
           save-if: ${{ false }}
       - run: docker compose up --wait postgres_16
         working-directory: tests
-      - run: cargo test --no-default-features --features any,postgres,macros,all-types,runtime-tokio-rustls
+      - run: cargo test --no-default-features --features any,postgres,macros,all-types,rustls
         env:
           DATABASE_URL: postgres://postgres@localhost:5432/sqlx?sslmode=verify-ca&sslrootcert=./tests/certs/ca.crt&sslcert=./tests/certs/client.crt&sslkey=./tests/keys/client.key
 
@@ -217,26 +217,26 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' && matrix.mysql == '8' }}
 
       - run: |
-          cargo build --features mysql,all-types,runtime-tokio-${{ matrix.tls }}
+          cargo build --features mysql,all-types,${{ matrix.tls }}
 
       - name: Run clippy for mysql
         run: |
           cargo clippy \
             --no-default-features \
-            --features mysql,all-types,runtime-tokio-${{ matrix.tls }},macros,migrate \
+            --features mysql,all-types,${{ matrix.tls }},macros,migrate \
             -- -D warnings
 
       - run: docker compose -f tests/docker-compose.yml run -d -p 3306:3306 mysql_${{ matrix.mysql }}
       - run: sleep 60
 
       - run: |
-          cargo test --no-default-features --features any,mysql,macros,migrate,all-types,runtime-tokio-${{ matrix.tls }}
+          cargo test --no-default-features --features any,mysql,macros,migrate,all-types,${{ matrix.tls }}
         env:
           DATABASE_URL: mysql://root:password@localhost:3306/sqlx?ssl-mode=disabled
 
       # MySQL 5.7 supports TLS but not TLSv1.3 as required by RusTLS.
       - run: |
-          cargo test --no-default-features --features any,mysql,macros,migrate,all-types,runtime-tokio-${{ matrix.tls }}
+          cargo test --no-default-features --features any,mysql,macros,migrate,all-types,${{ matrix.tls }}
         if: ${{ !(matrix.mysql == '5_7' && matrix.tls == 'rustls') }}
         env:
           DATABASE_URL: mysql://root:password@localhost:3306/sqlx
@@ -259,20 +259,20 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' && matrix.mariadb == '10_6' }}
 
       - run: |
-          cargo build --features mysql,runtime-tokio-${{ matrix.tls }}
+          cargo build --features mysql,${{ matrix.tls }}
 
       - name: Run clippy for mariadb
         run: |
           cargo clippy \
             --no-default-features \
-            --features mysql,runtime-tokio-${{ matrix.tls }},macros,migrate \
+            --features mysql,${{ matrix.tls }},macros,migrate \
             -- -D warnings
 
       - run: docker compose -f tests/docker-compose.yml run -d -p 3306:3306 mariadb_${{ matrix.mariadb }}
       - run: sleep 30
 
       - run: |
-          cargo test --no-default-features --features any,mysql,macros,migrate,runtime-tokio-${{ matrix.tls }}
+          cargo test --no-default-features --features any,mysql,macros,migrate,${{ matrix.tls }}
         env:
           DATABASE_URL: mysql://root:password@localhost:3306/sqlx
 
@@ -294,20 +294,20 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' && matrix.mssql == '2022' }}
 
       - run: |
-          cargo build --features mssql,all-types,runtime-tokio-${{ matrix.tls }}
+          cargo build --features mssql,all-types,${{ matrix.tls }}
 
       - name: Run clippy for mssql
         run: |
           cargo clippy \
             --no-default-features \
-            --features mssql,all-types,runtime-tokio-${{ matrix.tls }},macros,migrate \
+            --features mssql,all-types,${{ matrix.tls }},macros,migrate \
             -- -D warnings
 
       - run: docker compose -f tests/docker-compose.yml run -d -p 1433:1433 mssql_${{ matrix.mssql }}
       - run: sleep 80 # MSSQL takes a "bit" to startup
 
       - run: |
-          cargo test --no-default-features --features any,mssql,macros,migrate,all-types,runtime-tokio-${{ matrix.tls }}
+          cargo test --no-default-features --features any,mssql,macros,migrate,all-types,${{ matrix.tls }}
         env:
           DATABASE_URL: mssql://sa:Password123!@localhost/sqlx
 
@@ -338,10 +338,10 @@ jobs:
           odbcinst -q -s || true
           echo "select 1;" | isql -v SQLX_PG_5432 || true
       - name: Run ODBC tests (PostgreSQL DSN)
-        run: cargo test --no-default-features --features any,odbc,macros,all-types,runtime-tokio-rustls
+        run: cargo test --no-default-features --features any,odbc,macros,all-types,rustls
         env:
           DATABASE_URL: DSN=SQLX_PG_5432;UID=postgres;PWD=password
       - name: Run ODBC tests (SQLite driver)
-        run: cargo test --no-default-features --features any,odbc,macros,all-types,runtime-tokio-rustls
+        run: cargo test --no-default-features --features any,odbc,macros,all-types,rustls
         env:
           DATABASE_URL: Driver={SQLite3};Database=./tests/odbc/sqlite.db

@@ -43,7 +43,7 @@ use indexmap::IndexMap;
 /// use std::str::FromStr;
 ///
 /// # fn main() {
-/// # #[cfg(feature = "_rt-tokio")]
+/// # #[cfg(any(feature = "native-tls", feature = "rustls"))]
 /// # sqlx_rt::block_on(async move {
 /// let conn = SqliteConnectOptions::from_str("sqlite://data.db")?
 ///     .journal_mode(SqliteJournalMode::Wal)

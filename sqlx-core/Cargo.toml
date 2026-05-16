@@ -13,7 +13,7 @@ authors = [
 ]
 
 [package.metadata.docs.rs]
-features = ["all-databases", "all-types", "offline", "runtime-tokio-native-tls"]
+features = ["all-databases", "all-types", "offline", "native-tls"]
 
 [features]
 default = ["migrate"]
@@ -63,27 +63,31 @@ bigdecimal = ["bigdecimal_", "num-bigint"]
 decimal = ["rust_decimal", "num-bigint"]
 json = ["serde", "serde_json"]
 
-# runtimes
-runtime-actix-native-tls = ["runtime-tokio-native-tls"]
-runtime-tokio-native-tls = [
-    "sqlx-rt/runtime-tokio-native-tls",
+# TLS backends. Tokio is the supported async runtime.
+native-tls = [
+    "sqlx-rt/native-tls",
     "_tls-native-tls",
-    "_rt-tokio",
+    "tokio-stream",
+    "tokio-util",
 ]
 
-runtime-actix-rustls = ['runtime-tokio-rustls']
-runtime-tokio-rustls = [
-    "sqlx-rt/runtime-tokio-rustls",
+rustls = [
+    "sqlx-rt/rustls",
     "_tls-rustls",
-    "_rt-tokio"
+    "tokio-stream",
+    "tokio-util",
 ]
 
-# for conditional compilation
-_rt-tokio = ["tokio-stream", "tokio-util"]
+# Backward-compatible aliases for legacy runtime feature names.
+runtime-actix-native-tls = ["native-tls"]
+runtime-tokio-native-tls = ["native-tls"]
+runtime-actix-rustls = ["rustls"]
+runtime-tokio-rustls = ["rustls"]
+
 _tls-native-tls = []
-_tls-rustls = ["rustls", "webpki-roots"]
-aws_lc_rs = ["rustls/aws_lc_rs", "sqlx-rt/aws_lc_rs"]
-tls12 = ["rustls/tls12"]
+_tls-rustls = ["dep:rustls", "webpki-roots"]
+aws_lc_rs = ["rustls?/aws_lc_rs", "sqlx-rt/aws_lc_rs"]
+tls12 = ["rustls?/tls12"]
 
 # support offline/decoupled building (enables serialization of `Describe`)
 offline = ["serde", "either/serde"]
@@ -161,5 +165,5 @@ dotenvy = "0.15"
 odbc-api = { version = "25", optional = true }
 
 [dev-dependencies]
-sqlx = { package = "sqlx-oldapi", path = "..", features = ["postgres", "sqlite", "mysql", "runtime-tokio-rustls"] }
+sqlx = { package = "sqlx-oldapi", path = "..", features = ["postgres", "sqlite", "mysql", "rustls"] }
 tokio = { version = "1", features = ["rt"] }

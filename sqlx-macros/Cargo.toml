@@ -16,26 +16,25 @@ authors = [
 proc-macro = true
 
 [features]
-default = ["runtime-tokio-native-tls", "migrate"]
+default = ["native-tls", "migrate"]
 migrate = ["sha2", "sqlx-core/migrate"]
 
-# runtimes
-runtime-actix-native-tls = ["runtime-tokio-native-tls"]
-runtime-tokio-native-tls = [
-    "sqlx-core/runtime-tokio-native-tls",
-    "sqlx-rt/runtime-tokio-native-tls",
-    "_rt-tokio",
+# TLS backends. Tokio is the supported async runtime.
+native-tls = [
+    "sqlx-core/native-tls",
+    "sqlx-rt/native-tls",
 ]
 
-runtime-actix-rustls = ["runtime-tokio-rustls"]
-runtime-tokio-rustls = [
-    "sqlx-core/runtime-tokio-rustls",
-    "sqlx-rt/runtime-tokio-rustls",
-    "_rt-tokio",
+rustls = [
+    "sqlx-core/rustls",
+    "sqlx-rt/rustls",
 ]
 
-# for conditional compilation
-_rt-tokio = []
+# Backward-compatible aliases for legacy runtime feature names.
+runtime-actix-native-tls = ["native-tls"]
+runtime-tokio-native-tls = ["native-tls"]
+runtime-actix-rustls = ["rustls"]
+runtime-tokio-rustls = ["rustls"]
 
 # offline building support
 offline = ["sqlx-core/offline", "hex", "serde", "serde_json", "sha2"]

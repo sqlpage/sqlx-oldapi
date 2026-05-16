@@ -215,7 +215,7 @@ impl<C: DerefMut<Target = PgConnection>> PgCopyIn<C> {
             loop {
                 let read = match () {
                     // Tokio lets us read into the buffer without zeroing first
-                    #[cfg(feature = "_rt-tokio")]
+                    #[cfg(any(feature = "native-tls", feature = "rustls"))]
                     _ if buf.len() != buf.capacity() => {
                         // in case we have some data in the buffer, which can occur
                         // if the previous write did not fill the buffer
