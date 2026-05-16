@@ -19,7 +19,6 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        runtime: [tokio]
         tls: [native-tls, rustls]
     steps:
       - uses: actions/checkout@v6
@@ -31,20 +30,20 @@ jobs:
         run: |
           cargo clippy --manifest-path sqlx-core/Cargo.toml \
             --no-default-features \
-            --features offline,all-databases,all-types,migrate,runtime-${{ matrix.runtime }}-${{ matrix.tls }} \
+            --features offline,all-databases,all-types,migrate,runtime-tokio-${{ matrix.tls }} \
             -- -D warnings
       - name: Run clippy for root with all features
         run: |
           cargo clippy \
             --no-default-features \
-            --features offline,all-databases,all-types,migrate,runtime-${{ matrix.runtime }}-${{ matrix.tls }},macros \
+            --features offline,all-databases,all-types,migrate,runtime-tokio-${{ matrix.tls }},macros \
             -- -D warnings
       - name: Run clippy for all targets
         run: |
           cargo clippy \
             --no-default-features \
             --all-targets \
-            --features offline,all-databases,all-types,migrate,runtime-${{ matrix.runtime }}-${{ matrix.tls }} \
+            --features offline,all-databases,all-types,migrate,runtime-tokio-${{ matrix.tls }} \
             -- -D warnings
 
   test:
@@ -106,7 +105,6 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        runtime: [tokio, actix]
         tls: [native-tls, rustls]
     needs: check
     steps:
@@ -115,17 +113,17 @@ jobs:
       - uses: Swatinem/rust-cache@65012b490220f477f20ab979e35ae732e6de4e68
         with:
           prefix-key: v1-sqlx
-          shared-key: sqlite-${{ matrix.runtime }}-${{ matrix.tls }}
-          save-if: ${{ github.ref == 'refs/heads/main' && matrix.runtime == 'tokio' && matrix.tls == 'native-tls' }}
+          shared-key: sqlite-${{ matrix.tls }}
+          save-if: ${{ github.ref == 'refs/heads/main' && matrix.tls == 'native-tls' }}
       - name: Run clippy for sqlite
         run: |
           cargo clippy \
             --no-default-features \
-            --features sqlite,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }},macros,migrate \
+            --features sqlite,all-types,runtime-tokio-${{ matrix.tls }},macros,migrate \
             -- -D warnings
       - run: cargo test
           --no-default-features
-          --features any,macros,migrate,sqlite,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
+          --features any,macros,migrate,sqlite,all-types,runtime-tokio-${{ matrix.tls }}
         env:
           DATABASE_URL: sqlite://tests/sqlite/sqlite.db
           RUSTFLAGS: --cfg sqlite_ipaddr
@@ -137,7 +135,6 @@ jobs:
     strategy:
       matrix:
         postgres: [14, 10]
-        runtime: [tokio, actix]
         tls: [native-tls, rustls]
     needs: check
     steps:
@@ -146,11 +143,11 @@ jobs:
       - uses: Swatinem/rust-cache@65012b490220f477f20ab979e35ae732e6de4e68
         with:
           prefix-key: v1-sqlx
-          shared-key: postgres-${{ matrix.runtime }}-${{ matrix.tls }}
+          shared-key: postgres-${{ matrix.tls }}
           save-if: ${{ github.ref == 'refs/heads/main' && matrix.postgres == '14' }}
 
       - run: |
-          cargo build --features postgres,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
+          cargo build --features postgres,all-types,runtime-tokio-${{ matrix.tls }}
         env:
           # FIXME: needed to disable `ltree` tests in Postgres 9.6
           # but `PgLTree` should just fall back to text format
@@ -160,7 +157,7 @@ jobs:
         run: |
           cargo clippy \
             --no-default-features \
-            --features postgres,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }},macros,migrate \
+            --features postgres,all-types,runtime-tokio-${{ matrix.tls }},macros,migrate \
             -- -D warnings
         env:
           RUSTFLAGS: --cfg postgres_${{ matrix.postgres }}
@@ -170,7 +167,7 @@ jobs:
           docker exec postgres_${{ matrix.postgres }} bash -c "until pg_isready; do sleep 1; done"
 
       - run: |
-          cargo test --no-default-features --features any,postgres,macros,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
+          cargo test --no-default-features --features any,postgres,macros,all-types,runtime-tokio-${{ matrix.tls }}
         env:
           DATABASE_URL: postgres://postgres:password@localhost:5432/sqlx
           # FIXME: needed to disable `ltree` tests in Postgres 9.6
@@ -178,7 +175,7 @@ jobs:
           RUSTFLAGS: --cfg postgres_${{ matrix.postgres }}
 
       - run: |
-          cargo test --no-default-features --features any,postgres,macros,migrate,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
+          cargo test --no-default-features --features any,postgres,macros,migrate,all-types,runtime-tokio-${{ matrix.tls }}
         env:
           DATABASE_URL: postgres://postgres:password@localhost:5432/sqlx?sslmode=verify-ca&sslrootcert=./tests/certs/ca.crt
           # FIXME: needed to disable `ltree` tests in Postgres 9.6
@@ -194,11 +191,11 @@ jobs:
       - uses: Swatinem/rust-cache@65012b490220f477f20ab979e35ae732e6de4e68
         with:
           prefix-key: v1-sqlx
-          shared-key: postgres-actix-rustls
+          shared-key: postgres-tokio-rustls
           save-if: ${{ false }}
       - run: docker compose up --wait postgres_16
         working-directory: tests
-      - run: cargo test --no-default-features --features any,postgres,macros,all-types,runtime-actix-rustls
+      - run: cargo test --no-default-features --features any,postgres,macros,all-types,runtime-tokio-rustls
         env:
           DATABASE_URL: postgres://postgres@localhost:5432/sqlx?sslmode=verify-ca&sslrootcert=./tests/certs/ca.crt&sslcert=./tests/certs/client.crt&sslkey=./tests/keys/client.key
 
@@ -208,7 +205,6 @@ jobs:
     strategy:
       matrix:
         mysql: [8, 5_7]
-        runtime: [tokio, actix]
         tls: [native-tls, rustls]
     needs: check
     steps:
@@ -217,30 +213,30 @@ jobs:
       - uses: Swatinem/rust-cache@65012b490220f477f20ab979e35ae732e6de4e68
         with:
           prefix-key: v1-sqlx
-          shared-key: mysql-${{ matrix.runtime }}-${{ matrix.tls }}
+          shared-key: mysql-${{ matrix.tls }}
           save-if: ${{ github.ref == 'refs/heads/main' && matrix.mysql == '8' }}
 
       - run: |
-          cargo build --features mysql,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
+          cargo build --features mysql,all-types,runtime-tokio-${{ matrix.tls }}
 
       - name: Run clippy for mysql
         run: |
           cargo clippy \
             --no-default-features \
-            --features mysql,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }},macros,migrate \
+            --features mysql,all-types,runtime-tokio-${{ matrix.tls }},macros,migrate \
             -- -D warnings
 
       - run: docker compose -f tests/docker-compose.yml run -d -p 3306:3306 mysql_${{ matrix.mysql }}
       - run: sleep 60
 
       - run: |
-          cargo test --no-default-features --features any,mysql,macros,migrate,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
+          cargo test --no-default-features --features any,mysql,macros,migrate,all-types,runtime-tokio-${{ matrix.tls }}
         env:
           DATABASE_URL: mysql://root:password@localhost:3306/sqlx?ssl-mode=disabled
 
       # MySQL 5.7 supports TLS but not TLSv1.3 as required by RusTLS.
       - run: |
-          cargo test --no-default-features --features any,mysql,macros,migrate,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
+          cargo test --no-default-features --features any,mysql,macros,migrate,all-types,runtime-tokio-${{ matrix.tls }}
         if: ${{ !(matrix.mysql == '5_7' && matrix.tls == 'rustls') }}
         env:
           DATABASE_URL: mysql://root:password@localhost:3306/sqlx
@@ -251,7 +247,6 @@ jobs:
     strategy:
       matrix:
         mariadb: [10_6, 10_3]
-        runtime: [tokio, actix]
         tls: [native-tls, rustls]
     needs: check
     steps:
@@ -260,24 +255,24 @@ jobs:
       - uses: Swatinem/rust-cache@65012b490220f477f20ab979e35ae732e6de4e68
         with:
           prefix-key: v1-sqlx
-          shared-key: mariadb-${{ matrix.runtime }}-${{ matrix.tls }}
+          shared-key: mariadb-${{ matrix.tls }}
           save-if: ${{ github.ref == 'refs/heads/main' && matrix.mariadb == '10_6' }}
 
       - run: |
-          cargo build --features mysql,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
+          cargo build --features mysql,runtime-tokio-${{ matrix.tls }}
 
       - name: Run clippy for mariadb
         run: |
           cargo clippy \
             --no-default-features \
-            --features mysql,runtime-${{ matrix.runtime }}-${{ matrix.tls }},macros,migrate \
+            --features mysql,runtime-tokio-${{ matrix.tls }},macros,migrate \
             -- -D warnings
 
       - run: docker compose -f tests/docker-compose.yml run -d -p 3306:3306 mariadb_${{ matrix.mariadb }}
       - run: sleep 30
 
       - run: |
-          cargo test --no-default-features --features any,mysql,macros,migrate,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
+          cargo test --no-default-features --features any,mysql,macros,migrate,runtime-tokio-${{ matrix.tls }}
         env:
           DATABASE_URL: mysql://root:password@localhost:3306/sqlx
 
@@ -287,7 +282,6 @@ jobs:
     strategy:
       matrix:
         mssql: [2019, 2022]
-        runtime: [tokio, actix]
         tls: [native-tls, rustls]
     needs: check
     steps:
@@ -296,24 +290,24 @@ jobs:
       - uses: Swatinem/rust-cache@65012b490220f477f20ab979e35ae732e6de4e68
         with:
           prefix-key: v1-sqlx
-          shared-key: mssql-${{ matrix.runtime }}-${{ matrix.tls }}
+          shared-key: mssql-${{ matrix.tls }}
           save-if: ${{ github.ref == 'refs/heads/main' && matrix.mssql == '2022' }}
 
       - run: |
-          cargo build --features mssql,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
+          cargo build --features mssql,all-types,runtime-tokio-${{ matrix.tls }}
 
       - name: Run clippy for mssql
         run: |
           cargo clippy \
             --no-default-features \
-            --features mssql,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }},macros,migrate \
+            --features mssql,all-types,runtime-tokio-${{ matrix.tls }},macros,migrate \
             -- -D warnings
 
       - run: docker compose -f tests/docker-compose.yml run -d -p 1433:1433 mssql_${{ matrix.mssql }}
       - run: sleep 80 # MSSQL takes a "bit" to startup
 
       - run: |
-          cargo test --no-default-features --features any,mssql,macros,migrate,all-types,runtime-${{ matrix.runtime }}-${{ matrix.tls }}
+          cargo test --no-default-features --features any,mssql,macros,migrate,all-types,runtime-tokio-${{ matrix.tls }}
         env:
           DATABASE_URL: mssql://sa:Password123!@localhost/sqlx
 
