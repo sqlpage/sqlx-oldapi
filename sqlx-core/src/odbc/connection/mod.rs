@@ -69,8 +69,7 @@ fn collect_statement_metadata(
 ) -> Result<(OdbcStatementMetadata, bool), Error> {
     let parameters = usize::from(prepared.num_params()?);
     let collected = collect_columns(prepared, parameters, allow_deferred_result_columns)?;
-    let metadata_complete =
-        !(collected.deferred || parameters > 0 && collected.columns.is_empty());
+    let metadata_complete = !(collected.deferred || parameters > 0 && collected.columns.is_empty());
 
     Ok((
         OdbcStatementMetadata {
