@@ -12,8 +12,10 @@ mod odbc_bridge;
 use crate::odbc::{OdbcStatement, OdbcStatementMetadata};
 use futures_core::future::BoxFuture;
 use futures_util::future;
-use odbc_api::ConnectionTransitions;
-use odbc_api::{handles::StatementConnection, Prepared, ResultSetMetadata, SharedConnection};
+use odbc_api::{
+    handles::StatementConnection, ConnectionTransitions, Prepared, ResultSetMetadata,
+    SharedConnection,
+};
 use odbc_bridge::{establish_connection, execute_sql};
 use std::borrow::Cow;
 use std::sync::{Arc, Mutex};
@@ -37,6 +39,7 @@ fn collect_columns(
         Ok(count) => count,
         Err(error) if allow_deferred_result_columns && parameter_count > 0 => {
             log::debug!("ODBC prepare deferred result columns until execution: {error}");
+            validate_parameter_metadata(prepared, parameter_count)?;
             return Ok(CollectedColumns {
                 columns: Vec::new(),
                 deferred: true,
@@ -53,6 +56,18 @@ fn collect_columns(
         columns,
         deferred: false,
     })
+}
+
+fn validate_parameter_metadata(
+    prepared: &mut PreparedStatement,
+    parameter_count: usize,
+) -> Result<(), Error> {
+    for index in 1..=parameter_count {
+        let parameter_number = u16::try_from(index)
+            .map_err(|_| Error::Protocol(format!("ODBC parameter index {index} exceeds u16")))?;
+        prepared.describe_param(parameter_number)?;
+    }
+    Ok(())
 }
 
 fn collect_statement_metadata(
