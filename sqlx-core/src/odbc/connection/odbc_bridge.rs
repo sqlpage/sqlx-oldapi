@@ -8,7 +8,7 @@ use crate::odbc::{
 };
 use either::Either;
 use flume::{SendError, Sender};
-use odbc_api::buffers::{AnySlice, BufferDesc, ColumnarAnyBuffer};
+use odbc_api::buffers::{AnyColumnBufferSlice, BufferDesc, ColumnarDynBuffer};
 use odbc_api::handles::{AsStatementRef, Nullability, Statement};
 use odbc_api::{Cursor, IntoParameter, ResultSetMetadata};
 use std::sync::Arc;
@@ -311,8 +311,12 @@ fn map_buffer_desc(type_info: &OdbcTypeInfo, nullable: bool, max_column_size: us
     }
 }
 
-fn create_column_data(slice: AnySlice<'_>, column: &OdbcColumn) -> Result<Arc<ColumnData>, Error> {
-    let (values, nulls) = crate::odbc::value::convert_any_slice_to_value_vec(slice)?;
+fn create_column_data(
+    slice: AnyColumnBufferSlice<'_>,
+    buffer_desc: BufferDesc,
+    column: &OdbcColumn,
+) -> Result<Arc<ColumnData>, Error> {
+    let (values, nulls) = crate::odbc::value::convert_dyn_slice_to_value_vec(slice, buffer_desc)?;
     Ok(Arc::new(ColumnData {
         values,
         type_info: column.type_info.clone(),
@@ -391,7 +395,7 @@ where
     C: Cursor + ResultSetMetadata,
 {
     let buffer_descriptions: Vec<_> = bindings.iter().map(|b| b.buffer_desc).collect();
-    let buffer = ColumnarAnyBuffer::from_descs(batch_size, buffer_descriptions);
+    let buffer = ColumnarDynBuffer::from_descs(batch_size, buffer_descriptions);
     let mut row_set_cursor = cursor.bind_buffer(buffer)?;
 
     let mut receiver_open = true;
@@ -404,7 +408,11 @@ where
             .iter()
             .enumerate()
             .map(|(col_index, binding)| {
-                create_column_data(batch.column(col_index), &binding.column)
+                create_column_data(
+                    batch.column(col_index),
+                    binding.buffer_desc,
+                    &binding.column,
+                )
             })
             .collect::<Result<_, _>>()?;
 

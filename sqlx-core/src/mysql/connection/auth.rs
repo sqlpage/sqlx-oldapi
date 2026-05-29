@@ -1,8 +1,8 @@
 use bytes::buf::Chain;
 use bytes::Bytes;
 use rsa::{pkcs8::DecodePublicKey, Oaep, RsaPublicKey};
-use sha1::{Digest as Sha1Digest, Sha1};
-use sha2::{Digest as Sha2Digest, Sha256};
+use sha1::{Digest, Sha1};
+use sha2::Sha256;
 
 use crate::error::Error;
 use crate::mysql::connection::stream::MySqlStream;
@@ -147,7 +147,7 @@ async fn encrypt_rsa<'s>(
 
     // client sends an RSA encrypted password
     let pkey = parse_rsa_pub_key(rsa_pub_key)?;
-    let padding = Oaep::new::<sha1::Sha1>();
+    let padding = Oaep::new::<sha1_0_10::Sha1>();
     pkey.encrypt(&mut rsa::rand_core::OsRng, padding, &pass[..])
         .map_err(Error::protocol)
 }
