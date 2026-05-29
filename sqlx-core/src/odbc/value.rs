@@ -2,10 +2,9 @@ use crate::error::Error;
 use crate::odbc::{Odbc, OdbcBatch, OdbcTypeInfo};
 use crate::type_info::TypeInfo;
 use crate::value::{Value, ValueRef};
-use odbc_api::buffers::{AnySlice, NullableSlice};
+use odbc_api::buffers::{AnyColumnBufferSlice, BufferDesc, NullableSlice};
 use odbc_api::handles::CDataMut;
 use odbc_api::parameter::CElement;
-use odbc_api::sys::NULL_DATA;
 use odbc_api::{DataType, Nullable};
 use std::borrow::Cow;
 use std::sync::Arc;
@@ -368,158 +367,149 @@ pub enum OdbcValueType {
     Timestamp(odbc_api::sys::Timestamp),
 }
 
-/// Generic helper function to handle non-nullable slices
-fn handle_non_nullable_slice<T: Copy>(
+fn handle_non_nullable_slice_with<T: Copy, U>(
     slice: &[T],
-    constructor: fn(Vec<T>) -> OdbcValueVec,
+    constructor: fn(Vec<U>) -> OdbcValueVec,
+    convert: impl FnMut(T) -> U,
 ) -> (OdbcValueVec, Vec<bool>) {
-    let vec = slice.to_vec();
-    (constructor(vec), vec![false; slice.len()])
+    let values = slice.iter().copied().map(convert).collect();
+    (constructor(values), vec![false; slice.len()])
 }
 
-/// Generic helper function to handle nullable slices with custom default values
-fn handle_nullable_slice<'a, T: Default + Copy>(
-    slice: NullableSlice<'a, T>,
-    constructor: fn(Vec<T>) -> OdbcValueVec,
+fn handle_nullable_slice_with<T: Copy, U: Default>(
+    slice: NullableSlice<'_, T>,
+    constructor: fn(Vec<U>) -> OdbcValueVec,
+    mut convert: impl FnMut(T) -> U,
 ) -> (OdbcValueVec, Vec<bool>) {
     let size = slice.size_hint().1.unwrap_or(0);
     let mut values = Vec::with_capacity(size);
     let mut nulls = Vec::with_capacity(size);
     for opt in slice {
-        values.push(opt.copied().unwrap_or_default());
-        nulls.push(opt.is_none());
+        let is_null = opt.is_none();
+        values.push(opt.copied().map(&mut convert).unwrap_or_default());
+        nulls.push(is_null);
     }
     (constructor(values), nulls)
 }
 
-/// Generic helper function to handle nullable slices with NULL_DATA indicators
-fn handle_nullable_with_indicators<T: Default + Copy>(
-    raw_values: &[T],
-    indicators: &[isize],
-    constructor: fn(Vec<T>) -> OdbcValueVec,
+fn handle_buffer_slice<T: Copy + odbc_api::Pod, U: Default>(
+    slice: &AnyColumnBufferSlice<'_>,
+    desc: BufferDesc,
+    nullable: bool,
+    constructor: fn(Vec<U>) -> OdbcValueVec,
+    convert: impl FnMut(T) -> U,
+) -> Result<(OdbcValueVec, Vec<bool>), Error> {
+    if nullable {
+        Ok(handle_nullable_slice_with(
+            expect_slice(slice.as_nullable_slice::<T>(), desc)?,
+            constructor,
+            convert,
+        ))
+    } else {
+        Ok(handle_non_nullable_slice_with(
+            expect_slice(slice.as_slice::<T>(), desc)?,
+            constructor,
+            convert,
+        ))
+    }
+}
+
+fn buffer_slice_mismatch(desc: BufferDesc) -> Error {
+    Error::Protocol(format!(
+        "ODBC column buffer {desc:?} did not match fetched slice"
+    ))
+}
+
+fn expect_slice<T>(slice: Option<T>, desc: BufferDesc) -> Result<T, Error> {
+    slice.ok_or_else(|| buffer_slice_mismatch(desc))
+}
+
+fn handle_optional_values<T, U: Default>(
+    len: usize,
+    values: impl IntoIterator<Item = Option<T>>,
+    constructor: fn(Vec<U>) -> OdbcValueVec,
+    mut convert: impl FnMut(T) -> U,
 ) -> (OdbcValueVec, Vec<bool>) {
-    let nulls = indicators.iter().map(|&ind| ind == NULL_DATA).collect();
-    (constructor(raw_values.to_vec()), nulls)
-}
+    let mut converted = Vec::with_capacity(len);
+    let mut nulls = Vec::with_capacity(len);
 
-fn handle_non_nullable_u8_slice(slice: &[u8]) -> (OdbcValueVec, Vec<bool>) {
-    (
-        OdbcValueVec::BigInt(slice.iter().map(|&value| i64::from(value)).collect()),
-        vec![false; slice.len()],
-    )
-}
-
-fn handle_nullable_u8_slice(slice: NullableSlice<'_, u8>) -> (OdbcValueVec, Vec<bool>) {
-    let size = slice.size_hint().1.unwrap_or(0);
-    let mut values = Vec::with_capacity(size);
-    let mut nulls = Vec::with_capacity(size);
-
-    for opt in slice {
-        values.push(opt.copied().map(i64::from).unwrap_or_default());
-        nulls.push(opt.is_none());
+    for value in values {
+        let is_null = value.is_none();
+        converted.push(value.map(&mut convert).unwrap_or_default());
+        nulls.push(is_null);
     }
 
-    (OdbcValueVec::BigInt(values), nulls)
+    (constructor(converted), nulls)
 }
 
-/// Convert AnySlice to owned OdbcValueVec and nulls vector, preserving original types
-pub(crate) fn convert_any_slice_to_value_vec(
-    slice: AnySlice<'_>,
+/// Convert a dynamic ODBC column slice to owned values, preserving original types.
+pub(crate) fn convert_dyn_slice_to_value_vec(
+    slice: AnyColumnBufferSlice<'_>,
+    desc: BufferDesc,
 ) -> Result<(OdbcValueVec, Vec<bool>), Error> {
-    Ok(match slice {
-        // Non-nullable integer types
-        AnySlice::I8(s) => handle_non_nullable_slice(s, OdbcValueVec::TinyInt),
-        AnySlice::I16(s) => handle_non_nullable_slice(s, OdbcValueVec::SmallInt),
-        AnySlice::I32(s) => handle_non_nullable_slice(s, OdbcValueVec::Integer),
-        AnySlice::I64(s) => handle_non_nullable_slice(s, OdbcValueVec::BigInt),
-        AnySlice::U8(s) => handle_non_nullable_u8_slice(s),
-
-        // Non-nullable floating point types
-        AnySlice::F32(s) => handle_non_nullable_slice(s, OdbcValueVec::Real),
-        AnySlice::F64(s) => handle_non_nullable_slice(s, OdbcValueVec::Double),
-
-        // Non-nullable other types
-        AnySlice::Bit(s) => {
-            let vec: Vec<bool> = s.iter().map(|bit| bit.as_bool()).collect();
-            (OdbcValueVec::Bit(vec), vec![false; s.len()])
+    Ok(match desc {
+        BufferDesc::I8 { nullable } => {
+            handle_buffer_slice(&slice, desc, nullable, OdbcValueVec::TinyInt, |value| value)?
         }
-        AnySlice::Date(s) => handle_non_nullable_slice(s, OdbcValueVec::Date),
-        AnySlice::Time(s) => handle_non_nullable_slice(s, OdbcValueVec::Time),
-        AnySlice::Timestamp(s) => handle_non_nullable_slice(s, OdbcValueVec::Timestamp),
-
-        // Nullable integer types
-        AnySlice::NullableI8(s) => handle_nullable_slice(s, OdbcValueVec::TinyInt),
-        AnySlice::NullableI16(s) => handle_nullable_slice(s, OdbcValueVec::SmallInt),
-        AnySlice::NullableI32(s) => handle_nullable_slice(s, OdbcValueVec::Integer),
-        AnySlice::NullableI64(s) => handle_nullable_slice(s, OdbcValueVec::BigInt),
-        AnySlice::NullableU8(s) => handle_nullable_u8_slice(s),
-        AnySlice::NullableF32(s) => handle_nullable_slice(s, OdbcValueVec::Real),
-        AnySlice::NullableF64(s) => handle_nullable_slice(s, OdbcValueVec::Double),
-        AnySlice::NullableBit(s) => {
-            let values: Vec<Option<odbc_api::Bit>> = s.map(|opt| opt.copied()).collect();
-            let nulls = values.iter().map(|opt| opt.is_none()).collect();
-            (
-                OdbcValueVec::Bit(
-                    values
-                        .into_iter()
-                        .map(|opt| opt.is_some_and(|bit| bit.as_bool()))
-                        .collect(),
-                ),
-                nulls,
-            )
+        BufferDesc::I16 { nullable } => {
+            handle_buffer_slice(&slice, desc, nullable, OdbcValueVec::SmallInt, |value| {
+                value
+            })?
         }
-
-        // Text and binary types (inherently nullable)
-        AnySlice::Text(s) => {
-            let mut values = Vec::with_capacity(s.len());
-            let mut nulls = Vec::with_capacity(s.len());
-            for bytes_opt in s.iter() {
-                nulls.push(bytes_opt.is_none());
-                values.push(String::from_utf8_lossy(bytes_opt.unwrap_or_default()).into_owned());
-            }
-            (OdbcValueVec::Text(values), nulls)
+        BufferDesc::I32 { nullable } => {
+            handle_buffer_slice(&slice, desc, nullable, OdbcValueVec::Integer, |value| value)?
         }
-        AnySlice::WText(s) => {
-            let mut values = Vec::with_capacity(s.len());
-            let mut nulls = Vec::with_capacity(s.len());
-            for chars_opt in s.iter() {
-                nulls.push(chars_opt.is_none());
-                values.push(
-                    chars_opt
-                        .map(|chars| String::from_utf16_lossy(chars.into()))
-                        .unwrap_or_default(),
-                );
-            }
-            (OdbcValueVec::Text(values), nulls)
+        BufferDesc::I64 { nullable } => {
+            handle_buffer_slice(&slice, desc, nullable, OdbcValueVec::BigInt, |value| value)?
         }
-        AnySlice::Binary(s) => {
-            let mut values = Vec::with_capacity(s.len());
-            let mut nulls = Vec::with_capacity(s.len());
-            for bytes_opt in s.iter() {
-                nulls.push(bytes_opt.is_none());
-                values.push(bytes_opt.unwrap_or_default().to_vec());
-            }
-            (OdbcValueVec::Binary(values), nulls)
+        BufferDesc::U8 { nullable } => {
+            handle_buffer_slice::<u8, i64>(&slice, desc, nullable, OdbcValueVec::BigInt, i64::from)?
         }
-
-        // Nullable date/time types with NULL_DATA indicators
-        AnySlice::NullableDate(s) => {
-            let (raw_values, indicators) = s.raw_values();
-            handle_nullable_with_indicators(raw_values, indicators, OdbcValueVec::Date)
+        BufferDesc::F32 { nullable } => {
+            handle_buffer_slice(&slice, desc, nullable, OdbcValueVec::Real, |value| value)?
         }
-        AnySlice::NullableTime(s) => {
-            let (raw_values, indicators) = s.raw_values();
-            handle_nullable_with_indicators(raw_values, indicators, OdbcValueVec::Time)
+        BufferDesc::F64 { nullable } => {
+            handle_buffer_slice(&slice, desc, nullable, OdbcValueVec::Double, |value| value)?
         }
-        AnySlice::NullableTimestamp(s) => {
-            let (raw_values, indicators) = s.raw_values();
-            handle_nullable_with_indicators(raw_values, indicators, OdbcValueVec::Timestamp)
+        BufferDesc::Bit { nullable } => handle_buffer_slice(
+            &slice,
+            desc,
+            nullable,
+            OdbcValueVec::Bit,
+            |value: odbc_api::Bit| value.as_bool(),
+        )?,
+        BufferDesc::Date { nullable } => {
+            handle_buffer_slice(&slice, desc, nullable, OdbcValueVec::Date, |value| value)?
         }
-
-        unsupported => {
+        BufferDesc::Time { nullable } => {
+            handle_buffer_slice(&slice, desc, nullable, OdbcValueVec::Time, |value| value)?
+        }
+        BufferDesc::Timestamp { nullable } => {
+            handle_buffer_slice(&slice, desc, nullable, OdbcValueVec::Timestamp, |value| {
+                value
+            })?
+        }
+        BufferDesc::Text { .. } => {
+            let s = expect_slice(slice.as_text(), desc)?;
+            handle_optional_values(s.len(), s.iter(), OdbcValueVec::Text, |bytes| {
+                String::from_utf8_lossy(bytes).into_owned()
+            })
+        }
+        BufferDesc::WText { .. } => {
+            let s = expect_slice(slice.as_wide_text(), desc)?;
+            handle_optional_values(s.len(), s.iter(), OdbcValueVec::Text, |chars| {
+                String::from_utf16_lossy(chars.into())
+            })
+        }
+        BufferDesc::Binary { .. } => {
+            let s = expect_slice(slice.as_binary(), desc)?;
+            handle_optional_values(s.len(), s.iter(), OdbcValueVec::Binary, |bytes| {
+                bytes.to_vec()
+            })
+        }
+        BufferDesc::Numeric => {
             return Err(Error::Protocol(format!(
-                "unsupported ODBC buffer slice variant: {:?}",
-                std::mem::discriminant(&unsupported)
+                "unsupported ODBC buffer descriptor: {desc:?}"
             )));
         }
     })
@@ -531,7 +521,8 @@ mod tests {
 
     #[test]
     fn converts_unsigned_tinyint_slices() {
-        let (values, nulls) = convert_any_slice_to_value_vec(AnySlice::U8(&[0, 255])).unwrap();
+        let (values, nulls) =
+            handle_non_nullable_slice_with(&[0, 255], OdbcValueVec::BigInt, i64::from);
 
         assert_eq!(nulls, vec![false, false]);
         assert!(matches!(values, OdbcValueVec::BigInt(values) if values == vec![0, 255]));
