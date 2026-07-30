@@ -280,7 +280,7 @@ async fn it_prepares_and_reports_metadata_via_any_odbc() -> anyhow::Result<()> {
 
     match stmt.parameters() {
         Some(Either::Right(n)) => assert_eq!(n, 2),
-        Some(Either::Left(_)) => anyhow::bail!("unexpected typed parameters"),
+        Some(Either::Left(types)) => assert_eq!(types.len(), 2),
         None => anyhow::bail!("missing parameters metadata"),
     }
 
