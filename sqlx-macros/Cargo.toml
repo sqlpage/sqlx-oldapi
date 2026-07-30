@@ -44,6 +44,7 @@ mysql = ["sqlx-core/mysql"]
 postgres = ["sqlx-core/postgres"]
 sqlite = ["sqlx-core/sqlite"]
 mssql = ["sqlx-core/mssql"]
+odbc = ["sqlx-core/odbc"]
 
 # type
 bigdecimal = ["sqlx-core/bigdecimal"]

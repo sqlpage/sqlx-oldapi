@@ -31,6 +31,7 @@ pub trait DatabaseExt: Database {
     fn get_feature_gate(info: &Self::TypeInfo) -> Option<&'static str>;
 }
 
+#[allow(unused_macros)]
 macro_rules! impl_database_ext {
     (
         $database:path {
@@ -82,6 +83,7 @@ macro_rules! impl_database_ext {
     }
 }
 
+#[allow(unused_macros)]
 macro_rules! input_ty {
     ($ty:ty, $input:ty) => {
         stringify!($input)
@@ -102,3 +104,6 @@ mod sqlite;
 
 #[cfg(feature = "mssql")]
 mod mssql;
+
+#[cfg(feature = "odbc")]
+mod odbc;

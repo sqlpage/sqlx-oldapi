@@ -130,14 +130,15 @@ pub fn expand_input(input: QueryMacroInput) -> crate::Result<TokenStream> {
             feature = "postgres",
             feature = "mysql",
             feature = "mssql",
-            feature = "sqlite"
+            feature = "sqlite",
+            feature = "odbc"
         )))]
         Metadata {
             offline: false,
             database_url: Some(_db_url),
             ..
         } => Err(
-            "At least one of the features ['postgres', 'mysql', 'mssql', 'sqlite'] must be enabled \
+            "At least one of the features ['postgres', 'mysql', 'mssql', 'sqlite', 'odbc'] must be enabled \
             to get information directly from a database"
             .into(),
         ),
@@ -146,7 +147,8 @@ pub fn expand_input(input: QueryMacroInput) -> crate::Result<TokenStream> {
             feature = "postgres",
             feature = "mysql",
             feature = "mssql",
-            feature = "sqlite"
+            feature = "sqlite",
+            feature = "odbc"
         ))]
         Metadata {
             offline: false,
@@ -192,7 +194,8 @@ pub fn expand_input(input: QueryMacroInput) -> crate::Result<TokenStream> {
     feature = "postgres",
     feature = "mysql",
     feature = "mssql",
-    feature = "sqlite"
+    feature = "sqlite",
+    feature = "odbc"
 ))]
 fn expand_from_db(input: QueryMacroInput, db_url: &str) -> crate::Result<TokenStream> {
     use sqlx_core::any::{AnyConnectOptions, AnyConnection};
@@ -242,6 +245,11 @@ fn expand_from_db(input: QueryMacroInput, db_url: &str) -> crate::Result<TokenSt
                 let data = QueryData::from_db(conn, &input.sql).await?;
                 expand_with_data(input, data, false)
             }
+            #[cfg(feature = "odbc")]
+            sqlx_core::any::AnyConnectionKind::Odbc(conn) => {
+                let data = QueryData::from_db(conn, &input.sql).await?;
+                expand_with_data(input, data, false)
+            }
             // Variants depend on feature flags
             #[allow(unreachable_patterns)]
             item => Err(format!("Missing expansion needed for: {:?}", item).into()),
@@ -273,6 +281,12 @@ pub fn expand_from_file(input: QueryMacroInput, file: PathBuf) -> crate::Result<
         sqlx_core::sqlite::Sqlite::NAME => expand_with_data(
             input,
             QueryData::<sqlx_core::sqlite::Sqlite>::from_dyn_data(query_data)?,
+            true,
+        ),
+        #[cfg(feature = "odbc")]
+        sqlx_core::odbc::Odbc::NAME => expand_with_data(
+            input,
+            QueryData::<sqlx_core::odbc::Odbc>::from_dyn_data(query_data)?,
             true,
         ),
         _ => Err(format!(
