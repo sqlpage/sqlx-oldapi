@@ -4,9 +4,7 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 
 /// Type information for an ODBC type.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "offline", derive(serde::Serialize, serde::Deserialize))]
 pub struct OdbcTypeInfo {
-    #[cfg_attr(feature = "offline", serde(skip))]
     pub(crate) data_type: DataType,
 }
 
@@ -132,6 +130,212 @@ impl Display for OdbcTypeInfo {
     }
 }
 
+#[cfg(feature = "offline")]
+#[derive(serde::Serialize, serde::Deserialize)]
+enum SerializableDataType {
+    Unknown,
+    Char {
+        length: Option<usize>,
+    },
+    WChar {
+        length: Option<usize>,
+    },
+    Numeric {
+        precision: usize,
+        scale: i16,
+    },
+    Decimal {
+        precision: usize,
+        scale: i16,
+    },
+    Integer,
+    SmallInt,
+    Float {
+        precision: usize,
+    },
+    Real,
+    Double,
+    Varchar {
+        length: Option<usize>,
+    },
+    WVarchar {
+        length: Option<usize>,
+    },
+    LongVarchar {
+        length: Option<usize>,
+    },
+    WLongVarchar {
+        length: Option<usize>,
+    },
+    LongVarbinary {
+        length: Option<usize>,
+    },
+    Date,
+    Time {
+        precision: i16,
+    },
+    Timestamp {
+        precision: i16,
+    },
+    BigInt,
+    TinyInt,
+    Bit,
+    Varbinary {
+        length: Option<usize>,
+    },
+    Binary {
+        length: Option<usize>,
+    },
+    Other {
+        data_type: i16,
+        column_size: Option<usize>,
+        decimal_digits: i16,
+    },
+}
+
+#[cfg(feature = "offline")]
+impl From<DataType> for SerializableDataType {
+    fn from(data_type: DataType) -> Self {
+        use SerializableDataType as Serializable;
+
+        match data_type {
+            DataType::Unknown => Serializable::Unknown,
+            DataType::Char { length } => Serializable::Char {
+                length: length.map(Into::into),
+            },
+            DataType::WChar { length } => Serializable::WChar {
+                length: length.map(Into::into),
+            },
+            DataType::Numeric { precision, scale } => Serializable::Numeric { precision, scale },
+            DataType::Decimal { precision, scale } => Serializable::Decimal { precision, scale },
+            DataType::Integer => Serializable::Integer,
+            DataType::SmallInt => Serializable::SmallInt,
+            DataType::Float { precision } => Serializable::Float { precision },
+            DataType::Real => Serializable::Real,
+            DataType::Double => Serializable::Double,
+            DataType::Varchar { length } => Serializable::Varchar {
+                length: length.map(Into::into),
+            },
+            DataType::WVarchar { length } => Serializable::WVarchar {
+                length: length.map(Into::into),
+            },
+            DataType::LongVarchar { length } => Serializable::LongVarchar {
+                length: length.map(Into::into),
+            },
+            DataType::WLongVarchar { length } => Serializable::WLongVarchar {
+                length: length.map(Into::into),
+            },
+            DataType::LongVarbinary { length } => Serializable::LongVarbinary {
+                length: length.map(Into::into),
+            },
+            DataType::Date => Serializable::Date,
+            DataType::Time { precision } => Serializable::Time { precision },
+            DataType::Timestamp { precision } => Serializable::Timestamp { precision },
+            DataType::BigInt => Serializable::BigInt,
+            DataType::TinyInt => Serializable::TinyInt,
+            DataType::Bit => Serializable::Bit,
+            DataType::Varbinary { length } => Serializable::Varbinary {
+                length: length.map(Into::into),
+            },
+            DataType::Binary { length } => Serializable::Binary {
+                length: length.map(Into::into),
+            },
+            DataType::Other {
+                data_type,
+                column_size,
+                decimal_digits,
+            } => Serializable::Other {
+                data_type: data_type.0,
+                column_size: column_size.map(Into::into),
+                decimal_digits,
+            },
+        }
+    }
+}
+
+#[cfg(feature = "offline")]
+impl From<SerializableDataType> for DataType {
+    fn from(data_type: SerializableDataType) -> Self {
+        use std::num::NonZeroUsize;
+        use SerializableDataType as Serializable;
+
+        match data_type {
+            Serializable::Unknown => DataType::Unknown,
+            Serializable::Char { length } => DataType::Char {
+                length: length.and_then(NonZeroUsize::new),
+            },
+            Serializable::WChar { length } => DataType::WChar {
+                length: length.and_then(NonZeroUsize::new),
+            },
+            Serializable::Numeric { precision, scale } => DataType::Numeric { precision, scale },
+            Serializable::Decimal { precision, scale } => DataType::Decimal { precision, scale },
+            Serializable::Integer => DataType::Integer,
+            Serializable::SmallInt => DataType::SmallInt,
+            Serializable::Float { precision } => DataType::Float { precision },
+            Serializable::Real => DataType::Real,
+            Serializable::Double => DataType::Double,
+            Serializable::Varchar { length } => DataType::Varchar {
+                length: length.and_then(NonZeroUsize::new),
+            },
+            Serializable::WVarchar { length } => DataType::WVarchar {
+                length: length.and_then(NonZeroUsize::new),
+            },
+            Serializable::LongVarchar { length } => DataType::LongVarchar {
+                length: length.and_then(NonZeroUsize::new),
+            },
+            Serializable::WLongVarchar { length } => DataType::WLongVarchar {
+                length: length.and_then(NonZeroUsize::new),
+            },
+            Serializable::LongVarbinary { length } => DataType::LongVarbinary {
+                length: length.and_then(NonZeroUsize::new),
+            },
+            Serializable::Date => DataType::Date,
+            Serializable::Time { precision } => DataType::Time { precision },
+            Serializable::Timestamp { precision } => DataType::Timestamp { precision },
+            Serializable::BigInt => DataType::BigInt,
+            Serializable::TinyInt => DataType::TinyInt,
+            Serializable::Bit => DataType::Bit,
+            Serializable::Varbinary { length } => DataType::Varbinary {
+                length: length.and_then(NonZeroUsize::new),
+            },
+            Serializable::Binary { length } => DataType::Binary {
+                length: length.and_then(NonZeroUsize::new),
+            },
+            Serializable::Other {
+                data_type,
+                column_size,
+                decimal_digits,
+            } => DataType::Other {
+                data_type: odbc_api::sys::SqlDataType(data_type),
+                column_size: column_size.and_then(NonZeroUsize::new),
+                decimal_digits,
+            },
+        }
+    }
+}
+
+#[cfg(feature = "offline")]
+impl serde::Serialize for OdbcTypeInfo {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        SerializableDataType::from(self.data_type).serialize(serializer)
+    }
+}
+
+#[cfg(feature = "offline")]
+impl<'de> serde::Deserialize<'de> for OdbcTypeInfo {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(Self::new(
+            SerializableDataType::deserialize(deserializer)?.into(),
+        ))
+    }
+}
+
 // Provide some common type constants
 impl OdbcTypeInfo {
     pub const BIGINT: Self = Self::new(DataType::BigInt);
@@ -188,5 +392,43 @@ impl OdbcTypeInfo {
 impl From<OdbcTypeInfo> for crate::any::AnyTypeInfo {
     fn from(info: OdbcTypeInfo) -> Self {
         crate::any::AnyTypeInfo(crate::any::type_info::AnyTypeInfoKind::Odbc(info))
+    }
+}
+
+#[cfg(all(test, feature = "offline", feature = "json"))]
+mod offline_tests {
+    use super::*;
+    use std::num::NonZeroUsize;
+
+    #[test]
+    fn offline_type_info_round_trips_losslessly() {
+        let types = [
+            DataType::Unknown,
+            DataType::Char {
+                length: NonZeroUsize::new(12),
+            },
+            DataType::WLongVarchar { length: None },
+            DataType::Numeric {
+                precision: 19,
+                scale: 4,
+            },
+            DataType::Float { precision: 24 },
+            DataType::Timestamp { precision: 6 },
+            DataType::Varbinary {
+                length: NonZeroUsize::new(128),
+            },
+            DataType::Other {
+                data_type: odbc_api::sys::SqlDataType(-151),
+                column_size: NonZeroUsize::new(36),
+                decimal_digits: 2,
+            },
+        ];
+
+        for data_type in types {
+            let original = OdbcTypeInfo::new(data_type);
+            let json = serde_json::to_string(&original).unwrap();
+            let deserialized: OdbcTypeInfo = serde_json::from_str(&json).unwrap();
+            assert_eq!(deserialized, original, "serialized metadata: {json}");
+        }
     }
 }

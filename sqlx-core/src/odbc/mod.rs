@@ -72,6 +72,7 @@ pub use arguments::{OdbcArgumentValue, OdbcArguments};
 pub use column::OdbcColumn;
 pub use connection::OdbcConnection;
 pub use database::Odbc;
+pub use odbc_api::DataType;
 pub use options::{OdbcBufferSettings, OdbcConnectOptions};
 pub use query_result::OdbcQueryResult;
 pub use row::{OdbcBatch, OdbcRow};

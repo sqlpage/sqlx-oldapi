@@ -27,6 +27,7 @@ type SharedPreparedStatement = Arc<Mutex<PreparedStatement>>;
 
 struct CollectedColumns {
     columns: Vec<OdbcColumn>,
+    nullable: Vec<Option<bool>>,
     deferred: bool,
 }
 
@@ -42,6 +43,7 @@ fn collect_columns(
             validate_parameter_metadata(prepared, parameter_count)?;
             return Ok(CollectedColumns {
                 columns: Vec::new(),
+                nullable: Vec::new(),
                 deferred: true,
             });
         }
@@ -49,13 +51,45 @@ fn collect_columns(
     };
 
     let mut columns = Vec::with_capacity(count as usize);
+    let mut nullable = Vec::with_capacity(count as usize);
     for i in 1..=count {
-        columns.push(describe_column(prepared, i as u16)?);
+        let (column, column_nullable) = describe_column_with_nullability(prepared, i as u16)?;
+        columns.push(column);
+        nullable.push(column_nullable);
     }
     Ok(CollectedColumns {
         columns,
+        nullable,
         deferred: false,
     })
+}
+
+fn collect_parameter_metadata(
+    prepared: &mut PreparedStatement,
+    parameter_count: usize,
+) -> Either<Vec<OdbcTypeInfo>, usize> {
+    let mut parameters = Vec::with_capacity(parameter_count);
+
+    for index in 1..=parameter_count {
+        let Ok(parameter_number) = u16::try_from(index) else {
+            return Either::Right(parameter_count);
+        };
+
+        match prepared.describe_param(parameter_number) {
+            Ok(description) if description.data_type != odbc_api::DataType::Unknown => {
+                parameters.push(OdbcTypeInfo::new(description.data_type));
+            }
+            Ok(_) => return Either::Right(parameter_count),
+            Err(error) => {
+                log::debug!(
+                    "ODBC driver did not provide type metadata for parameter {index}: {error}"
+                );
+                return Either::Right(parameter_count);
+            }
+        }
+    }
+
+    Either::Left(parameters)
 }
 
 fn validate_parameter_metadata(
@@ -74,14 +108,17 @@ fn collect_statement_metadata(
     prepared: &mut PreparedStatement,
     allow_deferred_result_columns: bool,
 ) -> Result<(OdbcStatementMetadata, bool), Error> {
-    let parameters = usize::from(prepared.num_params()?);
-    let collected = collect_columns(prepared, parameters, allow_deferred_result_columns)?;
-    let metadata_complete = !(collected.deferred || parameters > 0 && collected.columns.is_empty());
+    let parameter_count = usize::from(prepared.num_params()?);
+    let collected = collect_columns(prepared, parameter_count, allow_deferred_result_columns)?;
+    let metadata_complete =
+        !(collected.deferred || parameter_count > 0 && collected.columns.is_empty());
+    let parameters = collect_parameter_metadata(prepared, parameter_count);
 
     Ok((
         OdbcStatementMetadata {
             columns: collected.columns,
             parameters,
+            nullable: collected.nullable,
         },
         metadata_complete,
     ))
@@ -91,18 +128,37 @@ pub(super) fn describe_column<S>(stmt: &mut S, index: u16) -> Result<OdbcColumn,
 where
     S: ResultSetMetadata,
 {
+    describe_column_with_nullability(stmt, index).map(|(column, _)| column)
+}
+
+fn describe_column_with_nullability<S>(
+    stmt: &mut S,
+    index: u16,
+) -> Result<(OdbcColumn, Option<bool>), Error>
+where
+    S: ResultSetMetadata,
+{
     let mut cd = odbc_api::ColumnDescription::default();
     stmt.describe_col(index, &mut cd)?;
 
-    Ok(OdbcColumn {
-        name: decode_column_name(cd.name, index),
-        type_info: OdbcTypeInfo::new(cd.data_type),
-        ordinal: usize::from(
-            index
-                .checked_sub(1)
-                .ok_or_else(|| Error::Protocol("ODBC column indices are 1-based".into()))?,
-        ),
-    })
+    let nullable = match cd.nullability {
+        odbc_api::Nullability::NoNulls => Some(false),
+        odbc_api::Nullability::Nullable => Some(true),
+        odbc_api::Nullability::Unknown => None,
+    };
+
+    Ok((
+        OdbcColumn {
+            name: decode_column_name(cd.name, index),
+            type_info: OdbcTypeInfo::new(cd.data_type),
+            ordinal: usize::from(
+                index
+                    .checked_sub(1)
+                    .ok_or_else(|| Error::Protocol("ODBC column indices are 1-based".into()))?,
+            ),
+        },
+        nullable,
+    ))
 }
 
 pub(super) trait ColumnNameDecode {
@@ -183,8 +239,13 @@ impl OdbcConnection {
 
     pub(crate) async fn ping_blocking(&mut self) -> Result<(), Error> {
         self.with_conn("ping", move |conn| {
-            conn.execute("SELECT 1", (), None)?;
-            Ok(())
+            if conn.is_dead()? {
+                Err(Error::Protocol(
+                    "ODBC driver reports that the connection is no longer alive".into(),
+                ))
+            } else {
+                Ok(())
+            }
         })
         .await
     }

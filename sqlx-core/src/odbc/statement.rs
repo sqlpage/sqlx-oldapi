@@ -14,7 +14,8 @@ pub struct OdbcStatement<'q> {
 #[derive(Debug, Clone)]
 pub struct OdbcStatementMetadata {
     pub columns: Vec<OdbcColumn>,
-    pub parameters: usize,
+    pub parameters: Either<Vec<OdbcTypeInfo>, usize>,
+    pub nullable: Vec<Option<bool>>,
 }
 
 impl<'q> Statement<'q> for OdbcStatement<'q> {
@@ -31,7 +32,10 @@ impl<'q> Statement<'q> for OdbcStatement<'q> {
         &self.sql
     }
     fn parameters(&self) -> Option<Either<&[OdbcTypeInfo], usize>> {
-        Some(Either::Right(self.metadata.parameters))
+        Some(match &self.metadata.parameters {
+            Either::Left(parameters) => Either::Left(parameters),
+            Either::Right(count) => Either::Right(*count),
+        })
     }
     fn columns(&self) -> &[OdbcColumn] {
         &self.metadata.columns
@@ -73,7 +77,12 @@ impl<'q> From<OdbcStatement<'q>> for crate::any::AnyStatement<'q> {
 
         crate::any::AnyStatement {
             sql: stmt.sql,
-            parameters: Some(either::Either::Right(stmt.metadata.parameters)),
+            parameters: Some(match stmt.metadata.parameters {
+                Either::Left(parameters) => {
+                    Either::Left(parameters.into_iter().map(Into::into).collect())
+                }
+                Either::Right(count) => Either::Right(count),
+            }),
             columns,
             column_names: std::sync::Arc::new(column_names),
         }

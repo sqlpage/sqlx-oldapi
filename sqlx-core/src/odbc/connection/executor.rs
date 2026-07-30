@@ -61,12 +61,11 @@ impl<'c> Executor<'c> for &'c mut OdbcConnection {
     {
         Box::pin(async move {
             let statement = self.describe_statement(sql).await?;
-            let nullable = vec![None; statement.metadata.columns.len()];
 
             Ok(Describe {
                 columns: statement.metadata.columns,
-                parameters: Some(Either::Right(statement.metadata.parameters)),
-                nullable,
+                parameters: Some(statement.metadata.parameters),
+                nullable: statement.metadata.nullable,
             })
         })
     }
