@@ -406,6 +406,13 @@ let pool = AnyPoolOptions::new()
     .connect("DSN=MyDatabase").await?;
 ```
 
+ODBC also supports the checked query macros when both the `odbc` and `macros` features are
+enabled. Set `DATABASE_URL` to an ODBC connection string while compiling, or enable `offline` and
+generate metadata with an ODBC-enabled `cargo sqlx prepare`. Parameter types are checked when the
+driver implements `SQLDescribeParam`; otherwise the macros still check parameter count. Unknown
+result nullability is treated conservatively as nullable and can be overridden with the standard
+column `!` and `?` annotations.
+
 ### Compile-time verification
 
 We can use the macro, `sqlx_oldapi::query!` to achieve compile-time syntactic and semantic verification of the SQL, with
