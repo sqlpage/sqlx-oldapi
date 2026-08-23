@@ -23,6 +23,19 @@ pub trait Arguments<'q>: Send + Sized + Default {
     }
 }
 
+/// Arguments bound by their database-native parameter names.
+///
+/// The name must include the parameter marker used in the SQL statement, e.g. `:id` for SQLite
+/// or `@id` for MSSQL. This trait is implemented only by databases whose native parameter
+/// protocol supports named parameters. Named and positional parameters must not be mixed in one
+/// query.
+pub trait NamedArguments<'q>: Arguments<'q> {
+    /// Add a value for the named parameter.
+    fn add_named<T>(&mut self, name: &'q str, value: T)
+    where
+        T: 'q + Send + Encode<'q, Self::Database> + Type<Self::Database>;
+}
+
 pub trait IntoArguments<'q, DB: HasArguments<'q>>: Sized + Send {
     fn into_arguments(self) -> <DB as HasArguments<'q>>::Arguments;
 }

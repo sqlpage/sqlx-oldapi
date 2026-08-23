@@ -4,7 +4,7 @@ use either::Either;
 use futures_core::stream::BoxStream;
 use futures_util::{future, StreamExt, TryFutureExt, TryStreamExt};
 
-use crate::arguments::{Arguments, IntoArguments};
+use crate::arguments::{Arguments, IntoArguments, NamedArguments};
 use crate::database::{Database, HasArguments, HasStatement, HasStatementCache};
 use crate::encode::Encode;
 use crate::error::Error;
@@ -80,6 +80,21 @@ impl<'q, DB: Database> Query<'q, DB, <DB as HasArguments<'q>>::Arguments> {
         self.arguments
             .get_or_insert_with(Default::default)
             .add(value);
+        self
+    }
+
+    /// Bind a value for use with a database-native named SQL parameter.
+    ///
+    /// `name` must include the parameter marker used in the query, such as `:id` for SQLite or
+    /// `@id` for MSSQL. Named and positional parameters must not be mixed in one query.
+    pub fn bind_named<T>(mut self, name: &'q str, value: T) -> Self
+    where
+        <DB as HasArguments<'q>>::Arguments: NamedArguments<'q, Database = DB>,
+        T: 'q + Send + Encode<'q, DB> + Type<DB>,
+    {
+        self.arguments
+            .get_or_insert_with(Default::default)
+            .add_named(name, value);
         self
     }
 }

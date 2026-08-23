@@ -1,4 +1,4 @@
-use crate::arguments::Arguments;
+use crate::arguments::{Arguments, NamedArguments};
 use crate::encode::Encode;
 use crate::mssql::database::Mssql;
 use crate::mssql::io::MssqlBufMutExt;
@@ -14,14 +14,12 @@ pub struct MssqlArguments {
     name: String,
     pub(crate) data: Vec<u8>,
     pub(crate) declarations: String,
+    positional: bool,
+    named: bool,
 }
 
 impl MssqlArguments {
-    pub(crate) fn add_named<'q, T: Encode<'q, Mssql> + Type<Mssql>>(
-        &mut self,
-        name: &str,
-        value: T,
-    ) {
+    fn add_rpc_named<'q, T: Encode<'q, Mssql> + Type<Mssql>>(&mut self, name: &str, value: T) {
         let ty = value.produces().unwrap_or_else(T::type_info);
 
         let mut ty_name = String::new();
@@ -35,7 +33,7 @@ impl MssqlArguments {
     }
 
     pub(crate) fn add_unnamed<'q, T: Encode<'q, Mssql> + Type<Mssql>>(&mut self, value: T) {
-        self.add_named("", value);
+        self.add_rpc_named("", value);
     }
 
     pub(crate) fn declare<'q, T: Encode<'q, Mssql> + Type<Mssql>>(
@@ -64,7 +62,7 @@ impl MssqlArguments {
     where
         T: Encode<'q, Mssql> + Type<Mssql>,
     {
-        let ty = value.produces().unwrap_or_else(T::type_info);
+        self.positional = true;
 
         // produce an ordinal parameter name
         //  @p1, @p2, ... @pN
@@ -75,31 +73,33 @@ impl MssqlArguments {
         self.ordinal += 1;
         self.name.push_str(itoa::Buffer::new().format(self.ordinal));
 
-        let MssqlArguments {
-            ref name,
-            ref mut declarations,
-            ref mut data,
-            ..
-        } = self;
+        let name = std::mem::take(&mut self.name);
+        self.add_query_named(&name, value);
+        self.name = name;
+    }
 
-        // add this to our variable declaration list
-        //  @p1 int, @p2 nvarchar(10), ...
+    fn add_query_named<'q, T>(&mut self, name: &str, value: T)
+    where
+        T: Encode<'q, Mssql> + Type<Mssql>,
+    {
+        let ty = value.produces().unwrap_or_else(T::type_info);
 
-        if !declarations.is_empty() {
-            declarations.push(',');
+        if !self.declarations.is_empty() {
+            self.declarations.push(',');
         }
 
-        declarations.push_str(name);
-        declarations.push(' ');
-        ty.0.fmt(declarations);
+        self.declarations.push_str(name);
+        self.declarations.push(' ');
+        ty.0.fmt(&mut self.declarations);
 
-        // write out the parameter
+        self.data.put_b_varchar(name); // [ParamName]
+        self.data.push(0); // [StatusFlags]
+        ty.0.put(&mut self.data); // [TYPE_INFO]
+        ty.0.put_value(&mut self.data, value); // [ParamLenData]
+    }
 
-        data.put_b_varchar(name); // [ParamName]
-        data.push(0); // [StatusFlags]
-
-        ty.0.put(data); // [TYPE_INFO]
-        ty.0.put_value(data, value); // [ParamLenData]
+    pub(crate) fn has_mixed_binding(&self) -> bool {
+        self.positional && self.named
     }
 }
 
@@ -123,6 +123,16 @@ impl<'q> Arguments<'q> for MssqlArguments {
         // So, `self.ordinal` correctly represents the number of the current parameter (e.g., 1 for @p1).
         writer.write_str("@p")?;
         writer.write_str(itoa::Buffer::new().format(self.ordinal))
+    }
+}
+
+impl<'q> NamedArguments<'q> for MssqlArguments {
+    fn add_named<T>(&mut self, name: &'q str, value: T)
+    where
+        T: 'q + Send + Encode<'q, Self::Database> + Type<Self::Database>,
+    {
+        self.named = true;
+        self.add_query_named(name, value);
     }
 }
 
@@ -166,5 +176,23 @@ mod tests {
         let sql = builder.sql(); // Get the generated SQL string
 
         assert_eq!(sql, "SELECT * FROM table WHERE id=@p1 AND name=@p2");
+    }
+
+    #[test]
+    fn test_named_query_parameter() {
+        let mut args = MssqlArguments::default();
+        args.add_query_named("@id", 42_i32);
+
+        assert_eq!(args.declarations, "@id int");
+        assert!(!args.data.is_empty());
+    }
+
+    #[test]
+    fn test_mixed_query_parameters_are_detected() {
+        let mut args = MssqlArguments::default();
+        args.add(42_i32);
+        args.add_named("@id", 42_i32);
+
+        assert!(args.has_mixed_binding());
     }
 }

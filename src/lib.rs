@@ -1,7 +1,7 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 pub use sqlx_core::acquire::Acquire;
-pub use sqlx_core::arguments::{Arguments, IntoArguments};
+pub use sqlx_core::arguments::{Arguments, IntoArguments, NamedArguments};
 pub use sqlx_core::column::Column;
 pub use sqlx_core::column::ColumnIndex;
 pub use sqlx_core::connection::{ConnectOptions, Connection};
@@ -151,6 +151,7 @@ pub mod prelude {
     pub use super::Executor;
     pub use super::FromRow;
     pub use super::IntoArguments;
+    pub use super::NamedArguments;
     pub use super::Row;
     pub use super::Statement;
     pub use super::Type;

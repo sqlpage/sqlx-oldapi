@@ -342,7 +342,7 @@ pub(crate) fn write_packets<'en, T: Encode<'en>>(
             );
         }
 
-        packet_header.truncate(0);
+        packet_header.clear();
         PacketHeader {
             r#type: ty,
             status: if is_last {

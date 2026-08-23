@@ -308,6 +308,20 @@ while let Some(row) = rows.try_next().await? {
 }
 ```
 
+Databases with native named parameter support can bind using `bind_named()`. Pass the exact
+parameter token used in the SQL statement, including its marker. SQLite supports `:name`, `@name`,
+and `$name`; MSSQL uses `@name`.
+
+```rust
+let row = query_scalar::<_, i64>("SELECT :value + :value")
+    .bind_named(":value", 150_i64)
+    .fetch_one(&mut conn)
+    .await?;
+```
+
+Named and positional parameters cannot be mixed in one query. Databases without native named
+parameter support do not provide `bind_named()`.
+
 To assist with mapping the row into a domain type, there are two idioms that may be used:
 
 ```rust

@@ -4,7 +4,7 @@ use either::Either;
 use futures_core::stream::BoxStream;
 use futures_util::{StreamExt, TryStreamExt};
 
-use crate::arguments::IntoArguments;
+use crate::arguments::{IntoArguments, NamedArguments};
 use crate::database::{Database, HasArguments, HasStatement, HasStatementCache};
 use crate::encode::Encode;
 use crate::error::Error;
@@ -53,6 +53,16 @@ impl<'q, DB: Database, O> QueryAs<'q, DB, O, <DB as HasArguments<'q>>::Arguments
     /// See [`Query::bind`](Query::bind).
     pub fn bind<T: 'q + Send + Encode<'q, DB> + Type<DB>>(mut self, value: T) -> Self {
         self.inner = self.inner.bind(value);
+        self
+    }
+
+    /// Bind a value for use with a database-native named SQL parameter.
+    pub fn bind_named<T>(mut self, name: &'q str, value: T) -> Self
+    where
+        <DB as HasArguments<'q>>::Arguments: NamedArguments<'q, Database = DB>,
+        T: 'q + Send + Encode<'q, DB> + Type<DB>,
+    {
+        self.inner = self.inner.bind_named(name, value);
         self
     }
 }
