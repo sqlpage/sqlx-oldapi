@@ -4,7 +4,7 @@ use std::fmt::Display;
 use std::fmt::Write;
 use std::marker::PhantomData;
 
-use crate::arguments::Arguments;
+use crate::arguments::{Arguments, NamedArguments};
 use crate::database::{Database, HasArguments};
 use crate::encode::Encode;
 use crate::from_row::FromRow;
@@ -131,6 +131,26 @@ where
         arguments
             .format_placeholder(&mut self.query)
             .expect("error in format_placeholder");
+
+        self
+    }
+
+    /// Push an exact database-native named parameter token and bind a value to it.
+    ///
+    /// For example, use `:id` for SQLite or `@id` for MSSQL. The token is appended verbatim to the
+    /// SQL query. Named and positional parameters must not be mixed in one query.
+    pub fn push_bind_named<T>(&mut self, name: &'args str, value: T) -> &mut Self
+    where
+        <DB as HasArguments<'args>>::Arguments: NamedArguments<'args, Database = DB>,
+        T: 'args + Encode<'args, DB> + Send + Type<DB>,
+    {
+        self.sanity_check();
+
+        self.arguments
+            .as_mut()
+            .expect("BUG: Arguments taken already")
+            .add_named(name, value);
+        self.query.push_str(name);
 
         self
     }
@@ -527,6 +547,23 @@ where
         self
     }
 
+    /// Push the separator if applicable, then append an exact database-native named parameter
+    /// token and bind a value to it.
+    pub fn push_bind_named<T>(&mut self, name: &'args str, value: T) -> &mut Self
+    where
+        <DB as HasArguments<'args>>::Arguments: NamedArguments<'args, Database = DB>,
+        T: 'args + Encode<'args, DB> + Send + Type<DB>,
+    {
+        if self.push_separator {
+            self.query_builder.push(&self.separator);
+        }
+
+        self.query_builder.push_bind_named(name, value);
+        self.push_separator = true;
+
+        self
+    }
+
     /// Push a bind argument placeholder (`?` or `$N` for Postgres) and bind a value to it
     /// without a separator.
     ///
@@ -543,6 +580,9 @@ where
 #[cfg(test)]
 mod test {
     use crate::postgres::Postgres;
+
+    #[cfg(feature = "sqlite")]
+    use crate::sqlite::Sqlite;
 
     use super::*;
 
@@ -586,6 +626,16 @@ mod test {
             qb.query,
             "SELECT * FROM users WHERE id = $1 OR membership_level = $2"
         );
+    }
+
+    #[cfg(feature = "sqlite")]
+    #[test]
+    fn test_push_bind_named() {
+        let mut qb: QueryBuilder<'_, Sqlite> = QueryBuilder::new("SELECT * FROM users WHERE id = ");
+
+        qb.push_bind_named(":id", 42_i32);
+
+        assert_eq!(qb.sql(), "SELECT * FROM users WHERE id = :id");
     }
 
     #[test]

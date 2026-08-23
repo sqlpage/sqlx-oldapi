@@ -192,6 +192,12 @@ impl StatementHandle {
         }
     }
 
+    #[inline]
+    pub(crate) fn bind_parameter_index(&self, name: &str) -> Option<usize> {
+        (1..=self.bind_parameter_count())
+            .find(|&index| self.bind_parameter_name(index) == Some(name))
+    }
+
     // Binding Values To Prepared Statements
     // https://www.sqlite.org/c3ref/bind_blob.html
 

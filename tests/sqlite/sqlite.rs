@@ -95,6 +95,48 @@ async fn it_maths() -> anyhow::Result<()> {
 }
 
 #[sqlx_macros::test]
+async fn test_named_parameters() -> anyhow::Result<()> {
+    let mut conn = new::<Sqlite>().await?;
+
+    let value: i32 = sqlx_oldapi::query_scalar("select :value + :value")
+        .bind_named(":value", 5_i32)
+        .fetch_one(&mut conn)
+        .await?;
+
+    assert_eq!(value, 10);
+
+    let value: i32 = sqlx_oldapi::query_scalar("select @value + $value")
+        .bind_named("@value", 2_i32)
+        .bind_named("$value", 3_i32)
+        .fetch_one(&mut conn)
+        .await?;
+
+    assert_eq!(value, 5);
+
+    let error = sqlx_oldapi::query_scalar::<_, i32>("select :named + ?")
+        .bind_named(":named", 5_i32)
+        .bind(7_i32)
+        .fetch_one(&mut conn)
+        .await
+        .expect_err("mixed named and positional parameters should be rejected");
+    assert!(error
+        .to_string()
+        .contains("cannot mix named and positional"));
+
+    let error = sqlx_oldapi::query_scalar::<_, i32>("select $1 + :named")
+        .bind_named(":named", 5_i32)
+        .bind(7_i32)
+        .fetch_one(&mut conn)
+        .await
+        .expect_err("mixed named and positional parameters should be rejected");
+    assert!(error
+        .to_string()
+        .contains("cannot mix named and positional"));
+
+    Ok(())
+}
+
+#[sqlx_macros::test]
 async fn test_bind_multiple_statements_multiple_values() -> anyhow::Result<()> {
     let mut conn = new::<Sqlite>().await?;
 

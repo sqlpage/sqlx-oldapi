@@ -22,6 +22,14 @@ use std::sync::Arc;
 
 impl MssqlConnection {
     async fn run(&mut self, query: &str, arguments: Option<MssqlArguments>) -> Result<(), Error> {
+        if let Some(arguments) = arguments.as_ref() {
+            if arguments.has_mixed_binding() {
+                return Err(err_protocol!(
+                    "cannot mix named and positional MSSQL parameters"
+                ));
+            }
+        }
+
         self.stream.wait_until_ready().await?;
         self.stream.pending_done_count += 1;
 

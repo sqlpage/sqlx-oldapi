@@ -1,4 +1,4 @@
-use crate::arguments::Arguments;
+use crate::arguments::{Arguments, NamedArguments};
 use crate::encode::{Encode, IsNull};
 use crate::error::Error;
 use crate::sqlite::statement::StatementHandle;
@@ -20,6 +20,8 @@ pub enum SqliteArgumentValue<'q> {
 #[derive(Default, Debug, Clone)]
 pub struct SqliteArguments<'q> {
     pub(crate) values: Vec<SqliteArgumentValue<'q>>,
+    // (index into values, exact SQLite parameter token)
+    pub(crate) named: Vec<(usize, Cow<'q, str>)>,
 }
 
 impl<'q> SqliteArguments<'q> {
@@ -38,6 +40,11 @@ impl<'q> SqliteArguments<'q> {
                 .values
                 .into_iter()
                 .map(SqliteArgumentValue::into_static)
+                .collect(),
+            named: self
+                .named
+                .into_iter()
+                .map(|(index, name)| (index, Cow::Owned(name.into_owned())))
                 .collect(),
         }
     }
@@ -58,29 +65,63 @@ impl<'q> Arguments<'q> for SqliteArguments<'q> {
     }
 }
 
+impl<'q> NamedArguments<'q> for SqliteArguments<'q> {
+    fn add_named<T>(&mut self, name: &'q str, value: T)
+    where
+        T: 'q + Send + Encode<'q, Self::Database> + crate::types::Type<Self::Database>,
+    {
+        self.add(value);
+        self.named
+            .push((self.values.len() - 1, Cow::Borrowed(name)));
+    }
+}
+
 impl SqliteArguments<'_> {
     pub(super) fn bind(&self, handle: &mut StatementHandle, offset: usize) -> Result<usize, Error> {
         let mut arg_i = offset;
-        // for handle in &statement.handles {
+
+        if !self.named.is_empty() && self.named.len() != self.values.len() {
+            return Err(err_protocol!(
+                "cannot mix named and positional SQLite parameters"
+            ));
+        }
 
         let cnt = handle.bind_parameter_count();
 
+        // SQLite resolves exact parameter tokens natively. Keep only the name metadata here;
+        // no Rust hashmap or owned NUL-terminated name is needed.
+        for (value_i, name) in &self.named {
+            let param_i = handle
+                .bind_parameter_index(name)
+                .ok_or_else(|| err_protocol!("unknown SQLite parameter: {}", name))?;
+
+            self.values[*value_i].bind(handle, param_i)?;
+        }
+
         for param_i in 1..=cnt {
+            let parameter_name = handle.bind_parameter_name(param_i);
+
             // figure out the index of this bind parameter into our argument tuple
-            let n: usize = if let Some(name) = handle.bind_parameter_name(param_i) {
-                if let Some(name) = name.strip_prefix('?') {
+            let n: usize = if let Some(name) = parameter_name {
+                if self
+                    .named
+                    .iter()
+                    .any(|(_, bound_name)| bound_name.as_ref() == name)
+                {
+                    continue;
+                } else if let Some(name) = name.strip_prefix('?') {
                     // parameter should have the form ?NNN
                     atoi(name.as_bytes()).expect("parameter of the form ?NNN")
                 } else if let Some(name) = name.strip_prefix('$') {
                     // parameter should have the form $NNN
                     atoi(name.as_bytes()).ok_or_else(|| {
-                        err_protocol!(
-                            "parameters with non-integer names are not currently supported: {}",
-                            name
-                        )
+                        err_protocol!("named SQLite parameter was not bound: {}", name)
                     })?
                 } else {
-                    return Err(err_protocol!("unsupported SQL parameter format: {}", name));
+                    return Err(err_protocol!(
+                        "named SQLite parameter was not bound: {}",
+                        name
+                    ));
                 }
             } else {
                 arg_i += 1;
