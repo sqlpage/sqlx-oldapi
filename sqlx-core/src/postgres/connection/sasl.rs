@@ -113,7 +113,7 @@ pub(crate) async fn authenticate(
     let client_final_message_wo_proof = format!(
         "{channel_binding},r={nonce}",
         channel_binding = channel_binding,
-        nonce = &cont.nonce
+        nonce = cont.nonce
     );
 
     // AuthMessage := client-first-message-bare + "," + server-first-message + "," + client-final-message-without-proof
