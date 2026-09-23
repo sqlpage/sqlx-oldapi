@@ -138,7 +138,6 @@ mod tests {
     use super::*;
     use crate::query_builder::QueryBuilder;
 
-
     #[test]
     fn test_format_placeholder_method() {
         let mut args = MssqlArguments::default(); // ordinal = 0 initially
