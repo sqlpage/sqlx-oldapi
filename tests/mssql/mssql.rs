@@ -193,6 +193,21 @@ async fn it_binds_empty_string_and_null() -> anyhow::Result<()> {
     Ok(())
 }
 
+// Regression test for https://github.com/sqlpage/sqlx-oldapi/issues/58
+#[sqlx_macros::test]
+async fn it_binds_null_with_type_in_isnull_expression() -> anyhow::Result<()> {
+    let mut conn = new::<Mssql>().await?;
+
+    let (val,): (String,) = sqlx_oldapi::query_as("SELECT ISNULL(@p1, N'hello')")
+        .bind(None::<String>)
+        .fetch_one(&mut conn)
+        .await?;
+
+    assert_eq!(val, "hello");
+
+    Ok(())
+}
+
 #[sqlx_macros::test]
 async fn it_binds_string_with_special_chars() -> anyhow::Result<()> {
     let mut conn = new::<Mssql>().await?;

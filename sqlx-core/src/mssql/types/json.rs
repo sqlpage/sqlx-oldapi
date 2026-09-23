@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 impl<T> Type<Mssql> for Json<T> {
     fn type_info() -> MssqlTypeInfo {
-        MssqlTypeInfo(TypeInfo::new(DataType::BigVarBinary, 0))
+        MssqlTypeInfo(TypeInfo::new(DataType::BigVarBinary, 0xFF_FF))
     }
 
     fn compatible(ty: &MssqlTypeInfo) -> bool {

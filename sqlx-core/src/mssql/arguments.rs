@@ -65,6 +65,13 @@ impl MssqlArguments {
         T: Encode<'q, Mssql> + Type<Mssql>,
     {
         let ty = value.produces().unwrap_or_else(T::type_info);
+        // `DataType::Null` is required in TDS for null values, but the
+        // `sp_executesql` declaration needs the parameter's Rust type.
+        let declaration_ty = if ty.0.is_null() {
+            T::type_info()
+        } else {
+            ty.clone()
+        };
 
         // produce an ordinal parameter name
         //  @p1, @p2, ... @pN
@@ -91,7 +98,7 @@ impl MssqlArguments {
 
         declarations.push_str(name);
         declarations.push(' ');
-        ty.0.fmt(declarations);
+        declaration_ty.0.fmt(declarations);
 
         // write out the parameter
 

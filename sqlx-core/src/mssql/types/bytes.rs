@@ -8,7 +8,7 @@ use std::borrow::Cow;
 
 impl Type<Mssql> for [u8] {
     fn type_info() -> MssqlTypeInfo {
-        MssqlTypeInfo(TypeInfo::new(DataType::BigVarBinary, 0))
+        MssqlTypeInfo(TypeInfo::new(DataType::BigVarBinary, 0xFF_FF))
     }
 
     fn compatible(ty: &MssqlTypeInfo) -> bool {
