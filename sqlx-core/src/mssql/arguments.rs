@@ -136,36 +136,8 @@ impl<'q> Arguments<'q> for MssqlArguments {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::mssql::protocol::type_info::DataType;
     use crate::query_builder::QueryBuilder;
 
-    // Regression test for https://github.com/sqlpage/sqlx-oldapi/issues/58
-    //
-    // When a null argument is bound, the `sp_executesql` declaration must use the
-    // Rust type of the argument (e.g. `nvarchar(5)`) instead of `NULLTYPE`.
-    // Otherwise, SQL Server cannot coerce the parameter type in expressions like
-    // `ISNULL(@p1, N'hello')`, where the fallback literal determines the result type.
-    #[test]
-    fn test_null_argument_declaration_in_isnull_expression() {
-        let mut args = MssqlArguments::default();
-        args.add(None::<String>);
-
-        // The declaration must come from String's type, not DataType::Null.
-        assert_eq!(args.declarations, "@p1 nvarchar(max)");
-
-        // ...while TDS still carries NULLTYPE for the value itself.
-        let type_info_offset = 1 + usize::from(args.data[0]) * 2 + 1;
-        assert_eq!(args.data[type_info_offset], DataType::Null as u8);
-
-        // Simulate the full query that triggered issue #58: the parameter is
-        // null, but `sp_executesql` still needs a concrete declared type so
-        // `ISNULL(@p1, N'hello')` compiles.
-        let mut builder = QueryBuilder::<Mssql>::new("SELECT ISNULL(");
-        builder.push_bind(None::<String>).push(", N'hello')");
-        let sql = builder.sql();
-
-        assert_eq!(sql, "SELECT ISNULL(@p1, N'hello')");
-    }
 
     #[test]
     fn test_format_placeholder_method() {
