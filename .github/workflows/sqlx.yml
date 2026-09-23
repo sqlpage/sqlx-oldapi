@@ -22,6 +22,10 @@ jobs:
         tls: [native-tls, rustls]
     steps:
       - uses: actions/checkout@v6
+      - name: Install pinned Clippy toolchain
+        uses: dtolnay/rust-toolchain@ce678459e9fc7500d337468f904b95f1b5c10b5e
+        with:
+          components: clippy
       - uses: Swatinem/rust-cache@65012b490220f477f20ab979e35ae732e6de4e68
         with:
           prefix-key: v1-sqlx

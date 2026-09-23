@@ -69,7 +69,7 @@ test_type!(str<&str>(Postgres,
 ));
 
 test_type!(string<String>(Postgres,
-    "'this is foo'" == format!("this is foo"),
+    "'this is foo'" == "this is foo".to_string(),
 ));
 
 test_type!(string_vec<Vec<String>>(Postgres,
