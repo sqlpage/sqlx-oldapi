@@ -136,7 +136,20 @@ impl<'q> Arguments<'q> for MssqlArguments {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::mssql::protocol::type_info::DataType;
     use crate::query_builder::QueryBuilder;
+
+    #[test]
+    fn test_null_argument_uses_bound_type_for_declaration() {
+        let mut args = MssqlArguments::default();
+        args.add(None::<String>);
+
+        assert_eq!(args.declarations, "@p1 nvarchar(max)");
+
+        // The SQL declaration uses String's type, while TDS still carries NULLTYPE.
+        let type_info_offset = 1 + usize::from(args.data[0]) * 2 + 1;
+        assert_eq!(args.data[type_info_offset], DataType::Null as u8);
+    }
 
     #[test]
     fn test_format_placeholder_method() {
