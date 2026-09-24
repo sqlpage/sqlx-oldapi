@@ -474,6 +474,13 @@ where
     }
 }
 
+pub fn decode_as_string<T: Display>(value: PgValueRef<'_>) -> Result<String, BoxDynError>
+where
+    T: Type<Postgres> + for<'a> Decode<'a, Postgres>,
+{
+    Ok(<PgRange<T> as Decode<'_, Postgres>>::decode(value)?.to_string())
+}
+
 fn parse_bound<T>(ch: char, value: Option<T>) -> Result<Bound<T>, BoxDynError> {
     Ok(if let Some(value) = value {
         match ch {
