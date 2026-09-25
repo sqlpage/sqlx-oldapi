@@ -200,9 +200,8 @@ impl Connection for AnyConnection {
             #[cfg(feature = "mssql")]
             AnyConnectionKind::Mssql(_) => 0,
 
-            // no cache
             #[cfg(feature = "odbc")]
-            AnyConnectionKind::Odbc(_) => 0,
+            AnyConnectionKind::Odbc(conn) => conn.cached_statements_size(),
         }
     }
 
@@ -221,9 +220,8 @@ impl Connection for AnyConnection {
             #[cfg(feature = "mssql")]
             AnyConnectionKind::Mssql(_) => Box::pin(futures_util::future::ok(())),
 
-            // no cache
             #[cfg(feature = "odbc")]
-            AnyConnectionKind::Odbc(_) => Box::pin(futures_util::future::ok(())),
+            AnyConnectionKind::Odbc(conn) => Box::pin(conn.clear_cached_statements()),
         }
     }
 

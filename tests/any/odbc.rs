@@ -432,3 +432,25 @@ async fn it_accepts_standard_odbc_connection_strings() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[cfg(feature = "odbc")]
+#[sqlx_macros::test]
+async fn it_reports_the_statement_cache_via_any_odbc() -> anyhow::Result<()> {
+    let mut conn = odbc_conn().await?;
+
+    for _ in 0..3 {
+        let row: AnyRow = sqlx_oldapi::query("SELECT ? AS value")
+            .bind(42i32)
+            .fetch_one(&mut conn)
+            .await?;
+        assert_eq!(row.try_get::<i32, _>("value")?, 42);
+    }
+
+    assert_eq!(conn.cached_statements_size(), 1);
+
+    conn.clear_cached_statements().await?;
+    assert_eq!(conn.cached_statements_size(), 0);
+
+    conn.close().await?;
+    Ok(())
+}
