@@ -216,20 +216,25 @@ impl OdbcConnection {
     }
 
     /// Launches a background task to execute the SQL statement and send the results to the returned channel.
-    pub(crate) fn execute_stream(
+    ///
+    /// A query that carries arguments runs as a prepared statement: binding parameters and then
+    /// calling `SQLExecDirect` is valid ODBC, but some drivers only send bound values on the
+    /// `SQLPrepare`/`SQLExecute` path.
+    pub(crate) async fn execute_stream(
         &mut self,
         sql: &str,
         args: Option<OdbcArguments>,
-    ) -> flume::Receiver<Result<Either<OdbcQueryResult, OdbcRow>, Error>> {
+        persistent: bool,
+    ) -> Result<flume::Receiver<Result<Either<OdbcQueryResult, OdbcRow>, Error>>, Error> {
+        let statement = if args.is_some() {
+            MaybePrepared::Prepared(self.prepared_statement(sql, persistent).await?)
+        } else {
+            MaybePrepared::NotPrepared(sql.to_string())
+        };
+
         let (tx, rx) = flume::bounded(64);
 
         let sql_owned = sql.to_string();
-        let maybe_prepared = if let Some(prepared) = self.stmt_cache.get_mut(sql) {
-            MaybePrepared::Prepared(Arc::clone(prepared))
-        } else {
-            MaybePrepared::NotPrepared(sql_owned.clone())
-        };
-
         let conn = Arc::clone(&self.conn);
         let buffer_settings = self.buffer_settings;
         let log_settings = self.log_settings.clone();
@@ -241,7 +246,7 @@ impl OdbcConnection {
                 .and_then(|mut conn| {
                     execute_sql(
                         &mut conn,
-                        maybe_prepared,
+                        statement,
                         args,
                         &tx,
                         buffer_settings,
@@ -254,7 +259,29 @@ impl OdbcConnection {
             }
         }));
 
-        rx
+        Ok(rx)
+    }
+
+    async fn prepared_statement(
+        &mut self,
+        sql: &str,
+        store_to_cache: bool,
+    ) -> Result<SharedPreparedStatement, Error> {
+        if let Some(cached) = self.stmt_cache.get_mut(sql) {
+            return Ok(Arc::clone(cached));
+        }
+
+        let conn = Arc::clone(&self.conn);
+        let sql_owned = sql.to_string();
+        let prepared =
+            spawn_blocking(move || conn.into_prepared(&sql_owned).map_err(Error::from)).await?;
+        let prepared = Arc::new(Mutex::new(prepared));
+
+        if store_to_cache && self.stmt_cache.is_enabled() {
+            self.stmt_cache.insert(sql, Arc::clone(&prepared));
+        }
+
+        Ok(prepared)
     }
 
     pub(crate) async fn clear_cached_statements(&mut self) -> Result<(), Error> {
@@ -268,35 +295,16 @@ impl OdbcConnection {
         store_to_cache: bool,
         allow_deferred_result_columns: bool,
     ) -> Result<OdbcStatement<'a>, Error> {
-        let sql_owned = sql.to_string();
-        let cached = self
-            .stmt_cache
-            .get_mut(sql)
-            .map(|prepared| Arc::clone(prepared));
+        let prepared = self.prepared_statement(sql, false).await?;
 
-        if let Some(prepared) = cached {
-            let metadata = spawn_blocking(move || {
+        let (metadata, metadata_complete) = spawn_blocking({
+            let prepared = Arc::clone(&prepared);
+            move || {
                 let mut prepared = prepared.lock().map_err(|_| {
                     Error::Protocol("ODBC prepare: failed to lock prepared statement".into())
                 })?;
                 collect_statement_metadata(&mut prepared, allow_deferred_result_columns)
-                    .map(|(metadata, _)| metadata)
-            })
-            .await?;
-
-            return Ok(OdbcStatement {
-                sql: Cow::Borrowed(sql),
-                metadata,
-            });
-        }
-
-        let conn = Arc::clone(&self.conn);
-        let sql_clone = sql_owned.clone();
-        let (prepared, metadata, metadata_complete) = spawn_blocking(move || {
-            let mut prepared = conn.into_prepared(&sql_clone)?;
-            let metadata =
-                collect_statement_metadata(&mut prepared, allow_deferred_result_columns)?;
-            Ok::<_, Error>((prepared, metadata.0, metadata.1))
+            }
         })
         .await?;
 
@@ -307,8 +315,7 @@ impl OdbcConnection {
         }
 
         if store_to_cache && metadata_complete && self.stmt_cache.is_enabled() {
-            self.stmt_cache
-                .insert(&sql_owned, Arc::new(Mutex::new(prepared)));
+            self.stmt_cache.insert(sql, prepared);
         }
 
         Ok(OdbcStatement {

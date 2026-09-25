@@ -81,6 +81,81 @@ async fn it_bounds_statement_cache() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
+async fn it_caches_statements_across_repeated_queries() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+
+    for _ in 0..10 {
+        let row = sqlx_oldapi::query(PARAMETERIZED_SELECT_WITH_COLUMN)
+            .bind(42_i32)
+            .fetch_one(&mut conn)
+            .await?;
+        assert_eq!(row.try_get_raw(0)?.to_owned().decode::<i64>(), 42);
+    }
+
+    assert_eq!(conn.cached_statements_size(), 1);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn it_does_not_cache_non_persistent_queries() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+
+    let row = sqlx_oldapi::query(PARAMETERIZED_SELECT_WITH_COLUMN)
+        .bind(42_i32)
+        .persistent(false)
+        .fetch_one(&mut conn)
+        .await?;
+
+    assert_eq!(row.try_get_raw(0)?.to_owned().decode::<i64>(), 42);
+    assert_eq!(conn.cached_statements_size(), 0);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn it_does_not_cache_statements_without_arguments() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+
+    conn.execute("SELECT 1").await?;
+    conn.execute("CREATE TEMPORARY TABLE sqlx_odbc_uncached (id INTEGER NOT NULL)")
+        .await?;
+
+    assert_eq!(conn.cached_statements_size(), 0);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn it_reuses_cached_statements_after_partial_reads() -> anyhow::Result<()> {
+    let mut conn = new::<Odbc>().await?;
+
+    conn.execute("CREATE TEMPORARY TABLE sqlx_odbc_partial_reads (id INTEGER NOT NULL)")
+        .await?;
+    let rows = (1..=200)
+        .map(|id| format!("({id})"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    conn.execute(&*format!(
+        "INSERT INTO sqlx_odbc_partial_reads (id) VALUES {rows}"
+    ))
+    .await?;
+
+    for _ in 0..3 {
+        let row =
+            sqlx_oldapi::query("SELECT id FROM sqlx_odbc_partial_reads WHERE id > ? ORDER BY id")
+                .bind(0_i32)
+                .fetch_one(&mut conn)
+                .await?;
+        assert_eq!(row.try_get_raw(0)?.to_owned().decode::<i64>(), 1);
+    }
+
+    assert_eq!(conn.cached_statements_size(), 1);
+
+    Ok(())
+}
+
+#[tokio::test]
 async fn it_rolls_back_dropped_transaction() -> anyhow::Result<()> {
     let mut conn = new::<Odbc>().await?;
 

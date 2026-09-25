@@ -5,7 +5,7 @@ use crate::odbc::{Odbc, OdbcConnection, OdbcQueryResult, OdbcRow, OdbcStatement,
 use either::Either;
 use futures_core::future::BoxFuture;
 use futures_core::stream::BoxStream;
-use futures_util::TryStreamExt;
+use futures_util::{TryFutureExt, TryStreamExt};
 
 impl<'c> Executor<'c> for &'c mut OdbcConnection {
     type Database = Odbc;
@@ -18,8 +18,15 @@ impl<'c> Executor<'c> for &'c mut OdbcConnection {
         'c: 'e,
         E: Execute<'q, Self::Database> + 'q,
     {
+        let sql = query.sql();
         let args = query.take_arguments();
-        Box::pin(self.execute_stream(query.sql(), args).into_stream())
+        let persistent = query.persistent();
+
+        Box::pin(
+            self.execute_stream(sql, args, persistent)
+                .map_ok(flume::Receiver::into_stream)
+                .try_flatten_stream(),
+        )
     }
 
     fn fetch_optional<'e, 'q: 'e, E>(
