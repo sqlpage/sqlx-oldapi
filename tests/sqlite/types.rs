@@ -136,6 +136,37 @@ mod time_tests {
     use sqlx_oldapi::types::time::{Date, OffsetDateTime, PrimitiveDateTime, Time};
     use time::macros::{date, datetime, time};
 
+    #[sqlx_macros::test]
+    async fn out_of_range_unix_timestamps_return_decode_errors() -> anyhow::Result<()> {
+        use sqlx_oldapi::Connection;
+
+        let mut conn = sqlx_oldapi::SqliteConnection::connect("sqlite::memory:").await?;
+        for timestamp in [i64::MIN, i64::MAX] {
+            let result = sqlx_oldapi::query_scalar::<_, PrimitiveDateTime>("SELECT ?")
+                .bind(timestamp)
+                .fetch_one(&mut conn)
+                .await;
+
+            match result {
+                Err(sqlx_oldapi::Error::ColumnDecode { source, .. }) => {
+                    assert!(source.is::<time::error::ComponentRange>());
+                }
+                other => panic!("expected a timestamp range error for {timestamp}, got {other:?}"),
+            }
+        }
+
+        // A rejected value must not prevent subsequent queries on the connection.
+        for timestamp in [-1, 0, 1] {
+            let decoded = sqlx_oldapi::query_scalar::<_, PrimitiveDateTime>("SELECT ?")
+                .bind(timestamp)
+                .fetch_one(&mut conn)
+                .await?;
+            assert_eq!(decoded.assume_utc().unix_timestamp(), timestamp);
+        }
+
+        Ok(())
+    }
+
     test_type!(time_offset_date_time<OffsetDateTime>(
         Sqlite,
         "SELECT datetime({0}) is datetime(?), {0}, ?",
