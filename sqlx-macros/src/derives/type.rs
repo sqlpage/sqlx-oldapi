@@ -183,13 +183,13 @@ fn expand_derive_has_sql_type_strong_enum(
     if cfg!(feature = "sqlite") {
         tts.extend(quote!(
             #[automatically_derived]
-            impl sqlx::Type<::sqlx_oldapi::Sqlite> for #ident {
+            impl ::sqlx_oldapi::Type<::sqlx_oldapi::Sqlite> for #ident {
                 fn type_info() -> ::sqlx_oldapi::sqlite::SqliteTypeInfo {
-                    <::std::primitive::str as ::sqlx_oldapi::Type<sqlx::Sqlite>>::type_info()
+                    <::std::primitive::str as ::sqlx_oldapi::Type<::sqlx_oldapi::Sqlite>>::type_info()
                 }
 
                 fn compatible(ty: &::sqlx_oldapi::sqlite::SqliteTypeInfo) -> ::std::primitive::bool {
-                    <&::std::primitive::str as ::sqlx_oldapi::types::Type<sqlx::sqlite::Sqlite>>::compatible(ty)
+                    <&::std::primitive::str as ::sqlx_oldapi::types::Type<::sqlx_oldapi::sqlite::Sqlite>>::compatible(ty)
                 }
             }
         ));
