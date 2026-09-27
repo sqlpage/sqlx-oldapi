@@ -88,7 +88,7 @@ services:
             POSTGRES_HOST_AUTH_METHOD: trust
             POSTGRES_INITDB_ARGS: --auth-host=trust
         healthcheck:
-            test: ["CMD-SHELL", "pg_isready -U postgres"]
+            test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres"]
         volumes:
             - "./postgres/setup.sql:/docker-entrypoint-initdb.d/setup.sql"
         command: >

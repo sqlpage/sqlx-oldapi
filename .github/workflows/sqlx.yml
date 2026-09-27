@@ -7,6 +7,13 @@ on:
       - main
 
 jobs:
+  test-infrastructure:
+    name: Test infrastructure
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - run: python3 -m unittest discover -s tests -p 'test_wait_for_db.py'
+
   format:
     name: Format
     runs-on: ubuntu-24.04
@@ -168,7 +175,7 @@ jobs:
 
       - run: |
           docker compose -f tests/docker-compose.yml run -d -p 5432:5432 --name postgres_${{ matrix.postgres }} postgres_${{ matrix.postgres }}
-          docker exec postgres_${{ matrix.postgres }} bash -c "until pg_isready; do sleep 1; done"
+          bash tests/wait-for-db.sh postgres_${{ matrix.postgres }} postgres
 
       - run: |
           cargo test --no-default-features --features any,postgres,macros,all-types,${{ matrix.tls }}
@@ -197,7 +204,7 @@ jobs:
           prefix-key: v1-sqlx
           shared-key: postgres-rustls
           save-if: ${{ false }}
-      - run: docker compose up --wait postgres_16
+      - run: docker compose up --wait --wait-timeout 120 postgres_16
         working-directory: tests
       - run: cargo test --no-default-features --features any,postgres,macros,all-types,rustls
         env:
@@ -230,8 +237,8 @@ jobs:
             --features mysql,all-types,${{ matrix.tls }},macros,migrate \
             -- -D warnings
 
-      - run: docker compose -f tests/docker-compose.yml run -d -p 3306:3306 mysql_${{ matrix.mysql }}
-      - run: sleep 60
+      - run: docker compose -f tests/docker-compose.yml run -d -p 3306:3306 --name mysql_${{ matrix.mysql }} mysql_${{ matrix.mysql }}
+      - run: bash tests/wait-for-db.sh mysql_${{ matrix.mysql }} mysql
 
       - run: |
           cargo test --no-default-features --features any,mysql,macros,migrate,all-types,${{ matrix.tls }}
@@ -272,8 +279,8 @@ jobs:
             --features mysql,${{ matrix.tls }},macros,migrate \
             -- -D warnings
 
-      - run: docker compose -f tests/docker-compose.yml run -d -p 3306:3306 mariadb_${{ matrix.mariadb }}
-      - run: sleep 30
+      - run: docker compose -f tests/docker-compose.yml run -d -p 3306:3306 --name mariadb_${{ matrix.mariadb }} mariadb_${{ matrix.mariadb }}
+      - run: bash tests/wait-for-db.sh mariadb_${{ matrix.mariadb }} mysql
 
       - run: |
           cargo test --no-default-features --features any,mysql,macros,migrate,${{ matrix.tls }}
@@ -307,8 +314,8 @@ jobs:
             --features mssql,all-types,${{ matrix.tls }},macros,migrate \
             -- -D warnings
 
-      - run: docker compose -f tests/docker-compose.yml run -d -p 1433:1433 mssql_${{ matrix.mssql }}
-      - run: sleep 80 # MSSQL takes a "bit" to startup
+      - run: docker compose -f tests/docker-compose.yml run -d -p 1433:1433 --name mssql_${{ matrix.mssql }} mssql_${{ matrix.mssql }}
+      - run: bash tests/wait-for-db.sh mssql_${{ matrix.mssql }} mssql
 
       - run: |
           cargo test --no-default-features --features any,mssql,macros,migrate,all-types,${{ matrix.tls }}
@@ -330,7 +337,7 @@ jobs:
       - name: Start Postgres (no SSL)
         run: |
           docker compose -f tests/docker-compose.yml run -d -p 5432:5432 --name postgres_16_no_ssl postgres_16_no_ssl
-          docker exec postgres_16_no_ssl bash -c "until pg_isready; do sleep 1; done"
+          bash tests/wait-for-db.sh postgres_16_no_ssl postgres
       - name: Install unixODBC and ODBC drivers (PostgreSQL, SQLite)
         run: |
           sudo apt-get update
