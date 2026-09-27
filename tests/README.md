@@ -30,9 +30,3 @@ DATABASE_URL=mysql://root:password@127.0.0.1:3306/sqlx \
   cargo test --locked --no-default-features \
   --features macros,offline,any,all-types,mysql,native-tls
 ```
-
-The test-runner and readiness regression tests need only Python and Bash:
-
-```sh
-python3 -m unittest discover -s tests -p 'test_*.py'
-```
