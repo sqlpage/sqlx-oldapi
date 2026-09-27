@@ -5,12 +5,14 @@ on:
   push:
     paths:
       - "**/Cargo.toml"
+      - "rust-toolchain.toml"
       - ".github/workflows/publish.yml"
     tags:
       - "v*"
   pull_request:
     paths:
       - "**/Cargo.toml"
+      - "rust-toolchain.toml"
       - ".github/workflows/publish.yml"
 
 permissions:
@@ -21,9 +23,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9
-        with:
-          toolchain: stable
+      - name: Install pinned Rust toolchain
+        run: rustc --version --verbose
       - uses: Swatinem/rust-cache@65012b490220f477f20ab979e35ae732e6de4e68
       - name: Verify workspace packaging
         if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
