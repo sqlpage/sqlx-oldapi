@@ -1,0 +1,57 @@
+name: Upstream compatibility
+
+on:
+  schedule:
+    - cron: "23 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # Override rust-toolchain.toml for this workflow only.
+  RUSTUP_TOOLCHAIN: stable
+
+jobs:
+  compatibility:
+    name: Latest stable and dependencies (${{ matrix.tls }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        tls: [native-tls, rustls]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9
+        with:
+          toolchain: stable
+          components: clippy
+      - run: sudo apt-get update && sudo apt-get install -y libodbc2 unixodbc-dev
+      - name: Resolve latest compatible dependencies
+        run: cargo update
+      - name: Check core with latest dependencies
+        run: >-
+          cargo clippy --locked --manifest-path sqlx-core/Cargo.toml --no-default-features
+          --features offline,all-databases,all-types,migrate,${{ matrix.tls }}
+          -- -D warnings
+      - name: Check macros with latest dependencies
+        run: >-
+          cargo clippy --locked --no-default-features
+          --features offline,all-databases,all-types,migrate,macros,${{ matrix.tls }}
+          -- -D warnings
+      - name: Check all targets with latest dependencies
+        run: >-
+          cargo clippy --locked --no-default-features --all-targets
+          --features offline,all-databases,all-types,${{ matrix.tls }}
+          -- -D warnings
+      - name: Run core unit tests
+        run: >-
+          cargo test --locked --manifest-path sqlx-core/Cargo.toml
+          --features offline,all-databases,all-types,${{ matrix.tls }}
+      - name: Run SQLite type tests
+        run: >-
+          cargo test --locked --no-default-features
+          --features sqlite,all-types,macros,${{ matrix.tls }} --test sqlite-types
+        env:
+          DATABASE_URL: "sqlite::memory:"

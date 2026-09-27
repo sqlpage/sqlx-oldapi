@@ -26,6 +26,16 @@ You can use this document to figure out how and where to start.
 - Push your changes to a topic branch in your fork of the repository.
 - Submit a pull request to the original repository.
 
+## Dependency updates
+
+PR CI uses the committed `Cargo.lock` with `--locked`. When changing dependencies,
+update and commit the lockfile in the same PR. Keep unrelated dependency upgrades
+in dedicated PRs.
+
+The separate **Upstream compatibility** workflow runs weekly and can also be
+started manually. It tests the latest stable Rust and a freshly updated lockfile
+without changing the committed baseline or adding checks to unrelated PRs.
+
 ## What to work on
 
 We try to mark issues with a suggested level of experience (in Rust/SQL/SQLx).
