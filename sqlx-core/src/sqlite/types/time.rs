@@ -184,127 +184,40 @@ fn decode_datetime_from_text(value: &str) -> Option<PrimitiveDateTime> {
 }
 
 mod formats {
-    use time::format_description::{modifier, Component::*, FormatItem, FormatItem::*};
+    use time::format_description::{FormatItem, FormatItem::Compound, FormatItem::Optional};
+    use time::macros::format_description as fd;
 
-    const YEAR: FormatItem<'_> = Component(Year({
-        let mut value = modifier::Year::default();
-        value.padding = modifier::Padding::Zero;
-        value.repr = modifier::YearRepr::Full;
-        value.iso_week_based = false;
-        value.sign_is_mandatory = false;
-        value
-    }));
+    // Let time's macro select the component representation for the installed version.
+    pub(super) const OFFSET_DATE_TIME: &[FormatItem<'_>] = &[
+        Compound(fd!("[year]-[month]-[day]")),
+        Optional(&Compound(fd!(" "))),
+        Optional(&Compound(fd!("T"))),
+        Compound(fd!("[hour]:[minute]")),
+        Optional(&Compound(fd!(":"))),
+        Optional(&Compound(fd!("[second]"))),
+        Optional(&Compound(fd!("."))),
+        Optional(&Compound(fd!("[subsecond]"))),
+        Optional(&Compound(fd!(" "))),
+        Optional(&Compound(fd!("[offset_hour sign:mandatory]"))),
+        Optional(&Compound(fd!(":"))),
+        Optional(&Compound(fd!("[offset_minute]"))),
+    ];
 
-    const MONTH: FormatItem<'_> = Component(Month({
-        let mut value = modifier::Month::default();
-        value.padding = modifier::Padding::Zero;
-        value.repr = modifier::MonthRepr::Numerical;
-        value.case_sensitive = true;
-        value
-    }));
+    pub(super) const PRIMITIVE_DATE_TIME_SPACE_SEPARATED: &[FormatItem<'_>] = &[
+        Compound(fd!("[year]-[month]-[day] [hour]:[minute]")),
+        Optional(&Compound(fd!(":"))),
+        Optional(&Compound(fd!("[second]"))),
+        Optional(&Compound(fd!("."))),
+        Optional(&Compound(fd!("[subsecond]"))),
+        Optional(&Compound(fd!("Z"))),
+    ];
 
-    const DAY: FormatItem<'_> = Component(Day({
-        let mut value = modifier::Day::default();
-        value.padding = modifier::Padding::Zero;
-        value
-    }));
-
-    const HOUR: FormatItem<'_> = Component(Hour({
-        let mut value = modifier::Hour::default();
-        value.padding = modifier::Padding::Zero;
-        value.is_12_hour_clock = false;
-        value
-    }));
-
-    const MINUTE: FormatItem<'_> = Component(Minute({
-        let mut value = modifier::Minute::default();
-        value.padding = modifier::Padding::Zero;
-        value
-    }));
-
-    const SECOND: FormatItem<'_> = Component(Second({
-        let mut value = modifier::Second::default();
-        value.padding = modifier::Padding::Zero;
-        value
-    }));
-
-    const SUBSECOND: FormatItem<'_> = Component(Subsecond({
-        let mut value = modifier::Subsecond::default();
-        value.digits = modifier::SubsecondDigits::OneOrMore;
-        value
-    }));
-
-    const OFFSET_HOUR: FormatItem<'_> = Component(OffsetHour({
-        let mut value = modifier::OffsetHour::default();
-        value.sign_is_mandatory = true;
-        value.padding = modifier::Padding::Zero;
-        value
-    }));
-
-    const OFFSET_MINUTE: FormatItem<'_> = Component(OffsetMinute({
-        let mut value = modifier::OffsetMinute::default();
-        value.padding = modifier::Padding::Zero;
-        value
-    }));
-
-    pub(super) const OFFSET_DATE_TIME: &[FormatItem<'_>] = {
-        &[
-            YEAR,
-            Literal(b"-"),
-            MONTH,
-            Literal(b"-"),
-            DAY,
-            Optional(&Literal(b" ")),
-            Optional(&Literal(b"T")),
-            HOUR,
-            Literal(b":"),
-            MINUTE,
-            Optional(&Literal(b":")),
-            Optional(&SECOND),
-            Optional(&Literal(b".")),
-            Optional(&SUBSECOND),
-            Optional(&Literal(b" ")),
-            Optional(&OFFSET_HOUR),
-            Optional(&Literal(b":")),
-            Optional(&OFFSET_MINUTE),
-        ]
-    };
-
-    pub(super) const PRIMITIVE_DATE_TIME_SPACE_SEPARATED: &[FormatItem<'_>] = {
-        &[
-            YEAR,
-            Literal(b"-"),
-            MONTH,
-            Literal(b"-"),
-            DAY,
-            Literal(b" "),
-            HOUR,
-            Literal(b":"),
-            MINUTE,
-            Optional(&Literal(b":")),
-            Optional(&SECOND),
-            Optional(&Literal(b".")),
-            Optional(&SUBSECOND),
-            Optional(&Literal(b"Z")),
-        ]
-    };
-
-    pub(super) const PRIMITIVE_DATE_TIME_T_SEPARATED: &[FormatItem<'_>] = {
-        &[
-            YEAR,
-            Literal(b"-"),
-            MONTH,
-            Literal(b"-"),
-            DAY,
-            Literal(b"T"),
-            HOUR,
-            Literal(b":"),
-            MINUTE,
-            Optional(&Literal(b":")),
-            Optional(&SECOND),
-            Optional(&Literal(b".")),
-            Optional(&SUBSECOND),
-            Optional(&Literal(b"Z")),
-        ]
-    };
+    pub(super) const PRIMITIVE_DATE_TIME_T_SEPARATED: &[FormatItem<'_>] = &[
+        Compound(fd!("[year]-[month]-[day]T[hour]:[minute]")),
+        Optional(&Compound(fd!(":"))),
+        Optional(&Compound(fd!("[second]"))),
+        Optional(&Compound(fd!("."))),
+        Optional(&Compound(fd!("[subsecond]"))),
+        Optional(&Compound(fd!("Z"))),
+    ];
 }
