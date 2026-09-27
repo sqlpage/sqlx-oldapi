@@ -5,22 +5,28 @@ services:
     #
 
     mysql_8:
+        healthcheck: &mysql-health
+            test: ["CMD", "mysql", "--protocol=TCP", "-h", "127.0.0.1", "-uroot", "-ppassword", "sqlx", "-e", "SELECT 1 FROM tweet LIMIT 0"]
+            interval: 2s
+            timeout: 5s
+            retries: 60
         image: mysql:8
         volumes:
             - "./mysql/setup.sql:/docker-entrypoint-initdb.d/setup.sql"
         ports:
-            - 3306
+            - "127.0.0.1:${SQLX_MYSQL_PORT:-}:3306"
         environment:
             MYSQL_ROOT_HOST: '%'
             MYSQL_ROOT_PASSWORD: password
             MYSQL_DATABASE: sqlx
 
     mysql_5_7:
+        healthcheck: *mysql-health
         image: mysql:5.7
         volumes:
             - "./mysql/setup.sql:/docker-entrypoint-initdb.d/setup.sql"
         ports:
-            - 3306
+            - "127.0.0.1:${SQLX_MYSQL_PORT:-}:3306"
         environment:
             MYSQL_ROOT_HOST: '%'
             MYSQL_ROOT_PASSWORD: password
@@ -31,41 +37,45 @@ services:
     #
 
     mariadb_10_6:
+        healthcheck: *mysql-health
         image: mariadb:10.6
         volumes:
             - "./mysql/setup.sql:/docker-entrypoint-initdb.d/setup.sql"
         ports:
-            - 3306
+            - "127.0.0.1:${SQLX_MYSQL_PORT:-}:3306"
         environment:
             MYSQL_ROOT_PASSWORD: password
             MYSQL_DATABASE: sqlx
 
     mariadb_10_5:
+        healthcheck: *mysql-health
         image: mariadb:10.5
         volumes:
             - "./mysql/setup.sql:/docker-entrypoint-initdb.d/setup.sql"
         ports:
-            - 3306
+            - "127.0.0.1:${SQLX_MYSQL_PORT:-}:3306"
         environment:
             MYSQL_ROOT_PASSWORD: password
             MYSQL_DATABASE: sqlx
 
     mariadb_10_4:
+        healthcheck: *mysql-health
         image: mariadb:10.4
         volumes:
             - "./mysql/setup.sql:/docker-entrypoint-initdb.d/setup.sql"
         ports:
-            - 3306
+            - "127.0.0.1:${SQLX_MYSQL_PORT:-}:3306"
         environment:
             MYSQL_ROOT_PASSWORD: password
             MYSQL_DATABASE: sqlx
 
     mariadb_10_3:
+        healthcheck: *mysql-health
         image: mariadb:10.3
         volumes:
             - "./mysql/setup.sql:/docker-entrypoint-initdb.d/setup.sql"
         ports:
-            - 3306
+            - "127.0.0.1:${SQLX_MYSQL_PORT:-}:3306"
         environment:
             MYSQL_ROOT_PASSWORD: password
             MYSQL_DATABASE: sqlx
@@ -76,6 +86,11 @@ services:
     #
 
     postgres_16: # Test postgres 16 with required client cert
+        healthcheck: &postgres-health
+            test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "postgres", "-d", "sqlx"]
+            interval: 2s
+            timeout: 5s
+            retries: 60
         build:
             context: .
             dockerfile: postgres/Dockerfile
@@ -87,21 +102,20 @@ services:
             POSTGRES_DB: sqlx
             POSTGRES_HOST_AUTH_METHOD: trust
             POSTGRES_INITDB_ARGS: --auth-host=trust
-        healthcheck:
-            test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres"]
         volumes:
             - "./postgres/setup.sql:/docker-entrypoint-initdb.d/setup.sql"
         command: >
             -c ssl=on -c ssl_cert_file=/var/lib/postgresql/server.crt -c ssl_key_file=/var/lib/postgresql/server.key -c ssl_ca_file=/var/lib/postgresql/ca.crt -c hba_file=/var/lib/postgresql/pg_hba.conf
 
     postgres_14:
+        healthcheck: *postgres-health
         build:
             context: .
             dockerfile: postgres/Dockerfile
             args:
               VERSION: 14
         ports:
-            - 5432
+            - "127.0.0.1:${SQLX_POSTGRES_PORT:-}:5432"
         environment:
             POSTGRES_DB: sqlx
             POSTGRES_USER: postgres
@@ -114,13 +128,14 @@ services:
             -c ssl=on -c ssl_cert_file=/var/lib/postgresql/server.crt -c ssl_key_file=/var/lib/postgresql/server.key
 
     postgres_13:
+        healthcheck: *postgres-health
         build:
             context: .
             dockerfile: postgres/Dockerfile
             args:
               VERSION: 13
         ports:
-            - 5432
+            - "127.0.0.1:${SQLX_POSTGRES_PORT:-}:5432"
         environment:
             POSTGRES_DB: sqlx
             POSTGRES_USER: postgres
@@ -133,13 +148,14 @@ services:
             -c ssl=on -c ssl_cert_file=/var/lib/postgresql/server.crt -c ssl_key_file=/var/lib/postgresql/server.key
 
     postgres_12:
+        healthcheck: *postgres-health
         build:
             context: .
             dockerfile: postgres/Dockerfile
             args:
               VERSION: 12
         ports:
-            - 5432
+            - "127.0.0.1:${SQLX_POSTGRES_PORT:-}:5432"
         environment:
             POSTGRES_DB: sqlx
             POSTGRES_USER: postgres
@@ -152,13 +168,14 @@ services:
             -c ssl=on -c ssl_cert_file=/var/lib/postgresql/server.crt -c ssl_key_file=/var/lib/postgresql/server.key
 
     postgres_11:
+        healthcheck: *postgres-health
         build:
             context: .
             dockerfile: postgres/Dockerfile
             args:
                 VERSION: 11
         ports:
-          - 5432
+          - "127.0.0.1:${SQLX_POSTGRES_PORT:-}:5432"
         environment:
             POSTGRES_DB: sqlx
             POSTGRES_USER: postgres
@@ -171,13 +188,14 @@ services:
             -c ssl=on -c ssl_cert_file=/var/lib/postgresql/server.crt -c ssl_key_file=/var/lib/postgresql/server.key
 
     postgres_10:
+        healthcheck: *postgres-health
         build:
             context: .
             dockerfile: postgres/Dockerfile
             args:
                 VERSION: 10
         ports:
-          - 5432
+          - "127.0.0.1:${SQLX_POSTGRES_PORT:-}:5432"
         environment:
             POSTGRES_DB: sqlx
             POSTGRES_USER: postgres
@@ -190,13 +208,14 @@ services:
             -c ssl=on -c ssl_cert_file=/var/lib/postgresql/server.crt -c ssl_key_file=/var/lib/postgresql/server.key
 
     postgres_16_no_ssl:
+        healthcheck: *postgres-health
         build:
             context: .
             dockerfile: postgres/Dockerfile
             args:
                 VERSION: 16
         ports:
-            - 5432
+            - "127.0.0.1:${SQLX_POSTGRES_PORT:-}:5432"
         environment:
             POSTGRES_DB: sqlx
             POSTGRES_USER: postgres
@@ -213,25 +232,36 @@ services:
     #
 
     mssql_2019:
+        healthcheck: &mssql-health
+            test:
+                - CMD-SHELL
+                - >-
+                    /opt/mssql-tools18/bin/sqlcmd -S tcp:127.0.0.1,1433
+                    -U sa -P "$$SA_PASSWORD" -d sqlx
+                    -Q 'SELECT TOP 0 * FROM dbo.tweet' -b -C -l 2
+            interval: 2s
+            timeout: 5s
+            retries: 60
         build:
             context: .
             dockerfile: mssql/Dockerfile
             args:
                 VERSION: 2019-latest
         ports:
-          - 1433
+          - "127.0.0.1:${SQLX_MSSQL_PORT:-}:1433"
         environment:
             ACCEPT_EULA: "Y"
             SA_PASSWORD: Password123!
 
     mssql_2022:
+        healthcheck: *mssql-health
         build:
             context: .
             dockerfile: mssql/Dockerfile
             args:
                 VERSION: 2022-latest
         ports:
-          - 1433
+          - "127.0.0.1:${SQLX_MSSQL_PORT:-}:1433"
         volumes:
           - "./mssql/mssql.conf:/var/opt/mssql/mssql.conf"
         environment:
