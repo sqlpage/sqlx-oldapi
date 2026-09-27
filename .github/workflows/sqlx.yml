@@ -100,7 +100,7 @@ jobs:
           ${{ matrix.args }}
 
       - name: Smoke-test CLI binary
-        run: ./${{ matrix.bin }} --version
+        run: ./${{ matrix.bin }} sqlx --version
 
       - uses: actions/upload-artifact@v7
         with:
