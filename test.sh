@@ -1,17 +1,64 @@
-#!/bin/sh
-docker compose -f tests/docker-compose.yml run -it -p 5432:5432 --name postgres_16 postgres_16
-DATABASE_URL="postgres://postgres@localhost:5432/sqlx?sslmode=verify-ca&sslrootcert=./tests/certs/ca.crt&sslcert=./tests/certs/client.crt&sslkey=./tests/keys/client.key" cargo test --features any,postgres,macros,all-types,rustls --
+#!/usr/bin/env bash
+set -euo pipefail
+cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
 
-docker compose -f tests/docker-compose.yml run -it -p 1433:1433 --rm --name mssql_2022 mssql_2022
-DATABASE_URL='mssql://sa:Password123!@localhost/sqlx' cargo test --features any,mssql,macros,all-types,rustls --
+backend=${1:-all}
+if [[ $backend == all ]]; then
+    for backend in postgres mssql mysql sqlite odbc; do
+        bash ./test.sh "$backend"
+    done
+    exit 0
+fi
 
-docker compose -f tests/docker-compose.yml run -it -p 3306:3306 --name mysql_8 mysql_8
-DATABASE_URL='mysql://root:password@localhost/sqlx' cargo test --features any,mysql,macros,all-types,rustls --
+features="any,macros,all-types,rustls"
+case "$backend" in
+    sqlite)
+        sqlite_dir=$(mktemp -d "${TMPDIR:-/tmp}/sqlx-local-sqlite.XXXXXX")
+        trap 'rm -rf -- "$sqlite_dir"' EXIT
+        cp tests/sqlite/sqlite.db "$sqlite_dir/sqlite.db"
+        export DATABASE_URL="sqlite://$sqlite_dir/sqlite.db"
+        cargo test --locked --no-default-features --features "$features,sqlite,migrate"
+        exit
+        ;;
+    postgres) service=postgres_14; port=5432; driver=postgres ;;
+    mysql) service=mysql_8; port=3306; driver=mysql ;;
+    mssql) service=mssql_2022; port=1433; driver=mssql ;;
+    odbc) service=postgres_16_no_ssl; port=5432; driver=postgres ;;
+    *)
+        echo "Usage: $0 [all|sqlite|postgres|mysql|mssql|odbc]" >&2
+        exit 2
+        ;;
+esac
 
-DATABASE_URL='sqlite://./tests/sqlite/sqlite.db' cargo test --features any,sqlite,macros,all-types,rustls --
+project="sqlx-local-test-$$-$RANDOM"
+cleanup() {
+    status=$?
+    docker compose -p "$project" -f tests/docker-compose.yml \
+        down --remove-orphans >/dev/null 2>&1 || true
+    exit "$status"
+}
+trap cleanup EXIT
 
+# Each invocation owns one disposable container and a random loopback-only port.
+container=$(docker compose -p "$project" -f tests/docker-compose.yml \
+    run --rm -d -p "127.0.0.1::$port" "$service")
+bash tests/wait-for-db.sh "$container" "$driver"
+address=$(docker port "$container" "$port/tcp")
+host_port=${address##*:}
+if [[ ! $host_port =~ ^[0-9]+$ ]]; then
+    echo "Could not determine the database's published port: $address" >&2
+    exit 1
+fi
 
-# Copy odbc config from tests/odbc.ini to ~/.odbc.ini and run ODBC tests against Postgres
-cp tests/odbc.ini ~/.odbc.ini
-docker compose -f tests/docker-compose.yml run -p 5432:5432 --name postgres_16_no_ssl -it postgres_16_no_ssl
-DATABASE_URL='DSN=SNOWFLAKE' cargo test --no-default-features --features any,odbc,all-types,macros,rustls
+case "$backend" in
+    postgres) DATABASE_URL="postgres://postgres:password@127.0.0.1:$host_port/sqlx" ;;
+    mysql) DATABASE_URL="mysql://root:password@127.0.0.1:$host_port/sqlx" ;;
+    mssql) DATABASE_URL="mssql://sa:Password123!@127.0.0.1:$host_port/sqlx" ;;
+    odbc)
+        # Use only the container we started; do not overwrite ~/.odbc.ini or use a saved DSN.
+        DATABASE_URL="Driver={PostgreSQL Unicode};Servername=127.0.0.1;Port=$host_port;Database=sqlx;Uid=postgres;Pwd=password"
+        ;;
+esac
+export DATABASE_URL
+if [[ $backend != odbc ]]; then features+=",migrate"; fi
+cargo test --locked --no-default-features --features "$features,$backend"

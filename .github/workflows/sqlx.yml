@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
-      - run: python3 -m unittest discover -s tests -p 'test_wait_for_db.py'
+      - run: python3 -m unittest discover -s tests -p 'test_*.py'
 
   format:
     name: Format

@@ -1,18 +1,38 @@
+# Running tests
 
+Install Rust through rustup and [Docker Compose](https://docs.docker.com/compose/install/).
+Run the local test script from any directory:
 
-### Running Tests
-SQLx uses docker to run many compatible database systems for integration testing. You'll need to [install docker](https://docs.docker.com/engine/) to run the full suite. You can validate your docker installation with:
-    
-    $ docker run hello-world
+```sh
+./test.sh          # all backends, stopping at the first failure
+./test.sh sqlite   # SQLite only; no Docker needed
+./test.sh postgres # PostgreSQL 14
+./test.sh mysql    # MySQL 8
+./test.sh mssql    # SQL Server 2022
+./test.sh odbc     # ODBC against local PostgreSQL 16
+```
 
-Start the databases with `docker-compose` before running tests: 
+Each database run starts a disposable container, waits for its test schema, and
+publishes a randomly assigned port on loopback. The script uses that container's
+connection string and removes it when the test command exits, including failures.
+SQLite runs against a temporary copy of its fixture database.
+The script does not use an existing `DATABASE_URL`, a saved ODBC DSN, or modify `~/.odbc.ini`.
+The ODBC run requires unixODBC and the **PostgreSQL Unicode** driver on the host.
 
-    $ docker-compose up
+The PostgreSQL client-certificate authentication configuration is tested separately
+by the **Postgres with SSL client cert** CI job.
 
-Run all tests against all supported databases using:
+For custom databases, set `DATABASE_URL` explicitly when invoking Cargo. These tests
+create and modify database objects: use a disposable test database.
 
-    $ ./x.py
+```sh
+DATABASE_URL=mysql://root:password@127.0.0.1:3306/sqlx \
+  cargo test --locked --no-default-features \
+  --features macros,offline,any,all-types,mysql,native-tls
+```
 
-If you see test failures, or want to run a more specific set of tests against a specific database, you can specify both the features to be tests and the DATABASE_URL. e.g.
+The test-runner and readiness regression tests need only Python and Bash:
 
-    $ DATABASE_URL=mysql://root:password@127.0.0.1:49183/sqlx cargo test --no-default-features --features macros,offline,any,all-types,mysql,native-tls
+```sh
+python3 -m unittest discover -s tests -p 'test_*.py'
+```
