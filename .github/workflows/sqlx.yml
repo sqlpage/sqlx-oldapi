@@ -8,6 +8,12 @@ on:
     branches:
       - main
 
+# Tests and the ODBC DSN use these fixed ports; local Compose runs use random ports.
+env:
+  SQLX_POSTGRES_PORT: "5432"
+  SQLX_MYSQL_PORT: "3306"
+  SQLX_MSSQL_PORT: "1433"
+
 jobs:
   format:
     name: Format
@@ -181,8 +187,7 @@ jobs:
           RUSTFLAGS: --cfg postgres_${{ matrix.postgres }}
 
       - run: |
-          docker compose -f tests/docker-compose.yml run -d -p 5432:5432 --name postgres_${{ matrix.postgres }} postgres_${{ matrix.postgres }}
-          docker exec postgres_${{ matrix.postgres }} bash -c "until pg_isready; do sleep 1; done"
+          docker compose -f tests/docker-compose.yml up --wait --wait-timeout 120 postgres_${{ matrix.postgres }}
 
       - run: |
           cargo test --locked --no-default-features --features any,postgres,macros,all-types,${{ matrix.tls }}
@@ -199,6 +204,9 @@ jobs:
           # FIXME: needed to disable `ltree` tests in Postgres 9.6
           # but `PgLTree` should just fall back to text format
           RUSTFLAGS: --cfg postgres_${{ matrix.postgres }}
+      - name: Show database logs on failure
+        if: failure()
+        run: docker compose -f tests/docker-compose.yml logs --tail 100
 
   postgres_ssl_client_cert:
     name: Postgres with SSL client cert
@@ -213,11 +221,14 @@ jobs:
           prefix-key: v1-sqlx
           shared-key: postgres-rustls
           save-if: ${{ false }}
-      - run: docker compose up --wait postgres_16
+      - run: docker compose up --wait --wait-timeout 120 postgres_16
         working-directory: tests
       - run: cargo test --locked --no-default-features --features any,postgres,macros,all-types,rustls
         env:
           DATABASE_URL: postgres://postgres@localhost:5432/sqlx?sslmode=verify-ca&sslrootcert=./tests/certs/ca.crt&sslcert=./tests/certs/client.crt&sslkey=./tests/keys/client.key
+      - name: Show database logs on failure
+        if: failure()
+        run: docker compose -f tests/docker-compose.yml logs --tail 100
 
   mysql:
     name: MySQL
@@ -248,8 +259,7 @@ jobs:
             --features mysql,all-types,${{ matrix.tls }},macros,migrate \
             -- -D warnings
 
-      - run: docker compose -f tests/docker-compose.yml run -d -p 3306:3306 mysql_${{ matrix.mysql }}
-      - run: sleep 60
+      - run: docker compose -f tests/docker-compose.yml up --wait --wait-timeout 120 mysql_${{ matrix.mysql }}
 
       - run: |
           cargo test --locked --no-default-features --features any,mysql,macros,migrate,all-types,${{ matrix.tls }}
@@ -262,6 +272,9 @@ jobs:
         if: ${{ !(matrix.mysql == '5_7' && matrix.tls == 'rustls') }}
         env:
           DATABASE_URL: mysql://root:password@localhost:3306/sqlx
+      - name: Show database logs on failure
+        if: failure()
+        run: docker compose -f tests/docker-compose.yml logs --tail 100
 
   mariadb:
     name: MariaDB
@@ -292,13 +305,15 @@ jobs:
             --features mysql,${{ matrix.tls }},macros,migrate \
             -- -D warnings
 
-      - run: docker compose -f tests/docker-compose.yml run -d -p 3306:3306 mariadb_${{ matrix.mariadb }}
-      - run: sleep 30
+      - run: docker compose -f tests/docker-compose.yml up --wait --wait-timeout 120 mariadb_${{ matrix.mariadb }}
 
       - run: |
           cargo test --locked --no-default-features --features any,mysql,macros,migrate,${{ matrix.tls }}
         env:
           DATABASE_URL: mysql://root:password@localhost:3306/sqlx
+      - name: Show database logs on failure
+        if: failure()
+        run: docker compose -f tests/docker-compose.yml logs --tail 100
 
   mssql:
     name: MSSQL
@@ -329,13 +344,15 @@ jobs:
             --features mssql,all-types,${{ matrix.tls }},macros,migrate \
             -- -D warnings
 
-      - run: docker compose -f tests/docker-compose.yml run -d -p 1433:1433 mssql_${{ matrix.mssql }}
-      - run: sleep 80 # MSSQL takes a "bit" to startup
+      - run: docker compose -f tests/docker-compose.yml up --wait --wait-timeout 120 mssql_${{ matrix.mssql }}
 
       - run: |
           cargo test --locked --no-default-features --features any,mssql,macros,migrate,all-types,${{ matrix.tls }}
         env:
           DATABASE_URL: mssql://sa:Password123!@localhost/sqlx
+      - name: Show database logs on failure
+        if: failure()
+        run: docker compose -f tests/docker-compose.yml logs --tail 100
 
   odbc:
     name: ODBC (PostgreSQL and SQLite)
@@ -353,8 +370,7 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Start Postgres (no SSL)
         run: |
-          docker compose -f tests/docker-compose.yml run -d -p 5432:5432 --name postgres_16_no_ssl postgres_16_no_ssl
-          docker exec postgres_16_no_ssl bash -c "until pg_isready; do sleep 1; done"
+          docker compose -f tests/docker-compose.yml up --wait --wait-timeout 120 postgres_16_no_ssl
       - name: Install unixODBC and ODBC drivers (PostgreSQL, SQLite)
         run: |
           sudo apt-get update
@@ -373,3 +389,6 @@ jobs:
         run: cargo test --locked --no-default-features --features any,odbc,macros,all-types,rustls
         env:
           DATABASE_URL: Driver={SQLite3};Database=./tests/odbc/sqlite.db
+      - name: Show database logs on failure
+        if: failure()
+        run: docker compose -f tests/docker-compose.yml logs --tail 100
