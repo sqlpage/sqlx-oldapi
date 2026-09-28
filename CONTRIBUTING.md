@@ -15,6 +15,13 @@ You can use this document to figure out how and where to start.
   - Include the database driver and version.
   - Include the database version.
 
+## Rust toolchain
+
+Install Rust through [rustup](https://rustup.rs/). The checked-in
+`rust-toolchain.toml` selects the same Rust, Clippy, and rustfmt versions locally
+and in CI. Rustup installs that toolchain automatically when you run a Rust command
+in this checkout. Update the version in a dedicated PR and run the full CI suite.
+
 ## Making changes
 
 - Fork the repository on GitHub.

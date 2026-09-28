@@ -14,6 +14,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
+      - name: Install pinned Rust toolchain
+        run: rustc --version --verbose
       - run: cargo fmt --all -- --check
 
   check:
@@ -24,10 +26,8 @@ jobs:
         tls: [native-tls, rustls]
     steps:
       - uses: actions/checkout@v6
-      - name: Install pinned Clippy toolchain
-        uses: dtolnay/rust-toolchain@ce678459e9fc7500d337468f904b95f1b5c10b5e
-        with:
-          components: clippy
+      - name: Install pinned Rust toolchain
+        run: rustc --version --verbose
       - uses: Swatinem/rust-cache@65012b490220f477f20ab979e35ae732e6de4e68
         with:
           prefix-key: v1-sqlx
@@ -60,6 +60,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v6
+      - name: Install pinned Rust toolchain
+        run: rustc --version --verbose
       - uses: Swatinem/rust-cache@65012b490220f477f20ab979e35ae732e6de4e68
         with:
           prefix-key: v1-sqlx
@@ -92,6 +94,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+      - name: Install pinned Rust toolchain
+        run: rustc --version --verbose
       - uses: Swatinem/rust-cache@65012b490220f477f20ab979e35ae732e6de4e68
         with:
           prefix-key: v1-sqlx
@@ -119,6 +123,8 @@ jobs:
     needs: check
     steps:
       - uses: actions/checkout@v6
+      - name: Install pinned Rust toolchain
+        run: rustc --version --verbose
       - run: mkdir /tmp/sqlite3-lib && wget -O /tmp/sqlite3-lib/ipaddr.so https://github.com/nalgeon/sqlean/releases/download/0.15.2/ipaddr.so
       - uses: Swatinem/rust-cache@65012b490220f477f20ab979e35ae732e6de4e68
         with:
@@ -149,6 +155,8 @@ jobs:
     needs: check
     steps:
       - uses: actions/checkout@v6
+      - name: Install pinned Rust toolchain
+        run: rustc --version --verbose
 
       - uses: Swatinem/rust-cache@65012b490220f477f20ab979e35ae732e6de4e68
         with:
@@ -198,6 +206,8 @@ jobs:
     needs: check
     steps:
       - uses: actions/checkout@v6
+      - name: Install pinned Rust toolchain
+        run: rustc --version --verbose
       - uses: Swatinem/rust-cache@65012b490220f477f20ab979e35ae732e6de4e68
         with:
           prefix-key: v1-sqlx
@@ -219,6 +229,8 @@ jobs:
     needs: check
     steps:
       - uses: actions/checkout@v6
+      - name: Install pinned Rust toolchain
+        run: rustc --version --verbose
 
       - uses: Swatinem/rust-cache@65012b490220f477f20ab979e35ae732e6de4e68
         with:
@@ -261,6 +273,8 @@ jobs:
     needs: check
     steps:
       - uses: actions/checkout@v6
+      - name: Install pinned Rust toolchain
+        run: rustc --version --verbose
 
       - uses: Swatinem/rust-cache@65012b490220f477f20ab979e35ae732e6de4e68
         with:
@@ -296,6 +310,8 @@ jobs:
     needs: check
     steps:
       - uses: actions/checkout@v6
+      - name: Install pinned Rust toolchain
+        run: rustc --version --verbose
 
       - uses: Swatinem/rust-cache@65012b490220f477f20ab979e35ae732e6de4e68
         with:
@@ -328,6 +344,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
+      - name: Install pinned Rust toolchain
+        run: rustc --version --verbose
       - uses: Swatinem/rust-cache@65012b490220f477f20ab979e35ae732e6de4e68
         with:
           prefix-key: v1-sqlx
