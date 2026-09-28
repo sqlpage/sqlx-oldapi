@@ -79,7 +79,7 @@ jobs:
         os: [ubuntu-latest, windows-2025-vs2026] #, macOS-latest]
         include:
           - os: ubuntu-latest
-            target: x86_64-unknown-linux-musl
+            target: x86_64-unknown-linux-gnu
             args: --features openssl-vendored
             bin: target/debug/cargo-sqlx
           - os: windows-2025-vs2026
@@ -101,10 +101,14 @@ jobs:
           --bin cargo-sqlx
           ${{ matrix.args }}
 
+      - name: Smoke-test CLI binary
+        run: ./${{ matrix.bin }} sqlx --version
+
       - uses: actions/upload-artifact@v7
         with:
           name: cargo-sqlx-${{ matrix.target }}
           path: ${{ matrix.bin }}
+          if-no-files-found: error
 
   sqlite:
     name: SQLite
