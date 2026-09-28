@@ -12,3 +12,15 @@ test_type!(origin_enum<Origin>(Sqlite,
     "1" == Origin::Foo,
     "2" == Origin::Bar,
 ));
+
+#[derive(Debug, PartialEq, sqlx_oldapi::Type)]
+#[sqlx(rename_all = "lowercase")]
+enum Color {
+    Red,
+    Green,
+}
+
+test_type!(string_enum<Color>(Sqlite,
+    "'red'" == Color::Red,
+    "'green'" == Color::Green,
+));
