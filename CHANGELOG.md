@@ -5,6 +5,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.6.59
+ - republish the `0.6.58` line including `fix(odbc): populate the statement params and cache on the query path (#61)`. Tag `v0.6.58` was cut before #61 merged, so crates.io `0.6.58` does not contain the ODBC statement-cache fix and downstream `SQLPage` CI keeps failing its new caching test against the stale artifact.
+
 ## 0.6.57
  - mssql: preserve the bound Rust type in `sp_executesql` declarations for NULL parameters; use `VARBINARY(MAX)` for byte and JSON parameters
  - update dependencies
