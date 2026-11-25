@@ -25,7 +25,7 @@ impl<'q> Encode<'q, Sqlite> for i8 {
 
 impl<'r> Decode<'r, Sqlite> for i8 {
     fn decode(value: SqliteValueRef<'r>) -> Result<Self, BoxDynError> {
-        Ok(value.int().try_into()?)
+        Ok(value.int64().try_into()?)
     }
 }
 
@@ -49,7 +49,7 @@ impl<'q> Encode<'q, Sqlite> for i16 {
 
 impl<'r> Decode<'r, Sqlite> for i16 {
     fn decode(value: SqliteValueRef<'r>) -> Result<Self, BoxDynError> {
-        Ok(value.int().try_into()?)
+        Ok(value.int64().try_into()?)
     }
 }
 
@@ -73,7 +73,7 @@ impl<'q> Encode<'q, Sqlite> for i32 {
 
 impl<'r> Decode<'r, Sqlite> for i32 {
     fn decode(value: SqliteValueRef<'r>) -> Result<Self, BoxDynError> {
-        Ok(value.int())
+        Ok(value.int64().try_into()?)
     }
 }
 
