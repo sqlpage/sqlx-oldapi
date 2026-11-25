@@ -5,6 +5,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.6.60
+ - sqlite: return an error when an integer exceeds the destination type’s range (#75).
+
 ## 0.6.57
  - mssql: preserve the bound Rust type in `sp_executesql` declarations for NULL parameters; use `VARBINARY(MAX)` for byte and JSON parameters
  - update dependencies
