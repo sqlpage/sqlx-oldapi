@@ -786,3 +786,37 @@ async fn concurrent_read_and_write() {
     read.await.unwrap();
     write.await.unwrap();
 }
+
+#[sqlx_macros::test]
+async fn it_rejects_integer_decode_overflow() -> anyhow::Result<()> {
+    let mut conn = new::<Sqlite>().await?;
+    for value in [
+        i64::MIN,
+        -4_294_967_296,
+        -2_147_483_649,
+        2_147_483_648,
+        3_000_000_000,
+        4_294_967_296,
+        i64::MAX,
+    ] {
+        let row = query("SELECT ?").bind(value).fetch_one(&mut conn).await?;
+        assert_eq!(row.try_get::<i64, _>(0)?, value);
+        assert!(row.try_get::<i32, _>(0).is_err(), "value {value}");
+        assert!(row.try_get::<i16, _>(0).is_err(), "value {value}");
+        assert!(row.try_get::<i8, _>(0).is_err(), "value {value}");
+    }
+
+    for value in [i32::MIN, i32::MAX] {
+        let row = query("SELECT ?").bind(value).fetch_one(&mut conn).await?;
+        assert_eq!(row.try_get::<i32, _>(0)?, value);
+    }
+    for value in [i16::MIN, i16::MAX] {
+        let row = query("SELECT ?").bind(value).fetch_one(&mut conn).await?;
+        assert_eq!(row.try_get::<i16, _>(0)?, value);
+    }
+    for value in [i8::MIN, i8::MAX] {
+        let row = query("SELECT ?").bind(value).fetch_one(&mut conn).await?;
+        assert_eq!(row.try_get::<i8, _>(0)?, value);
+    }
+    Ok(())
+}
