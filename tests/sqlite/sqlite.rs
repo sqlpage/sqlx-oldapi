@@ -799,10 +799,7 @@ async fn it_rejects_integer_decode_overflow() -> anyhow::Result<()> {
         4_294_967_296,
         i64::MAX,
     ] {
-        let row = query("SELECT ?")
-            .bind(value)
-            .fetch_one(&mut conn)
-            .await?;
+        let row = query("SELECT ?").bind(value).fetch_one(&mut conn).await?;
         assert_eq!(row.try_get::<i64, _>(0)?, value);
         assert!(row.try_get::<i32, _>(0).is_err(), "value {value}");
         assert!(row.try_get::<i16, _>(0).is_err(), "value {value}");
